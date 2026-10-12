@@ -51,7 +51,9 @@ vi.mock("@/server/db", () => ({
     },
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
-        onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+        onConflictDoUpdate: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([{ count: 1, windowStart: new Date() }]),
+        })),
         returning: vi.fn().mockResolvedValue([{ id: "order_new_1", orderNumber: "ML-0001" }]),
       })),
     })),
@@ -119,6 +121,7 @@ vi.mock("@/server/auth", () => ({
   })),
 }));
 
+import { env } from "@/server/env";
 import { checkRateLimit } from "@/server/rate-limit";
 import { placeOrderAction, createRazorpayOrderAction } from "@/server/actions/order";
 import { GET as getQrPdf } from "@/app/api/admin/tables/qr-pdf/route";
@@ -131,8 +134,15 @@ describe("Rate Limiter Helper (checkRateLimit)", () => {
     vi.clearAllMocks();
   });
 
-  it("allows first request and starts a new window", async () => {
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce(undefined as unknown as { key: string; count: number; windowStart: Date; updatedAt: Date });
+  it("allows first request and starts a new window via atomic query", async () => {
+    const mockReturning = vi.fn().mockResolvedValueOnce([{ count: 1, windowStart: new Date() }]);
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: mockReturning,
+        }),
+      }),
+    } as never);
 
     const result = await checkRateLimit({
       key: "test_key_1",
@@ -143,16 +153,19 @@ describe("Rate Limiter Helper (checkRateLimit)", () => {
     expect(result.allowed).toBe(true);
     expect(result.count).toBe(1);
     expect(result.remaining).toBe(4);
+    // Verified: No read-then-write (findFirst not called)
+    expect(db.query.loginAttempts.findFirst).not.toHaveBeenCalled();
   });
 
-  it("increments within active window and allows until limit", async () => {
-    const activeWindow = {
-      key: "test_key_2",
-      count: 2,
-      windowStart: new Date(Date.now() - 10000),
-      updatedAt: new Date(Date.now() - 10000),
-    };
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce(activeWindow);
+  it("increments within active window and allows until limit atomically", async () => {
+    const mockReturning = vi.fn().mockResolvedValueOnce([{ count: 3, windowStart: new Date(Date.now() - 10000) }]);
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: mockReturning,
+        }),
+      }),
+    } as never);
 
     const result = await checkRateLimit({
       key: "test_key_2",
@@ -163,16 +176,18 @@ describe("Rate Limiter Helper (checkRateLimit)", () => {
     expect(result.allowed).toBe(true);
     expect(result.count).toBe(3);
     expect(result.remaining).toBe(2);
+    expect(db.query.loginAttempts.findFirst).not.toHaveBeenCalled();
   });
 
-  it("blocks request when limit is exceeded and provides retryAfterSeconds", async () => {
-    const atLimit = {
-      key: "test_key_3",
-      count: 5,
-      windowStart: new Date(Date.now() - 20000), // 20s ago in 60s window -> ~40s left
-      updatedAt: new Date(Date.now() - 1000),
-    };
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce(atLimit);
+  it("blocks request when limit is exceeded and provides retryAfterSeconds atomically", async () => {
+    const mockReturning = vi.fn().mockResolvedValueOnce([{ count: 6, windowStart: new Date(Date.now() - 20000) }]);
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: mockReturning,
+        }),
+      }),
+    } as never);
 
     const result = await checkRateLimit({
       key: "test_key_3",
@@ -181,19 +196,21 @@ describe("Rate Limiter Helper (checkRateLimit)", () => {
     });
 
     expect(result.allowed).toBe(false);
-    expect(result.count).toBe(5);
+    expect(result.count).toBe(6);
     expect(result.remaining).toBe(0);
     expect(result.retryAfterSeconds).toBeGreaterThan(0);
+    expect(db.query.loginAttempts.findFirst).not.toHaveBeenCalled();
   });
 
-  it("resets window if windowMs has elapsed", async () => {
-    const expired = {
-      key: "test_key_4",
-      count: 10,
-      windowStart: new Date(Date.now() - 70000), // 70s ago in 60s window
-      updatedAt: new Date(Date.now() - 70000),
-    };
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce(expired);
+  it("resets window if windowMs has elapsed via atomic query", async () => {
+    const mockReturning = vi.fn().mockResolvedValueOnce([{ count: 1, windowStart: new Date() }]);
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: mockReturning,
+        }),
+      }),
+    } as never);
 
     const result = await checkRateLimit({
       key: "test_key_4",
@@ -204,6 +221,7 @@ describe("Rate Limiter Helper (checkRateLimit)", () => {
     expect(result.allowed).toBe(true);
     expect(result.count).toBe(1);
     expect(result.remaining).toBe(4);
+    expect(db.query.loginAttempts.findFirst).not.toHaveBeenCalled();
   });
 });
 
@@ -307,12 +325,13 @@ describe("Order Spam Protections (placeOrderAction)", () => {
   });
 
   it("Requirement 2: rate limits placeOrderAction when token limit exceeded", async () => {
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce({
-      key: "place_order:tok_table1",
-      count: 10,
-      windowStart: new Date(Date.now() - 10000),
-      updatedAt: new Date(Date.now() - 1000),
-    });
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValueOnce([{ count: 15, windowStart: new Date() }]),
+        }),
+      }),
+    } as never);
 
     const result = await placeOrderAction({
       token: "tok_table1",
@@ -325,12 +344,13 @@ describe("Order Spam Protections (placeOrderAction)", () => {
   });
 
   it("Requirement 2: rate limits createRazorpayOrderAction when token limit exceeded", async () => {
-    vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValueOnce({
-      key: "razorpay_order:tok_table1",
-      count: 10,
-      windowStart: new Date(Date.now() - 10000),
-      updatedAt: new Date(Date.now() - 1000),
-    });
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValueOnce([{ count: 15, windowStart: new Date() }]),
+        }),
+      }),
+    } as never);
 
     const result = await createRazorpayOrderAction({
       orderId: "ord_1",
@@ -357,7 +377,43 @@ describe("QR PDF Generation Security (GET /api/admin/tables/qr-pdf)", () => {
 });
 
 describe("Next.js 16 Proxy Security Headers (src/proxy.ts)", () => {
-  it("Requirement 4: sets comprehensive security headers including CSP, nosniff, frame-ancestors, HSTS", () => {
+  it("Requirement 2: allows same-origin embedding via frame-ancestors 'self' and X-Frame-Options SAMEORIGIN", () => {
+    const req = new NextRequest("http://localhost:3000/demo");
+    const res = proxy(req);
+
+    const csp = res.headers.get("Content-Security-Policy");
+    expect(csp).toBeTruthy();
+    // Must allow 'self' so /demo can embed /t/* and /kitchen inside preview iframes
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).not.toContain("frame-ancestors 'none'");
+
+    // X-Frame-Options must be SAMEORIGIN
+    expect(res.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("X-Frame-Options")).not.toBe("DENY");
+  });
+
+  it("Requirement 2: removes 'unsafe-eval' from script-src in production, but preserves it in development", () => {
+    // In production
+    env.NODE_ENV = "production";
+    const prodRes = proxy(new NextRequest("http://localhost:3000/"));
+    const prodCsp = prodRes.headers.get("Content-Security-Policy") ?? "";
+    const scriptSrcMatch = prodCsp.match(/script-src [^;]+/);
+    expect(scriptSrcMatch).toBeTruthy();
+    expect(scriptSrcMatch![0]).not.toContain("'unsafe-eval'");
+
+    // In development
+    env.NODE_ENV = "development";
+    const devRes = proxy(new NextRequest("http://localhost:3000/"));
+    const devCsp = devRes.headers.get("Content-Security-Policy") ?? "";
+    const devScriptSrcMatch = devCsp.match(/script-src [^;]+/);
+    expect(devScriptSrcMatch).toBeTruthy();
+    expect(devScriptSrcMatch![0]).toContain("'unsafe-eval'");
+
+    // Reset back to production
+    env.NODE_ENV = "production";
+  });
+
+  it("Requirement 4: sets comprehensive security headers including nosniff, referrer-policy, HSTS", () => {
     const req = new NextRequest("http://localhost:3000/admin");
     const res = proxy(req);
 
@@ -369,12 +425,10 @@ describe("Next.js 16 Proxy Security Headers (src/proxy.ts)", () => {
     expect(csp).toContain("wss://xyzcompany.supabase.co");
     expect(csp).toContain("fonts.googleapis.com");
     expect(csp).toContain("fonts.gstatic.com");
-    expect(csp).toContain("frame-ancestors 'none'");
 
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(res.headers.get("Permissions-Policy")).toContain("camera=()");
-    expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("Strict-Transport-Security")).toContain("max-age=63072000");
   });
 });

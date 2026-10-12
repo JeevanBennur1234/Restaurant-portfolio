@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getStaffSession } from "@/server/auth";
 import { getKitchenTicketsAction } from "@/server/actions/kitchen";
 import { getRestaurantChannel } from "@/server/realtime";
+import { env } from "@/server/env";
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 import { KitchenLogin } from "@/components/kitchen/kitchen-login";
 
@@ -20,7 +21,7 @@ export default async function KitchenPage() {
       session.role !== "manager" &&
       session.role !== "admin")
   ) {
-    return <KitchenLogin />;
+    return <KitchenLogin isDemoMode={env.DEMO_MODE === "true"} />;
   }
 
   const result = await getKitchenTicketsAction();

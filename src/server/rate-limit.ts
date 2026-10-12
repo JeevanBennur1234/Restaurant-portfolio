@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { loginAttempts } from "@/server/db/schema";
 
@@ -16,8 +16,10 @@ export interface RateLimitResult {
 }
 
 /**
- * Postgres-backed rate limiter helper (reusing the login_attempts table approach).
- * Tracks request count and window start timestamp per unique key in PostgreSQL.
+ * Postgres-backed atomic rate limiter helper.
+ * Uses a single atomic INSERT ... ON CONFLICT DO UPDATE ... RETURNING count, window_start.
+ * Resets window count to 1 when windowMs has expired, otherwise increments count.
+ * Eliminates read-then-write race conditions.
  */
 export async function checkRateLimit(
   options: RateLimitOptions
@@ -25,64 +27,48 @@ export async function checkRateLimit(
   const { key, limit, windowMs } = options;
   const now = new Date();
 
-  const record = await db.query.loginAttempts.findFirst({
-    where: eq(loginAttempts.key, key),
-  });
-
-  if (!record || now.getTime() - record.windowStart.getTime() >= windowMs) {
-    // Start a new window or reset expired window
-    await db
-      .insert(loginAttempts)
-      .values({
-        key,
-        count: 1,
-        windowStart: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: loginAttempts.key,
-        set: {
-          count: 1,
-          windowStart: now,
-          updatedAt: now,
-        },
-      });
-
-    return {
-      allowed: true,
+  const [row] = await db
+    .insert(loginAttempts)
+    .values({
+      key,
       count: 1,
-      remaining: Math.max(0, limit - 1),
-    };
-  }
+      windowStart: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: loginAttempts.key,
+      set: {
+        count: sql`CASE 
+          WHEN ${loginAttempts.windowStart} + (${windowMs} * INTERVAL '1 millisecond') <= ${now} 
+          THEN 1 
+          ELSE ${loginAttempts.count} + 1 
+        END`,
+        windowStart: sql`CASE 
+          WHEN ${loginAttempts.windowStart} + (${windowMs} * INTERVAL '1 millisecond') <= ${now} 
+          THEN ${now} 
+          ELSE ${loginAttempts.windowStart} 
+        END`,
+        updatedAt: now,
+      },
+    })
+    .returning({
+      count: loginAttempts.count,
+      windowStart: loginAttempts.windowStart,
+    });
 
-  const windowElapsed = now.getTime() - record.windowStart.getTime();
+  const count = row?.count ?? 1;
+  const windowStart = row?.windowStart ?? now;
+  const allowed = count <= limit;
+  const windowElapsed = now.getTime() - windowStart.getTime();
   const retryAfterSeconds = Math.max(
     1,
     Math.ceil((windowMs - windowElapsed) / 1000)
   );
 
-  if (record.count >= limit) {
-    return {
-      allowed: false,
-      count: record.count,
-      remaining: 0,
-      retryAfterSeconds,
-    };
-  }
-
-  // Increment within current window
-  const newCount = record.count + 1;
-  await db
-    .update(loginAttempts)
-    .set({
-      count: newCount,
-      updatedAt: now,
-    })
-    .where(eq(loginAttempts.key, key));
-
   return {
-    allowed: true,
-    count: newCount,
-    remaining: Math.max(0, limit - newCount),
+    allowed,
+    count,
+    remaining: Math.max(0, limit - count),
+    ...(allowed ? {} : { retryAfterSeconds }),
   };
 }

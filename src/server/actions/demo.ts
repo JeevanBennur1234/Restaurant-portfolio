@@ -147,7 +147,8 @@ export async function demoLoginAction(
     const demoUser = await db.query.staffUsers.findFirst({
       where: and(
         eq(staffUsers.role, role),
-        eq(staffUsers.isActive, true)
+        eq(staffUsers.isActive, true),
+        eq(staffUsers.isDemo, true)
       ),
     });
 

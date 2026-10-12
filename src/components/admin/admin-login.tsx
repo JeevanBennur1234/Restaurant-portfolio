@@ -3,25 +3,31 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
   ArrowRight,
   AlertCircle,
   UtensilsCrossed,
   ChefHat,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { loginStaffAction } from "@/server/actions/kitchen";
+import { demoLoginAction } from "@/server/actions/demo";
 
-export function AdminLogin() {
+export interface AdminLoginProps {
+  isDemoMode?: boolean;
+}
+
+export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isDemoLoading, setIsDemoLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!username || !password || isLoading) return;
+    if (!username || !password || isLoading || isDemoLoading) return;
 
     setIsLoading(true);
     setError(null);
@@ -40,20 +46,21 @@ export function AdminLogin() {
     }
   };
 
-  const handleQuickLogin = async (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setIsLoading(true);
+  const handleDemoLogin = async () => {
+    if (isLoading || isDemoLoading) return;
+    setIsDemoLoading(true);
     setError(null);
     try {
-      const res = await loginStaffAction({ username: user, password: pass });
+      const res = await demoLoginAction("manager");
       if (res.success) {
         window.location.reload();
       } else {
-        setError(res.error || "Authentication failed");
+        setError(res.error || "Demo login failed");
       }
+    } catch (err) {
+      setError((err as Error).message || "Authentication failed");
     } finally {
-      setIsLoading(false);
+      setIsDemoLoading(false);
     }
   };
 
@@ -93,7 +100,7 @@ export function AdminLogin() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="manager"
+                placeholder="Manager username"
                 className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] font-mono"
               />
             </div>
@@ -120,6 +127,7 @@ export function AdminLogin() {
               size="lg"
               variant="primary"
               isLoading={isLoading}
+              disabled={isDemoLoading}
               className="w-full h-11 font-bold uppercase tracking-wider shadow-md mt-2"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
@@ -127,33 +135,26 @@ export function AdminLogin() {
             </Button>
           </form>
 
-          {/* Quick Demo Access Pills */}
-          <div className="pt-3 border-t border-[var(--border-subtle)] space-y-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] block text-center">
-              Demo Preview Quick Sign-In
-            </span>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("manager", "manager123")}
-              className="w-full p-3 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--primary)] text-left flex items-center justify-between cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-bold text-[var(--text-primary)]">
-                    Floor Manager Login
-                  </div>
-                  <div className="text-[10px] text-[var(--text-secondary)] font-mono">
-                    manager / manager123
-                  </div>
-                </div>
-              </div>
-              <span className="text-[10px] font-semibold text-[var(--primary)] uppercase tracking-wider">
-                1-Click Login →
+          {/* Demo Mode Button (only rendered when isDemoMode is true from server, no client credentials) */}
+          {isDemoMode && (
+            <div className="pt-3 border-t border-[var(--border-subtle)] space-y-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] block text-center">
+                Demo Preview Access
               </span>
-            </button>
-          </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                isLoading={isDemoLoading}
+                disabled={isLoading}
+                onClick={handleDemoLogin}
+                className="w-full h-11 border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Continue as demo manager</span>
+              </Button>
+            </div>
+          )}
 
           <div className="pt-2 text-center">
             <Link

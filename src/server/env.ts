@@ -30,6 +30,7 @@ const rawEnvSchema = z.object({
     }, z.enum(["true", "false"]))
     .default("false"),
   DEMO_RESET_SECRET: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
   SESSION_SECRET: z.string().min(1, "SESSION_SECRET is required"),
   SEED_KITCHEN_PASSWORD: z.string().optional(),
   SEED_MANAGER_PASSWORD: z.string().optional(),

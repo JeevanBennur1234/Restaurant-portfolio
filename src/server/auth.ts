@@ -1,5 +1,5 @@
 import { cookies, headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { cache } from "react";
@@ -33,21 +33,25 @@ const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
 
 /**
- * Extracts client IP from incoming request headers
+ * Extracts client IP from incoming request headers.
+ * Only trusts x-forwarded-for when running on Vercel (process.env.VERCEL),
+ * otherwise falls back to a fixed key to prevent IP spoofing in self-hosted environments.
  */
 export async function getClientIp(): Promise<string> {
-  try {
-    const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    if (forwardedFor) {
-      return forwardedFor.split(",")[0].trim();
+  if (process.env.VERCEL) {
+    try {
+      const headerList = await headers();
+      const forwardedFor = headerList.get("x-forwarded-for");
+      if (forwardedFor) {
+        return forwardedFor.split(",")[0].trim();
+      }
+      const realIp = headerList.get("x-real-ip");
+      if (realIp) {
+        return realIp.trim();
+      }
+    } catch {
+      // Fallback when headers() is outside request lifecycle (e.g., unit test)
     }
-    const realIp = headerList.get("x-real-ip");
-    if (realIp) {
-      return realIp.trim();
-    }
-  } catch {
-    // Fallback when headers() is outside request lifecycle (e.g., unit test)
   }
   return "127.0.0.1";
 }
@@ -213,37 +217,36 @@ export async function invalidateStaffSessions(userId: string): Promise<void> {
   }
 }
 
-async function recordFailedAttempt(key: string, now: Date): Promise<void> {
-  const attempt = await db.query.loginAttempts.findFirst({
-    where: eq(loginAttempts.key, key),
-  });
+async function recordFailedAttempt(key: string, now: Date): Promise<number> {
+  const [row] = await db
+    .insert(loginAttempts)
+    .values({
+      key,
+      count: 1,
+      windowStart: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: loginAttempts.key,
+      set: {
+        count: sql`CASE 
+          WHEN ${loginAttempts.windowStart} + (${RATE_LIMIT_WINDOW_MS} * INTERVAL '1 millisecond') <= ${now} 
+          THEN 1 
+          ELSE ${loginAttempts.count} + 1 
+        END`,
+        windowStart: sql`CASE 
+          WHEN ${loginAttempts.windowStart} + (${RATE_LIMIT_WINDOW_MS} * INTERVAL '1 millisecond') <= ${now} 
+          THEN ${now} 
+          ELSE ${loginAttempts.windowStart} 
+        END`,
+        updatedAt: now,
+      },
+    })
+    .returning({
+      count: loginAttempts.count,
+    });
 
-  if (!attempt || now.getTime() - attempt.windowStart.getTime() >= RATE_LIMIT_WINDOW_MS) {
-    await db
-      .insert(loginAttempts)
-      .values({
-        key,
-        count: 1,
-        windowStart: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: loginAttempts.key,
-        set: {
-          count: 1,
-          windowStart: now,
-          updatedAt: now,
-        },
-      });
-  } else {
-    await db
-      .update(loginAttempts)
-      .set({
-        count: attempt.count + 1,
-        updatedAt: now,
-      })
-      .where(eq(loginAttempts.key, key));
-  }
+  return row?.count ?? 1;
 }
 
 async function clearFailedAttempts(key: string): Promise<void> {

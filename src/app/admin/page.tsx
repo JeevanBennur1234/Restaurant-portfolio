@@ -1,5 +1,6 @@
 import { getStaffSession } from "@/server/auth";
 import { getRestaurantChannel } from "@/server/realtime";
+import { env } from "@/server/env";
 import { AdminDashboard, AdminLogin } from "@/components/admin";
 
 export const metadata = {
@@ -12,7 +13,7 @@ export default async function AdminPage() {
 
   // Strict role guard: only manager or admin can access the admin dashboard
   if (!session || (session.role !== "manager" && session.role !== "admin")) {
-    return <AdminLogin />;
+    return <AdminLogin isDemoMode={env.DEMO_MODE === "true"} />;
   }
 
   const realtimeChannel = getRestaurantChannel(session.restaurantId);

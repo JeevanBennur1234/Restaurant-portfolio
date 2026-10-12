@@ -13,6 +13,7 @@ vi.mock("@/server/env", () => ({
 
 // Mock next/headers
 const mockCookieStore = new Map<string, string>();
+const mockHeadersMap = new Map<string, string>();
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: vi.fn((name: string) => {
@@ -27,7 +28,7 @@ vi.mock("next/headers", () => ({
     }),
   })),
   headers: vi.fn(async () => ({
-    get: vi.fn(() => "127.0.0.1"),
+    get: vi.fn((name: string) => mockHeadersMap.get(name.toLowerCase()) ?? null),
   })),
 }));
 
@@ -45,7 +46,9 @@ vi.mock("@/server/db", () => {
       },
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockReturnValue({
-          onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+          onConflictDoUpdate: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ count: 1 }]),
+          }),
         }),
       }),
       update: vi.fn().mockReturnValue({
@@ -68,6 +71,7 @@ import {
   getStaffSession,
   authenticateStaff,
   clearStaffSessionCookie,
+  getClientIp,
 } from "@/server/auth";
 
 describe("Staff Authentication Security", () => {
@@ -341,6 +345,41 @@ describe("Staff Authentication Security", () => {
       mockCookieStore.set("dinepulse_staff_session", "existing_token");
       await clearStaffSessionCookie();
       expect(mockCookieStore.get("dinepulse_staff_session")).toBeUndefined();
+    });
+
+    it("getClientIp only trusts x-forwarded-for when running on Vercel, otherwise returns fixed 127.0.0.1", async () => {
+      const originalVercel = process.env.VERCEL;
+      try {
+        // Outside Vercel: x-forwarded-for is NOT trusted
+        delete process.env.VERCEL;
+        mockHeadersMap.set("x-forwarded-for", "203.0.113.195, 198.51.100.1");
+        const ipOutsideVercel = await getClientIp();
+        expect(ipOutsideVercel).toBe("127.0.0.1");
+
+        // On Vercel: x-forwarded-for is trusted
+        process.env.VERCEL = "1";
+        const ipOnVercel = await getClientIp();
+        expect(ipOnVercel).toBe("203.0.113.195");
+      } finally {
+        if (originalVercel !== undefined) {
+          process.env.VERCEL = originalVercel;
+        } else {
+          delete process.env.VERCEL;
+        }
+        mockHeadersMap.clear();
+      }
+    });
+
+    it("recordFailedAttempt performs atomic INSERT ON CONFLICT DO UPDATE RETURNING count without read-then-write", async () => {
+      vi.mocked(db.query.staffUsers.findFirst).mockResolvedValue(null as never);
+      vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValue(null as never);
+
+      await authenticateStaff("target", "wrong_password", "10.0.0.1");
+
+      // Verify db.insert was called directly with onConflictDoUpdate and returning
+      expect(db.insert).toHaveBeenCalled();
+      const insertMock = vi.mocked(db.insert);
+      expect(insertMock).toHaveBeenCalled();
     });
   });
 });

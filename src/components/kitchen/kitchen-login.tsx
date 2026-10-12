@@ -3,18 +3,24 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { ChefHat, ShieldCheck, KeyRound, AlertCircle, ArrowRight } from "lucide-react";
+import { ChefHat, AlertCircle, ArrowRight, Sparkles } from "lucide-react";
 import { loginStaffAction } from "@/server/actions/kitchen";
+import { demoLoginAction } from "@/server/actions/demo";
 
-export function KitchenLogin() {
+export interface KitchenLoginProps {
+  isDemoMode?: boolean;
+}
+
+export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isDemoLoading, setIsDemoLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!username || !password || isLoading) return;
+    if (!username || !password || isLoading || isDemoLoading) return;
 
     setIsLoading(true);
     setError(null);
@@ -33,20 +39,21 @@ export function KitchenLogin() {
     }
   };
 
-  const handleQuickLogin = async (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setIsLoading(true);
+  const handleDemoLogin = async () => {
+    if (isLoading || isDemoLoading) return;
+    setIsDemoLoading(true);
     setError(null);
     try {
-      const res = await loginStaffAction({ username: user, password: pass });
+      const res = await demoLoginAction("kitchen");
       if (res.success) {
         window.location.reload();
       } else {
-        setError(res.error ?? "Authentication failed");
+        setError(res.error ?? "Demo login failed");
       }
+    } catch (err) {
+      setError((err as Error).message ?? "Authentication failed");
     } finally {
-      setIsLoading(false);
+      setIsDemoLoading(false);
     }
   };
 
@@ -86,7 +93,7 @@ export function KitchenLogin() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="kitchen or manager"
+                placeholder="Staff username"
                 className="w-full h-11 px-3.5 text-sm rounded-lg bg-[#25211D] border border-[#38332D] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--primary)] font-mono"
               />
             </div>
@@ -113,6 +120,7 @@ export function KitchenLogin() {
               size="lg"
               variant="primary"
               isLoading={isLoading}
+              disabled={isDemoLoading}
               className="w-full h-12 font-bold uppercase tracking-wider shadow-md mt-2"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
@@ -120,37 +128,25 @@ export function KitchenLogin() {
             </Button>
           </form>
 
-          {/* Quick Demo Access Pills */}
-          <div className="pt-3 border-t border-[#2C2825] space-y-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block text-center">
-              Demo Preview Quick Sign-In
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
+          {/* Demo Mode Button (only rendered when isDemoMode is true from server, no client credentials) */}
+          {isDemoMode && (
+            <div className="pt-3 border-t border-[#2C2825] space-y-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block text-center">
+                Demo Preview Access
+              </span>
+              <Button
                 type="button"
-                onClick={() => handleQuickLogin("kitchen", "kitchen123")}
-                className="p-2.5 rounded-lg bg-[#231F1C] border border-[#36302B] hover:border-[var(--primary)] text-left flex items-center gap-2 cursor-pointer transition-colors"
+                variant="outline"
+                isLoading={isDemoLoading}
+                disabled={isLoading}
+                onClick={handleDemoLogin}
+                className="w-full h-11 border-[#38332D] bg-[#231F1C] hover:bg-[#2c2723] hover:border-[var(--primary)] text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2"
               >
-                <KeyRound className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-bold text-zinc-200">Kitchen Chef</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">kitchen / kitchen123</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("manager", "manager123")}
-                className="p-2.5 rounded-lg bg-[#231F1C] border border-[#36302B] hover:border-[var(--primary)] text-left flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-bold text-zinc-200">Floor Manager</div>
-                  <div className="text-[10px] text-zinc-500 font-mono">manager / manager123</div>
-                </div>
-              </button>
+                <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Continue as demo kitchen</span>
+              </Button>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

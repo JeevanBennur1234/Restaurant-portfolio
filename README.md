@@ -31,7 +31,8 @@ DinePulse validates environment variables at startup via `src/server/env.ts` usi
 | `NEXT_PUBLIC_APP_URL` | Yes | Public application URL (e.g. `http://localhost:3000` or `https://dinepulse.example.com`). |
 | `SESSION_SECRET` | Yes | Secret key for staff session cookies. Must be at least 32 characters in production (generate via `openssl rand -base64 48`). |
 | `DEMO_MODE` | No | `"true"` or `"false"` (default: `"false"`). Controls demo behaviors and safeguards. |
-| `DEMO_RESET_SECRET` | If resetting | Bearer token required to call `POST /api/demo/reset`. |
+| `DEMO_RESET_SECRET` | If resetting | Bearer token required to call `GET`/`POST /api/demo/reset`. |
+| `CRON_SECRET` | Vercel Cron | Secret matched against Vercel Cron Bearer token for automated reset. |
 | `SEED_KITCHEN_PASSWORD` | Optional | Custom password for the seeded kitchen user. Randomly generated if omitted outside demo mode. |
 | `SEED_MANAGER_PASSWORD` | Optional | Custom password for the seeded manager user. Randomly generated if omitted outside demo mode. |
 | `RAZORPAY_KEY_ID` | Production | Razorpay API Key ID (required in production unless `DEMO_MODE="true"`). |
@@ -210,9 +211,9 @@ The project includes a `vercel.json` configuration to automatically reset the de
 
 The endpoint verifies:
 1. `DEMO_MODE === "true"`.
-2. `Authorization: Bearer <DEMO_RESET_SECRET>` header.
+2. `Authorization: Bearer <DEMO_RESET_SECRET>` or `Authorization: Bearer <CRON_SECRET>` header using timing-safe comparison.
 
-In Vercel Cron Jobs, configure the `Authorization` header to match your configured `DEMO_RESET_SECRET`.
+In Vercel Project Settings, set `CRON_SECRET` (or `DEMO_RESET_SECRET`) in **Environment Variables**. Vercel Cron Jobs automatically provides `CRON_SECRET` in the `Authorization: Bearer <CRON_SECRET>` header when invoking the cron path `/api/demo/reset`.
 
 ---
 

@@ -21,15 +21,23 @@ export function proxy(request?: NextRequest) {
   }
 
   // Content-Security-Policy
+  const scriptSrcDirectives = [
+    "'self'",
+    "'unsafe-inline'",
+    ...(env.NODE_ENV === "production" ? [] : ["'unsafe-eval'"]),
+    "https://checkout.razorpay.com",
+    "https://api.razorpay.com",
+  ].join(" ");
+
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://api.razorpay.com",
+    `script-src ${scriptSrcDirectives}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com",
     `connect-src 'self' https://checkout.razorpay.com https://api.razorpay.com ${supabaseOrigins}`,
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",
   ];
@@ -50,8 +58,8 @@ export function proxy(request?: NextRequest) {
     );
   }
 
-  // Frame protection matching frame-ancestors 'none'
-  response.headers.set("X-Frame-Options", "DENY");
+  // Frame protection allowing same-origin embedding (/demo embedding /t/* or /kitchen)
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
 
   return response;
 }

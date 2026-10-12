@@ -7,6 +7,7 @@ vi.mock("@/server/env", () => ({
     NODE_ENV: "test",
     DEMO_MODE: "true",
     DEMO_RESET_SECRET: "test_demo_reset_secret_key_12345",
+    CRON_SECRET: "test_cron_secret_key_67890",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "https://dinepulse.example.com",
     SESSION_SECRET: "test-session-secret-at-least-32-chars-long-123456",
@@ -102,8 +103,14 @@ vi.mock("@/server/db", () => ({
             where: vi.fn().mockResolvedValue(undefined),
           })),
         })),
+        delete: vi.fn(() => ({
+          where: vi.fn().mockResolvedValue(undefined),
+        })),
         query: {
-          orders: { findFirst: vi.fn().mockResolvedValue(null) },
+          orders: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            findMany: vi.fn().mockResolvedValue([]),
+          },
         },
       };
       return cb(txMock);
@@ -121,7 +128,7 @@ import {
   cancelOrderAction,
 } from "@/server/actions/admin";
 import { POST as handleUpload } from "@/app/api/admin/upload/route";
-import { POST as handleDemoReset } from "@/app/api/demo/reset/route";
+import { POST as handleDemoReset, GET as handleDemoResetGet } from "@/app/api/demo/reset/route";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 
@@ -152,12 +159,12 @@ describe("Demo Login Action (demoLoginAction)", () => {
     expect(result.redirectTo).toBe("/kitchen");
   });
 
-  it("successfully logs in demo manager user and redirects to /admin", async () => {
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockStaffUsers[1] as never);
+  it("fails if demo user does not exist or isDemo is not true in database", async () => {
+    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(null as never);
 
-    const result = await demoLoginAction("manager");
-    expect(result.success).toBe(true);
-    expect(result.redirectTo).toBe("/admin");
+    const result = await demoLoginAction("kitchen");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Demo user for role 'kitchen' not found/i);
   });
 });
 
@@ -222,7 +229,7 @@ describe("Demo Manager Restrictions", () => {
   });
 });
 
-describe("POST /api/demo/reset", () => {
+describe("GET & POST /api/demo/reset with DEMO_RESET_SECRET and CRON_SECRET", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (env as { DEMO_MODE: string }).DEMO_MODE = "true";
@@ -262,7 +269,7 @@ describe("POST /api/demo/reset", () => {
     expect(res.status).toBe(401);
   });
 
-  it("resets orders and seeds sample state when properly authorized", async () => {
+  it("POST accepts Bearer token matching DEMO_RESET_SECRET", async () => {
     const req = new NextRequest("http://localhost:3000/api/demo/reset", {
       method: "POST",
       headers: {
@@ -274,6 +281,59 @@ describe("POST /api/demo/reset", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+    // Verifies wrap in single db.transaction
+    expect(db.transaction).toHaveBeenCalled();
+  });
+
+  it("POST accepts Bearer token matching CRON_SECRET", async () => {
+    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer test_cron_secret_key_67890`,
+      },
+    });
+
+    const res = await handleDemoReset(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+  });
+
+  it("GET handler works identically and accepts CRON_SECRET or DEMO_RESET_SECRET", async () => {
+    const getReq = new NextRequest("http://localhost:3000/api/demo/reset", {
+      method: "GET",
+      headers: {
+        authorization: `Bearer test_cron_secret_key_67890`,
+      },
+    });
+
+    const res = await handleDemoResetGet(getReq);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+  });
+});
+
+describe("Client Login Security (No Hardcoded Credentials in UI)", () => {
+  it("kitchen-login.tsx and admin-login.tsx contain zero hardcoded passwords or handleQuickLogin", async () => {
+    const fs = await import("fs");
+    const kitchenLoginCode = fs.readFileSync("src/components/kitchen/kitchen-login.tsx", "utf-8");
+    const adminLoginCode = fs.readFileSync("src/components/admin/admin-login.tsx", "utf-8");
+
+    // Must not contain hardcoded credentials
+    expect(kitchenLoginCode).not.toContain("kitchen123");
+    expect(kitchenLoginCode).not.toContain("manager123");
+    expect(kitchenLoginCode).not.toContain("handleQuickLogin");
+
+    expect(adminLoginCode).not.toContain("kitchen123");
+    expect(adminLoginCode).not.toContain("manager123");
+    expect(adminLoginCode).not.toContain("handleQuickLogin");
+
+    // Must call demoLoginAction when isDemoMode is true
+    expect(kitchenLoginCode).toContain("demoLoginAction");
+    expect(adminLoginCode).toContain("demoLoginAction");
+    expect(kitchenLoginCode).toContain("isDemoMode");
+    expect(adminLoginCode).toContain("isDemoMode");
   });
 });
 
