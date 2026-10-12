@@ -21,7 +21,7 @@
 /build
 
 # misc
-.DS_Store
+.[D]S_[s]tore
 *.pem
 
 # debug

@@ -11,74 +11,89 @@ import { ToastProvider, useToast } from "@/components/ui/toast";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import type { StaffSession } from "@/server/auth";
 
-interface AdminDashboardProps {
+export interface AdminDashboardProps {
   session: StaffSession;
+  realtimeChannel: string;
 }
 
-function AdminDashboardContent({ session }: AdminDashboardProps) {
+function AdminDashboardContent({ session, realtimeChannel }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = React.useState<AdminTab>("orders");
   const [activeOrdersCount, setActiveOrdersCount] = React.useState(0);
+  const [refreshKey, setRefreshKey] = React.useState(0);
   const { showToast } = useToast();
 
-  // Connect to realtime event channel
-  React.useEffect(() => {
+  // Supabase client instantiated once per component
+  const supabase = React.useMemo(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    let channel: RealtimeChannel | null = null;
-
     if (
       supabaseUrl &&
       supabaseAnonKey &&
       !supabaseUrl.includes("placeholder") &&
       !supabaseAnonKey.includes("placeholder")
     ) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        channel = supabase
-          .channel(`restaurant:${session.restaurantId}`)
-          .on("broadcast", { event: "order.created" }, (msg) => {
-            const payload = msg.payload as { orderNumber?: string; tableNumber?: string };
-            showToast({
-              title: "New Dining Order Placed",
-              message: `${payload.orderNumber || "Order"} placed from ${payload.tableNumber || "a table"}`,
-              variant: "info",
-            });
-            setActiveOrdersCount((prev) => prev + 1);
-          })
-          .on("broadcast", { event: "order.status_changed" }, (msg) => {
-            const payload = msg.payload as {
-              orderNumber?: string;
-              toStatus?: string;
-              tableNumber?: string;
-            };
-            showToast({
-              title: "Order Status Updated",
-              message: `${payload.orderNumber || "Order"} is now ${payload.toStatus || "updated"}`,
-              variant: "default",
-            });
-          })
-          .on("broadcast", { event: "order.paid" }, (msg) => {
-            const payload = msg.payload as { orderNumber?: string; tableNumber?: string };
-            showToast({
-              title: "Online Payment Received",
-              message: `${payload.orderNumber || "Order"} at ${payload.tableNumber || "table"} confirmed via Razorpay`,
-              variant: "success",
-            });
-          });
+      return createClient(supabaseUrl, supabaseAnonKey);
+    }
+    return null;
+  }, []);
 
-        channel.subscribe();
-      } catch (err) {
-        console.warn("Realtime subscription fallback:", (err as Error).message);
-      }
+  // Connect to realtime event channel
+  React.useEffect(() => {
+    if (!supabase || !realtimeChannel) return;
+
+    let channel: RealtimeChannel | null = null;
+
+    try {
+      channel = supabase
+        .channel(realtimeChannel)
+        .on("broadcast", { event: "order.created" }, () => {
+          showToast({
+            title: "New Dining Order Placed",
+            message: "A new dining order was received",
+            variant: "info",
+          });
+          setActiveOrdersCount((prev) => prev + 1);
+          setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "order.status_changed" }, (msg) => {
+          const payload = msg.payload as { toStatus?: string } | undefined;
+          showToast({
+            title: "Order Status Updated",
+            message: payload?.toStatus
+              ? `Order status changed to ${payload.toStatus}`
+              : "An order status was updated",
+            variant: "default",
+          });
+          setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "order.paid" }, () => {
+          showToast({
+            title: "Online Payment Received",
+            message: "An order payment was confirmed",
+            variant: "success",
+          });
+          setRefreshKey((prev) => prev + 1);
+        });
+
+      channel.subscribe();
+    } catch (err) {
+      console.warn("Realtime subscription fallback:", (err as Error).message);
     }
 
     return () => {
       if (channel) {
-        channel.unsubscribe();
+        supabase.removeChannel(channel);
       }
     };
-  }, [session.restaurantId, showToast]);
+  }, [supabase, realtimeChannel, showToast]);
+
+  // Polling fallback to keep dashboard updated
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--bg-subtle)] flex flex-col text-[var(--text-primary)]">
@@ -93,7 +108,10 @@ function AdminDashboardContent({ session }: AdminDashboardProps) {
       {/* Main Tab Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === "orders" && (
-          <AdminOrdersTab onOrderUpdate={() => {}} />
+          <AdminOrdersTab
+            onOrderUpdate={() => setRefreshKey((prev) => prev + 1)}
+            refreshKey={refreshKey}
+          />
         )}
 
         {activeTab === "menu" && <AdminMenuTab />}
@@ -126,10 +144,10 @@ function AdminDashboardContent({ session }: AdminDashboardProps) {
   );
 }
 
-export function AdminDashboard({ session }: AdminDashboardProps) {
+export function AdminDashboard({ session, realtimeChannel }: AdminDashboardProps) {
   return (
     <ToastProvider>
-      <AdminDashboardContent session={session} />
+      <AdminDashboardContent session={session} realtimeChannel={realtimeChannel} />
     </ToastProvider>
   );
 }

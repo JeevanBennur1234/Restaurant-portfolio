@@ -3,8 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { orders, payments, orderEvents } from "@/server/db/schema";
 import { verifyRazorpayWebhookSignature } from "@/server/razorpay";
-import { publishRealtimeEvent } from "@/server/realtime";
-import { demoOrdersStore, demoPaymentsStore } from "@/server/demo-orders";
+import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 
 interface RazorpayWebhookPayload {
   event: string;
@@ -91,6 +90,24 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        const payloadAmount =
+          data.payload?.payment?.entity?.amount ??
+          data.payload?.order?.entity?.amount;
+
+        if (
+          payloadAmount === undefined ||
+          payloadAmount !== existingPayment.amountPaise ||
+          existingPayment.amountPaise !== existingPayment.order.totalPaise
+        ) {
+          console.error(
+            `[Security Alert] Webhook amount mismatch for order ${existingPayment.orderId}: expected ${existingPayment.amountPaise}, got ${payloadAmount}`
+          );
+          return NextResponse.json(
+            { error: "Payment amount mismatch" },
+            { status: 400 }
+          );
+        }
+
         const targetOrderId = existingPayment.orderId;
 
         await db.transaction(async (tx) => {
@@ -122,23 +139,19 @@ export async function POST(req: NextRequest) {
 
         // RULE: Orders are only sent to the kitchen once paid!
         await publishRealtimeEvent(
-          `restaurant:${existingPayment.restaurantId}`,
+          getRestaurantChannel(existingPayment.restaurantId),
           "order.created",
           {
             orderId: targetOrderId,
-            orderNumber: existingPayment.order.orderNumber,
-            tableNumber: existingPayment.order.table.tableNumber,
-            totalPaise: existingPayment.order.totalPaise,
             status: existingPayment.order.status,
             paymentStatus: "paid",
-            createdAt: existingPayment.order.createdAt.toISOString(),
           }
         );
 
         await publishRealtimeEvent(`order:${targetOrderId}`, "order.paid", {
           orderId: targetOrderId,
+          status: existingPayment.order.status,
           paymentStatus: "paid",
-          razorpayPaymentId,
         });
 
         return NextResponse.json({
@@ -147,73 +160,21 @@ export async function POST(req: NextRequest) {
           orderId: targetOrderId,
         });
       }
-    } catch (err) {
-      console.warn("DB webhook processing fallback:", (err as Error).message);
-    }
-
-    // 4. Demo store fallback for webhook simulation
-    const demoPayment = demoPaymentsStore.get(razorpayOrderId);
-    if (demoPayment) {
-      if (demoPayment.status === "completed") {
-        return NextResponse.json({
-          received: true,
-          status: "already_processed",
-          orderId: demoPayment.orderId,
-        });
-      }
-
-      demoPayment.status = "completed";
-      demoPayment.razorpayPaymentId = razorpayPaymentId ?? "pay_simulated_webhook";
-      demoPayment.updatedAt = new Date();
-
-      const demoOrder = demoOrdersStore.get(demoPayment.orderId);
-      if (demoOrder) {
-        demoOrder.paymentStatus = "paid";
-        demoOrder.paymentMethod = "pay_now";
-        demoOrder.updatedAt = new Date();
-        demoOrder.events.push({
-          id: `evt-${Date.now()}`,
-          fromStatus: demoOrder.status,
-          toStatus: demoOrder.status,
-          note: `Payment captured via Razorpay Webhook (${razorpayPaymentId})`,
-          createdAt: new Date(),
-        });
-
-        await publishRealtimeEvent(
-          `restaurant:${demoOrder.restaurantId}`,
-          "order.created",
-          {
-            orderId: demoOrder.id,
-            orderNumber: demoOrder.orderNumber,
-            tableNumber: demoOrder.tableNumber,
-            totalPaise: demoOrder.totalPaise,
-            status: demoOrder.status,
-            paymentStatus: "paid",
-            createdAt: demoOrder.createdAt.toISOString(),
-          }
-        );
-
-        await publishRealtimeEvent(`order:${demoOrder.id}`, "order.paid", {
-          orderId: demoOrder.id,
-          paymentStatus: "paid",
-          razorpayPaymentId,
-        });
-      }
 
       return NextResponse.json({
         received: true,
-        status: "processed",
-        orderId: demoPayment.orderId,
+        status: "unmatched_order",
+        razorpayOrderId,
       });
+    } catch (err) {
+      console.error("Database error in Razorpay webhook handler:", err);
+      return NextResponse.json(
+        { error: "Service temporarily unavailable" },
+        { status: 503 }
+      );
     }
-
-    return NextResponse.json({
-      received: true,
-      status: "unmatched_order",
-      razorpayOrderId,
-    });
   } catch (error) {
-    console.error("Razorpay webhook handler error:", error);
+    console.error("Razorpay webhook payload error:", error);
     return NextResponse.json(
       { error: "Webhook internal server error" },
       { status: 500 }

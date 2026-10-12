@@ -44,6 +44,7 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "completed",
   "failed",
   "refunded",
+  "refund_pending",
 ]);
 
 export type PaymentStatus = (typeof paymentStatusEnum.enumValues)[number];
@@ -144,7 +145,7 @@ export const menuItems = pgTable(
       .references(() => restaurants.id, { onDelete: "cascade" }),
     categoryId: text("category_id")
       .notNull()
-      .references(() => categories.id, { onDelete: "cascade" }),
+      .references(() => categories.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     description: text("description"),
     // Price strictly stored as integer paise (e.g. 29900 paise = ₹299.00)
@@ -153,6 +154,7 @@ export const menuItems = pgTable(
     prepTimeMinutes: integer("prep_time_minutes").notNull().default(15),
     imageUrl: text("image_url"),
     isAvailable: boolean("is_available").notNull().default(true),
+    isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -204,10 +206,10 @@ export const orders = pgTable(
       .$defaultFn(() => crypto.randomUUID()),
     restaurantId: text("restaurant_id")
       .notNull()
-      .references(() => restaurants.id, { onDelete: "cascade" }),
+      .references(() => restaurants.id, { onDelete: "restrict" }),
     tableId: text("table_id")
       .notNull()
-      .references(() => tables.id, { onDelete: "cascade" }),
+      .references(() => tables.id, { onDelete: "restrict" }),
     orderNumber: text("order_number").notNull(),
     status: orderStatusEnum("status").notNull().default("placed"),
     // Financial fields computed only on server in integer paise
@@ -231,6 +233,10 @@ export const orders = pgTable(
     index("orders_status_created_at_idx").on(table.status, table.createdAt),
     index("orders_restaurant_id_idx").on(table.restaurantId),
     index("orders_table_id_idx").on(table.tableId),
+    uniqueIndex("orders_restaurant_order_number_idx").on(
+      table.restaurantId,
+      table.orderNumber
+    ),
   ]
 );
 
@@ -303,7 +309,7 @@ export const payments = pgTable(
       .references(() => orders.id, { onDelete: "cascade" }),
     restaurantId: text("restaurant_id")
       .notNull()
-      .references(() => restaurants.id, { onDelete: "cascade" }),
+      .references(() => restaurants.id, { onDelete: "restrict" }),
     amountPaise: integer("amount_paise").notNull(),
     status: paymentStatusEnum("status").notNull().default("pending"),
     provider: text("provider").notNull().default("razorpay"),
@@ -320,6 +326,7 @@ export const payments = pgTable(
   (table) => [
     index("payments_order_id_idx").on(table.orderId),
     index("payments_restaurant_id_idx").on(table.restaurantId),
+    uniqueIndex("payments_razorpay_order_id_unique_idx").on(table.razorpayOrderId),
   ]
 );
 
@@ -340,6 +347,8 @@ export const staffUsers = pgTable(
     passwordHash: text("password_hash").notNull(),
     role: staffRoleEnum("role").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    isDemo: boolean("is_demo").notNull().default(false),
+    sessionVersion: integer("session_version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -354,14 +363,48 @@ export const staffUsers = pgTable(
 );
 
 // ============================================================================
+// 11. Login Attempts (Rate Limiting)
+// ============================================================================
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull().default(1),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("login_attempts_window_start_idx").on(table.windowStart),
+  ]
+);
+
+// ============================================================================
+// 12. Order Counters (Collision-Safe Per-Restaurant Sequence)
+// ============================================================================
+export const orderCounters = pgTable("order_counters", {
+  restaurantId: text("restaurant_id")
+    .primaryKey()
+    .references(() => restaurants.id, { onDelete: "restrict" }),
+  lastOrderNumber: integer("last_order_number").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ============================================================================
 // Drizzle Relations
 // ============================================================================
-export const restaurantsRelations = relations(restaurants, ({ many }) => ({
+export const restaurantsRelations = relations(restaurants, ({ many, one }) => ({
   tables: many(tables),
   categories: many(categories),
   menuItems: many(menuItems),
   orders: many(orders),
   staffUsers: many(staffUsers),
+  orderCounter: one(orderCounters),
 }));
 
 export const tablesRelations = relations(tables, ({ one, many }) => ({
@@ -445,6 +488,13 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const staffUsersRelations = relations(staffUsers, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [staffUsers.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
+export const orderCountersRelations = relations(orderCounters, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [orderCounters.restaurantId],
     references: [restaurants.id],
   }),
 }));

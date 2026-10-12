@@ -1,9 +1,10 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { env } from "@/server/env";
 
-const keyId = process.env.RAZORPAY_KEY_ID || "";
-const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
-const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || keySecret;
+const keyId = env.RAZORPAY_KEY_ID || "";
+const keySecret = env.RAZORPAY_KEY_SECRET || "";
+const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET || "";
 
 const isConfigured =
   Boolean(keyId) &&
@@ -27,6 +28,10 @@ export interface RazorpayOrderResult {
   keyId: string;
 }
 
+export function isRazorpayConfigured(): boolean {
+  return isConfigured;
+}
+
 /**
  * Creates an order on Razorpay servers from the DB total
  */
@@ -35,33 +40,23 @@ export async function createRazorpayOrder(
   receipt: string,
   notes?: Record<string, string>
 ): Promise<RazorpayOrderResult> {
-  if (razorpayClient) {
-    const order = await razorpayClient.orders.create({
-      amount: amountPaise,
-      currency: "INR",
-      receipt,
-      notes: notes ?? {},
-    });
-
-    return {
-      id: order.id,
-      amount: Number(order.amount),
-      currency: order.currency,
-      receipt: order.receipt ?? receipt,
-      keyId,
-    };
+  if (!razorpayClient) {
+    throw new Error("Razorpay client is not configured");
   }
 
-  // Test mode simulation when placeholder credentials are used
-  const simulatedId = `order_test_${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 7)}`;
-  return {
-    id: simulatedId,
+  const order = await razorpayClient.orders.create({
     amount: amountPaise,
     currency: "INR",
     receipt,
-    keyId: keyId || "rzp_test_placeholder",
+    notes: notes ?? {},
+  });
+
+  return {
+    id: order.id,
+    amount: Number(order.amount),
+    currency: order.currency,
+    receipt: order.receipt ?? receipt,
+    keyId,
   };
 }
 
@@ -75,19 +70,6 @@ export function verifyRazorpaySignature(
   signature: string
 ): boolean {
   if (!signature || !razorpayOrderId || !razorpayPaymentId) return false;
-
-  // In test simulation mode with simulated order IDs
-  if (razorpayOrderId.startsWith("order_test_")) {
-    // Verified simulation token check
-    return (
-      signature ===
-      crypto
-        .createHmac("sha256", "placeholder_secret")
-        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-        .digest("hex") || signature === "simulated_test_signature"
-    );
-  }
-
   if (!keySecret) return false;
 
   try {
@@ -116,13 +98,11 @@ export function verifyRazorpayWebhookSignature(
   signature: string
 ): boolean {
   if (!signature || !rawBody) return false;
-
-  const secret = webhookSecret || keySecret;
-  if (!secret) return false;
+  if (!webhookSecret) return false;
 
   try {
     const expectedSignature = crypto
-      .createHmac("sha256", secret)
+      .createHmac("sha256", webhookSecret)
       .update(rawBody)
       .digest("hex");
 

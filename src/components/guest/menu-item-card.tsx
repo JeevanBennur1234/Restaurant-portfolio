@@ -99,9 +99,9 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
             <Image
               src={item.imageUrl}
               alt={item.name}
-              fill
-              sizes="(max-width: 640px) 96px, 112px"
-              className="object-cover"
+              width={112}
+              height={112}
+              className="h-full w-full object-cover"
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-[var(--text-muted)]">

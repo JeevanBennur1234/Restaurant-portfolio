@@ -2,7 +2,7 @@
 
 > Concept preview by [Intallo](https://intallo.in), a web & automation agency in Bengaluru.
 
-**DinePulse** is an end-to-end demo restaurant ordering system designed for **Masala Lane** (a fictional warm, editorial, regional Indian casual dining restaurant in Bengaluru).
+**DinePulse** is an end-to-end restaurant ordering system designed for **Masala Lane** (a fictional warm, editorial, regional Indian casual dining restaurant in Bengaluru).
 
 Built mobile-first for guests with zero app installation required, coupled with a high-contrast dark Kitchen Display System (KDS), online Razorpay payments, and an executive Manager Admin hub.
 
@@ -12,20 +12,60 @@ Built mobile-first for guests with zero app installation required, coupled with 
 
 - **Framework**: Next.js 16 (App Router with Turbopack)
 - **Frontend**: React 19, Tailwind CSS, Lucide Icons, next/font
-- **Data & ORM**: PostgreSQL with Drizzle ORM (with in-memory fallback for offline/demo evaluation)
+- **Data & ORM**: PostgreSQL with Drizzle ORM (**PostgreSQL is the single source of truth**; no in-memory fallbacks)
 - **Validation**: Strict Zod schemas on all Server Actions & Route Handlers
-- **Payments**: Razorpay test mode with server-side signature verification & webhook idempotency
-- **Realtime**: Supabase Realtime WebSocket broadcast with polling fallback
+- **Payments**: Razorpay payments with server-side HMAC-SHA256 signature verification, webhook idempotency, and gated demo simulation
+- **Realtime**: Supabase Realtime WebSocket broadcast with server-side channel HMAC derivation and polling fallback
 - **Printables**: High-resolution PDF table standee cards via `pdfkit` & `qrcode`
-- **Currency**: INR (Indian Rupee), strictly stored and computed server-side in integer paise
+- **Currency**: INR (Indian Rupee), strictly stored and computed server-side in integer paise with 5% GST
+
+---
+
+## ⚙️ Environment Variables
+
+DinePulse validates environment variables at startup via `src/server/env.ts` using Zod.
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string (direct or pooled). |
+| `NEXT_PUBLIC_APP_URL` | Yes | Public application URL (e.g. `http://localhost:3000` or `https://dinepulse.example.com`). |
+| `SESSION_SECRET` | Yes | Secret key for staff session cookies. Must be at least 32 characters in production (generate via `openssl rand -base64 48`). |
+| `DEMO_MODE` | No | `"true"` or `"false"` (default: `"false"`). Controls demo behaviors and safeguards. |
+| `DEMO_RESET_SECRET` | If resetting | Bearer token required to call `POST /api/demo/reset`. |
+| `SEED_KITCHEN_PASSWORD` | Optional | Custom password for the seeded kitchen user. Randomly generated if omitted outside demo mode. |
+| `SEED_MANAGER_PASSWORD` | Optional | Custom password for the seeded manager user. Randomly generated if omitted outside demo mode. |
+| `RAZORPAY_KEY_ID` | Production | Razorpay API Key ID (required in production unless `DEMO_MODE="true"`). |
+| `RAZORPAY_KEY_SECRET` | Production | Razorpay Key Secret (required in production unless `DEMO_MODE="true"`). |
+| `RAZORPAY_WEBHOOK_SECRET` | Production | Razorpay Webhook Secret (never falls back to key secret). |
+| `NEXT_PUBLIC_SUPABASE_URL` | Optional | Supabase Project URL for Realtime updates and storage. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Supabase Anon Key for browser subscriptions. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional | Supabase Service Role Key for server-side broadcasts and image storage. |
+
+---
+
+## 🎮 DEMO_MODE Explanation
+
+When `DEMO_MODE="true"`:
+- **Interactive Showcase**: Enables the interactive split-screen demo at `/demo` with one-click "Open as Kitchen" and "Open as Manager" buttons (`demoLoginAction`).
+- **Simulated Payments**: Allows placing and confirming test orders without live Razorpay credentials when placeholder keys are detected.
+- **Guest Step Simulation**: Enables the "Simulate Kitchen Step" button on the guest tracker (`/t/[token]/order/[id]`), allowing guests to step through valid statuses sequentially without opening a second window.
+- **Demo Guardrails**: Seeded demo accounts are marked with `isDemo: true`. Demo managers are restricted: they cannot delete tables, categories, or items; cannot upload images; and cannot cancel paid orders.
+- **Automated Reset**: Enables the `POST /api/demo/reset` endpoint to purge test orders and re-seed demo data.
+- **Fixed Table Token**: Table 7 is seeded with the predictable QR token `demo-table-7`.
+
+When `DEMO_MODE="false"` (Production):
+- All demo actions, bypasses, and simulation buttons are strictly disabled on the server.
+- Real Razorpay keys are enforced without placeholders.
+- `SESSION_SECRET` must be at least 32 characters and cannot match default values.
 
 ---
 
 ## 🚀 How to Run Locally
 
 ### Prerequisites
-- Node.js 18.18+ or 20+
-- npm or pnpm
+- Node.js 20+
+- npm 10+
+- PostgreSQL database instance (local Docker or Supabase)
 
 ### 1. Clone & Install Dependencies
 
@@ -37,29 +77,48 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Copy the example environment configuration:
+Create your local environment file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-The app has built-in resilient mock fallbacks for Razorpay, Supabase, and PostgreSQL, so it runs immediately out of the box even without live external services.
-
-### 3. (Optional) Database Setup with PostgreSQL
-
-If you have a local PostgreSQL instance running:
-
+Set a secure `SESSION_SECRET`:
 ```bash
-# Push Drizzle schema to database
-npm run db:push
-
-# Seed Masala Lane restaurant, 12 tables, 6 categories, 30 items, and staff accounts
-npm run db:seed
+openssl rand -base64 48
 ```
 
-*(Note: If PostgreSQL is offline, the app seamlessly falls back to its seeded in-memory store so all features work interactively).*
+For local testing with demo capabilities, set `DEMO_MODE=true` in `.env.local`.
 
-### 4. Start the Development Server
+#### Local PostgreSQL via Docker Compose
+Start the included PostgreSQL 16 container:
+```bash
+docker compose up -d
+```
+Connection string:
+```env
+DATABASE_URL=postgresql://postgres:postgrespassword@localhost:5432/dinepulse
+```
+
+### 3. Database Migrations & Seed
+
+Apply version-controlled SQL migrations from `./drizzle` and seed demo data:
+
+```bash
+# 1. Generate migrations (after modifying schema)
+npm run db:generate
+
+# 2. Apply migrations to the PostgreSQL database
+npm run db:migrate
+
+# 3. Seed restaurant, tables, categories, 30 items, and staff users
+npm run db:seed
+
+# 4. (Optional) Migrate legacy base64 images to Supabase Storage
+npm run db:migrate-images
+```
+
+### 4. Start Development Server
 
 ```bash
 npm run dev
@@ -69,35 +128,94 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📱 Portals & Demo Routes
+## 🧪 Testing & Verification
 
-| Route | Role / Persona | Description | Demo Credentials |
-|---|---|---|---|
-| `/` | Public | Masala Lane landing page & concept overview | None |
-| `/demo` | Public | Interactive launcher to test Guest, Kitchen, and Admin | None |
-| `/t/demo` | Guest Dining | Mobile-first guest ordering at Table 7. Sticky category tabs, veg filters, item modifiers, bottom-sheet cart, and UPI/Counter checkout. | No login required |
-| `/t/[token]/order/[id]` | Guest Tracker | Live order status stepper (Placed → Preparing → Ready → Served) with realtime updates & "Order more" button. | No login required |
-| `/kitchen` | Kitchen Chef / Staff | Dark high-contrast KDS board with New / Preparing / Ready columns, urgent audio chime, and timer urgency color coding (amber @ 10m, red @ 15m). | `kitchen` / `kitchen123` |
-| `/admin` | Floor Manager / Admin | Full manager hub: server-paginated live orders with audit-logged cancellation, menu catalog & modifier CRUD, one-click stock toggle, table manager with printable PDF QR standees, and 7-day revenue analytics. | `manager` / `manager123` |
-| `/api/admin/tables/qr-pdf` | Manager / Admin | Generates printable A4 table tent cards with high-res QR codes pointing directly to each table's guest ordering URL. | Manager session required |
-
----
-
-## 🧪 Verification Commands
+Run the comprehensive test suite with Vitest:
 
 ```bash
+# Run unit & security test suite
+npm test
+
 # Typecheck TypeScript strictly
 npm run typecheck
 
 # Lint with ESLint
 npm run lint
 
-# Production Turbopack build
+# Production build check
 npm run build
 ```
+
+The test suite covers:
+- Money and 5% GST integer paise calculation & currency formatting
+- Strict order status transitions (`VALID_TRANSITIONS`)
+- Razorpay payment verification binding & amount mismatch protection
+- Simulated payment gating (`DEMO_MODE="true"`)
+- Staff session token expiry, HMAC-SHA256 tampering prevention, and timing-safe checks
+- Postgres-backed rate limiting for login attempts and order placement
+- Sequential per-restaurant order number generation (`ML-0001`)
+
+---
+
+## 🌐 Portals & Routes
+
+| Route | Role / Persona | Description |
+|---|---|---|
+| `/` | Public | Masala Lane landing page, story, and concept overview. |
+| `/demo` | Public Showcase | Interactive showcase with split-screen preview and one-click role launchers. |
+| `/t/demo-table-7` | Guest Dining | Mobile-first guest ordering for Table 7 with category tabs, veg toggle, modifiers, and cart. |
+| `/t/[token]/order/[id]` | Guest Tracker | Live order status tracker (`placed` → `accepted` → `preparing` → `ready` → `served`). |
+| `/kitchen` | Kitchen Staff | Dark high-contrast KDS board with live audio alerts and ticket timers. |
+| `/admin` | Restaurant Manager | Live order management, menu editor, table manager with QR PDF export, and sales analytics. |
+| `/api/admin/tables/qr-pdf` | Admin | Generates printable A4 table standee cards with high-resolution QR codes. |
+| `/api/demo/reset` | Maintenance | Reset endpoint protected by `DEMO_RESET_SECRET` for cron jobs. |
+
+---
+
+## ☁️ Vercel Deployment & Cron Setup
+
+### Deploying to Vercel
+
+1. Push your repository to GitHub.
+2. Import the repository in [Vercel](https://vercel.com).
+3. Set the following environment variables in **Project Settings → Environment Variables**:
+   - `DATABASE_URL`: Hosted PostgreSQL connection string (e.g. Supabase pooler).
+   - `NEXT_PUBLIC_APP_URL`: Your Vercel production URL (e.g. `https://dinepulse.vercel.app`).
+   - `SESSION_SECRET`: Random 48-byte string (`openssl rand -base64 48`).
+   - `DEMO_MODE`: Set to `"true"` for demo deployments or `"false"` for production.
+   - `DEMO_RESET_SECRET`: Random secret string for the demo reset endpoint.
+   - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+4. Run migrations against your production database:
+   ```bash
+   DATABASE_URL="<production-url>" npm run db:migrate
+   DATABASE_URL="<production-url>" npm run db:seed
+   ```
+5. Deploy.
+
+### 6-Hour Demo Reset Cron Setup
+
+The project includes a `vercel.json` configuration to automatically reset the demo database every 6 hours:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/demo/reset",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
+```
+
+The endpoint verifies:
+1. `DEMO_MODE === "true"`.
+2. `Authorization: Bearer <DEMO_RESET_SECRET>` header.
+
+In Vercel Cron Jobs, configure the `Authorization` header to match your configured `DEMO_RESET_SECRET`.
 
 ---
 
 ## 📄 License & Credits
 
-Concept preview by **Intallo** ([intallo.in](https://intallo.in)).
+Concept preview by **Intallo** ([intallo.in](https://intallo.in)) — bespoke web applications & automations.

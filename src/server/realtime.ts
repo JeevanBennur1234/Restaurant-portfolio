@@ -1,73 +1,95 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import { env } from "@/server/env";
 
-/**
- * Generic Realtime publisher interface allowing the underlying transport
- * (Supabase Realtime, Pusher, Ably, WebSockets) to be swapped cleanly.
- */
-export interface RealtimeProvider {
-  publish(channelName: string, event: string, payload: unknown): Promise<void>;
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey =
+  env.SUPABASE_SERVICE_ROLE_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Single Supabase client at module level
+let supabaseClient: SupabaseClient | null = null;
+
+if (
+  supabaseUrl &&
+  supabaseKey &&
+  !supabaseUrl.includes("placeholder") &&
+  !supabaseKey.includes("placeholder")
+) {
+  supabaseClient = createClient(supabaseUrl, supabaseKey);
 }
 
 /**
- * Supabase Realtime Provider implementation
+ * Derives a private, authenticated channel name for a restaurant:
+ * restaurant: + HMAC-SHA256(restaurantId, SESSION_SECRET).slice(0, 24)
  */
-export class SupabaseRealtimeProvider implements RealtimeProvider {
-  private client: SupabaseClient | null = null;
-
-  constructor() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    // Only instantiate if real or valid credentials exist (not placeholder)
-    if (
-      supabaseUrl &&
-      supabaseKey &&
-      !supabaseUrl.includes("placeholder") &&
-      !supabaseKey.includes("placeholder")
-    ) {
-      this.client = createClient(supabaseUrl, supabaseKey);
-    }
-  }
-
-  async publish(channelName: string, event: string, payload: unknown): Promise<void> {
-    if (!this.client) {
-      if (process.env.NODE_ENV !== "production") {
-        console.log(
-          `[Realtime Mock Broadcast] Channel: ${channelName} | Event: ${event}`,
-          payload
-        );
-      }
-      return;
-    }
-
-    try {
-      const channel = this.client.channel(channelName);
-      await channel.send({
-        type: "broadcast",
-        event,
-        payload,
-      });
-    } catch (error) {
-      console.error(
-        `[Realtime Publish Error] Channel: ${channelName} | Event: ${event}:`,
-        (error as Error).message
-      );
-    }
-  }
+export function getRestaurantChannel(restaurantId: string): string {
+  const hash = crypto
+    .createHmac("sha256", env.SESSION_SECRET)
+    .update(restaurantId)
+    .digest("hex")
+    .slice(0, 24);
+  return `restaurant:${hash}`;
 }
-
-// Default provider instance (swappable per deployment)
-const defaultProvider: RealtimeProvider = new SupabaseRealtimeProvider();
 
 /**
  * Unified server helper to broadcast events across DinePulse realtime channels.
+ * Sends via REST broadcast (channel.httpSend) when available, otherwise subscribes once,
+ * sends, and cleans up via removeChannel so channels are never leaked.
  */
 export async function publishRealtimeEvent(
   channelName: string,
   event: string,
   payload: unknown
 ): Promise<void> {
-  await defaultProvider.publish(channelName, event, payload);
+  if (!supabaseClient) {
+    if (env.NODE_ENV !== "production") {
+      console.log(
+        `[Realtime Mock Broadcast] Channel: ${channelName} | Event: ${event}`,
+        payload
+      );
+    }
+    return;
+  }
+
+  const channel = supabaseClient.channel(channelName);
+  try {
+    const channelAny = channel as unknown as {
+      httpSend?: (event: string, payload: unknown) => Promise<unknown>;
+    };
+
+    if (typeof channelAny.httpSend === "function") {
+      await channelAny.httpSend(event, payload ?? {});
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        channel.subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            try {
+              await channel.send({
+                type: "broadcast",
+                event,
+                payload,
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            reject(new Error(`Channel subscribe failed with status: ${status}`));
+          }
+        });
+      });
+    }
+  } catch (error) {
+    console.error(
+      `[Realtime Publish Error] Channel: ${channelName} | Event: ${event}:`,
+      (error as Error).message
+    );
+  } finally {
+    try {
+      await supabaseClient.removeChannel(channel);
+    } catch {
+      // Ignored if channel already cleared
+    }
+  }
 }

@@ -17,6 +17,9 @@ export interface SheetProps {
   className?: string;
 }
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Sheet({
   isOpen,
   onClose,
@@ -27,21 +30,83 @@ export function Sheet({
   side = "bottom",
   className,
 }: SheetProps) {
-  // Prevent background scroll when sheet is open
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+
+  // Focus trap and return focus on close
   React.useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    // Save previous active element to restore focus on close
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      triggerRef.current = document.activeElement;
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    // Set initial focus inside sheet after mount
+    const timer = setTimeout(() => {
+      if (!containerRef.current) return;
+      const focusable = containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      } else {
+        containerRef.current.focus();
+      }
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        if (!containerRef.current) return;
+        const focusable = Array.from(
+          containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        ).filter((el) => !el.hasAttribute("disabled") && (el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0));
+
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !containerRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !containerRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = originalOverflow;
+
+      // Return focus on close
+      const triggerEl = triggerRef.current;
+      if (triggerEl && typeof triggerEl.focus === "function") {
+        setTimeout(() => {
+          if (document.contains(triggerEl)) {
+            triggerEl.focus();
+          }
+        }, 0);
+      }
     };
   }, [isOpen, onClose]);
 
@@ -72,8 +137,10 @@ export function Sheet({
 
       {/* Sheet Content Container */}
       <div
+        ref={containerRef}
+        tabIndex={-1}
         className={cn(
-          "fixed z-50 flex flex-col bg-[var(--bg-surface)] text-[var(--text-primary)] overflow-hidden",
+          "fixed z-50 flex flex-col bg-[var(--bg-surface)] text-[var(--text-primary)] overflow-hidden focus:outline-none",
           sideClasses[side],
           className
         )}

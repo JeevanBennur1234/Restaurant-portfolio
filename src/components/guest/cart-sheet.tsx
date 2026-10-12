@@ -22,6 +22,7 @@ import {
   placeOrderAction,
   createRazorpayOrderAction,
   verifyRazorpayPaymentAction,
+  confirmSimulatedPaymentAction,
   switchOrderToCounterAction,
 } from "@/server/actions/order";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
@@ -67,7 +68,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
     setStatusMessage("Opening secure checkout...");
     const rzpOrderRes = await createRazorpayOrderAction({ orderId, token });
 
-    if (!rzpOrderRes.success || !rzpOrderRes.razorpayOrderId) {
+    if (!rzpOrderRes.success) {
       setPaymentError(
         rzpOrderRes.error ?? "Could not initialize payment. Please retry or choose Pay at counter."
       );
@@ -76,26 +77,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       return;
     }
 
-    const isLoaded = await loadRazorpayScript();
-
-    if (!isLoaded || !window.Razorpay) {
-      // In local development / test mock environments
-      setStatusMessage("Simulating test payment...");
-      const simulatedResponse: RazorpaySuccessResponse = {
-        razorpay_order_id: rzpOrderRes.razorpayOrderId,
-        razorpay_payment_id: `pay_test_${Date.now().toString(36)}`,
-        razorpay_signature: "simulated_test_signature",
-      };
-
-      const verifyRes = await verifyRazorpayPaymentAction({
-        orderId,
-        token,
-        razorpayOrderId: simulatedResponse.razorpay_order_id,
-        razorpayPaymentId: simulatedResponse.razorpay_payment_id,
-        razorpaySignature: simulatedResponse.razorpay_signature,
-      });
-
-      if (verifyRes.success) {
+    if (rzpOrderRes.simulated) {
+      setStatusMessage("Confirming demo payment...");
+      const confirmRes = await confirmSimulatedPaymentAction({ orderId, token });
+      if (confirmRes.success) {
         clearCart();
         setIsCartOpen(false);
         showToast({
@@ -106,8 +91,28 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         });
         router.push(`/t/${token}/order/${orderId}`);
       } else {
-        setPaymentError(verifyRes.error ?? "Payment verification failed.");
+        setPaymentError(confirmRes.error ?? "Payment confirmation failed.");
       }
+      setIsSubmitting(false);
+      setStatusMessage(null);
+      return;
+    }
+
+    if (!rzpOrderRes.razorpayOrderId) {
+      setPaymentError(
+        "Could not retrieve payment order ID. Please retry or choose Pay at counter."
+      );
+      setIsSubmitting(false);
+      setStatusMessage(null);
+      return;
+    }
+
+    const isLoaded = await loadRazorpayScript();
+
+    if (!isLoaded || !window.Razorpay) {
+      setPaymentError(
+        "Could not load payment gateway. Please retry or choose Pay at counter."
+      );
       setIsSubmitting(false);
       setStatusMessage(null);
       return;
@@ -333,7 +338,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 size="md"
                 disabled={isSubmitting}
                 onClick={clearCart}
-                className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)]"
+                className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0"
               >
                 Clear
               </Button>
@@ -343,15 +348,15 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 isLoading={isSubmitting}
                 disabled={isSubmitting}
                 onClick={handleCheckoutSubmit}
-                className="flex-1 font-semibold shadow-sm justify-between px-4"
+                className="flex-1 font-semibold shadow-sm justify-between px-3 text-xs sm:text-sm min-w-0"
               >
-                <span>
+                <span className="truncate pr-1">
                   {statusMessage ||
                     (paymentMethod === "pay_now"
-                      ? "Pay Now (UPI / Card)"
-                      : "Confirm & Pay at Counter")}
+                      ? "Pay Now"
+                      : "Pay at Counter")}
                 </span>
-                <span className="font-mono font-bold">
+                <span className="font-mono font-bold shrink-0">
                   {formatPaiseToINR(grandTotalPaise)}
                 </span>
               </Button>

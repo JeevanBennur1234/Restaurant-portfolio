@@ -17,10 +17,42 @@ const plusJakarta = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+import { env } from "@/server/env";
+
 export const metadata: Metadata = {
-  title: "Masala Lane | DinePulse by Intallo",
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
+  title: {
+    default: "DinePulse by Intallo | Smart QR Dining & Real-Time KDS",
+    template: "%s | DinePulse",
+  },
   description:
-    "Demo restaurant ordering system by Intallo. Premium casual dining, instant table ordering.",
+    "Demo restaurant ordering system by Intallo. Premium casual dining, instant table ordering, and real-time kitchen operations.",
+  keywords: [
+    "restaurant ordering",
+    "QR menu",
+    "kitchen display system",
+    "KDS",
+    "table ordering",
+    "DinePulse",
+    "Intallo",
+  ],
+  authors: [{ name: "Intallo", url: "https://intallo.in" }],
+  openGraph: {
+    title: "DinePulse by Intallo | Smart QR Dining & Real-Time KDS",
+    description:
+      "Instant QR table ordering and zero-latency kitchen coordination for modern Indian dining.",
+    url: env.NEXT_PUBLIC_APP_URL,
+    siteName: "DinePulse",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DinePulse by Intallo | Smart QR Dining & Real-Time KDS",
+    description:
+      "Instant QR table ordering and zero-latency kitchen coordination for modern Indian dining.",
+    creator: "@IntalloHQ",
+  },
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getOrderDetailsAction } from "@/server/actions/order";
+import { env } from "@/server/env";
 import { GuestHeader } from "@/components/guest/guest-header";
 import { OrderLiveTracker } from "@/components/guest/order-live-tracker";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -66,6 +67,7 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
   }
 
   const { order } = result;
+  const isDemoMode = env.DEMO_MODE === "true";
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)]">
@@ -73,7 +75,11 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
         restaurantName={order.restaurantName}
         tableLabel={order.tableNumber}
       />
-      <OrderLiveTracker initialOrder={order} token={token} />
+      <OrderLiveTracker
+        initialOrder={order}
+        token={token}
+        isDemoMode={isDemoMode}
+      />
     </div>
   );
 }

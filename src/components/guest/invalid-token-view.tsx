@@ -4,16 +4,21 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { QrCode, AlertCircle, ArrowRight } from "lucide-react";
 
 export interface InvalidTokenViewProps {
-  reason?: "INVALID_TOKEN" | "NOT_FOUND" | "INACTIVE_TABLE";
+  reason?:
+    | "INVALID_TOKEN"
+    | "NOT_FOUND"
+    | "INACTIVE_TABLE"
+    | "Service temporarily unavailable";
 }
 
 export function InvalidTokenView({ reason = "NOT_FOUND" }: InvalidTokenViewProps) {
   const isInactive = reason === "INACTIVE_TABLE";
+  const isServiceUnavailable = reason === "Service temporarily unavailable";
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 py-16 max-w-md mx-auto w-full text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--destructive-subtle)] text-[var(--destructive)] mb-4 shadow-xs">
-        {isInactive ? (
+        {isInactive || isServiceUnavailable ? (
           <AlertCircle className="h-8 w-8" />
         ) : (
           <QrCode className="h-8 w-8" />
@@ -23,13 +28,23 @@ export function InvalidTokenView({ reason = "NOT_FOUND" }: InvalidTokenViewProps
       <Card className="w-full text-left border-[var(--border-strong)] shadow-[var(--shadow-card)]">
         <CardHeader>
           <div className="text-xs font-mono font-semibold text-[var(--destructive)] uppercase tracking-wider mb-1">
-            {isInactive ? "Table Inactive" : "Invalid Table Code"}
+            {isServiceUnavailable
+              ? "Service Error"
+              : isInactive
+              ? "Table Inactive"
+              : "Invalid Table Code"}
           </div>
           <CardTitle className="text-xl">
-            {isInactive ? "Table Currently Unavailable" : "QR Code Not Recognized"}
+            {isServiceUnavailable
+              ? "Service Temporarily Unavailable"
+              : isInactive
+              ? "Table Currently Unavailable"
+              : "QR Code Not Recognized"}
           </CardTitle>
           <CardDescription className="text-sm pt-1">
-            {isInactive
+            {isServiceUnavailable
+              ? "The database service is temporarily unavailable. Please refresh or try again in a moment."
+              : isInactive
               ? "This dining table is currently marked as inactive or undergoing service. Please request our staff to activate this table."
               : "We could not find an active table session matching this link. Please re-scan the QR code placed on your dining table or request assistance from our floor captain."}
           </CardDescription>

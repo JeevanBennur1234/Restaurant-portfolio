@@ -4,8 +4,8 @@ import QRCode from "qrcode";
 import { getStaffSession } from "@/server/auth";
 import { db } from "@/server/db";
 import { tables } from "@/server/db/schema";
-import { asc } from "drizzle-orm";
-import { demoTablesStore, initializeDemoDataIfNeeded } from "@/server/demo-data";
+import { asc, eq, and } from "drizzle-orm";
+import { env } from "@/server/env";
 
 export async function GET(request: NextRequest) {
   // 1. Role Guard: Manager or Admin only
@@ -17,37 +17,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 2. Fetch tables (DB with demo fallback)
+  // 2. Fetch tables from PostgreSQL
   let tableList: Array<{ tableNumber: string; capacity: number; qrToken: string }> = [];
 
   try {
     const dbTables = await db.query.tables.findMany({
+      where: and(
+        eq(tables.restaurantId, session.restaurantId),
+        eq(tables.isActive, true)
+      ),
       orderBy: [asc(tables.tableNumber)],
     });
-    if (dbTables && dbTables.length > 0) {
-      tableList = dbTables.map((t) => ({
-        tableNumber: t.tableNumber,
-        capacity: t.capacity,
-        qrToken: t.qrToken,
-      }));
-    }
+    tableList = dbTables.map((t) => ({
+      tableNumber: t.tableNumber,
+      capacity: t.capacity,
+      qrToken: t.qrToken,
+    }));
   } catch (err) {
-    console.warn("DB tables query fallback for PDF:", (err as Error).message);
-  }
-
-  if (tableList.length === 0) {
-    initializeDemoDataIfNeeded();
-    tableList = Array.from(demoTablesStore.values())
-      .sort((a, b) => {
-        const numA = parseInt(a.tableNumber.replace(/\D/g, "") || "0", 10);
-        const numB = parseInt(b.tableNumber.replace(/\D/g, "") || "0", 10);
-        return numA - numB;
-      })
-      .map((t) => ({
-        tableNumber: t.tableNumber,
-        capacity: t.capacity,
-        qrToken: t.qrToken,
-      }));
+    console.error("Database error in tables qr-pdf route:", err);
+    return new NextResponse(
+      JSON.stringify({ success: false, error: "Service temporarily unavailable" }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Optional filter by table token or table number
@@ -60,11 +51,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse("No tables found to generate QR codes", { status: 404 });
   }
 
-  // Base URL for QR links
-  const host = request.headers.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const envAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const baseUrl = envAppUrl && envAppUrl.startsWith("http") ? envAppUrl : `${protocol}://${host}`;
+  // Base URL for QR links: built ONLY from env.NEXT_PUBLIC_APP_URL (never from Host header)
+  const baseUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
 
   // 3. Generate PDF Document using PDFKit
   const pdfBuffer = await new Promise<Buffer>(async (resolve, reject) => {

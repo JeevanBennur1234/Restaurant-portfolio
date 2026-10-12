@@ -2,11 +2,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
+import { env } from "@/server/env";
+
 const globalForDb = globalThis as unknown as {
   conn: Pool | undefined;
 };
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = env.DATABASE_URL;
 
 const pool =
   globalForDb.conn ??
@@ -14,7 +16,7 @@ const pool =
     connectionString,
   });
 
-if (process.env.NODE_ENV !== "production") {
+if (env.NODE_ENV !== "production") {
   globalForDb.conn = pool;
 }
 

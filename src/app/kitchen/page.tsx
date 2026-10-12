@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getStaffSession } from "@/server/auth";
 import { getKitchenTicketsAction } from "@/server/actions/kitchen";
+import { getRestaurantChannel } from "@/server/realtime";
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 import { KitchenLogin } from "@/components/kitchen/kitchen-login";
 
@@ -24,6 +25,13 @@ export default async function KitchenPage() {
 
   const result = await getKitchenTicketsAction();
   const initialTickets = result.success && result.tickets ? result.tickets : [];
+  const realtimeChannel = getRestaurantChannel(session.restaurantId);
 
-  return <KitchenBoard initialTickets={initialTickets} session={session} />;
+  return (
+    <KitchenBoard
+      initialTickets={initialTickets}
+      session={session}
+      realtimeChannel={realtimeChannel}
+    />
+  );
 }

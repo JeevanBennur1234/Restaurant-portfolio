@@ -144,10 +144,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             variant="primary"
             disabled={!isAvailable}
             onClick={handleAddToCart}
-            className="flex-1 justify-between shadow-md"
+            className="flex-1 justify-between shadow-md px-3 text-xs sm:text-sm min-w-0"
           >
-            <span>{isAvailable ? "Add to Order" : "Currently Unavailable"}</span>
-            <span className="font-mono font-bold">
+            <span className="truncate pr-1">
+              {isAvailable ? "Add to Order" : "Unavailable"}
+            </span>
+            <span className="font-mono font-bold shrink-0">
               {formatPaiseToINR(lineTotalPaise)}
             </span>
           </Button>

@@ -5,7 +5,9 @@ import { eq, desc, asc, and, count } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   orders,
+  orderItems,
   orderEvents,
+  payments,
   tables,
   categories,
   menuItems,
@@ -13,7 +15,7 @@ import {
   type OrderStatus,
 } from "@/server/db/schema";
 import { getStaffSession, type StaffSession } from "@/server/auth";
-import { publishRealtimeEvent } from "@/server/realtime";
+import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { rupeesToPaise } from "@/lib/currency";
 import {
   adminOrdersQuerySchema,
@@ -43,14 +45,6 @@ import {
   type CreateTableInput,
   type DeleteTableInput,
 } from "@/lib/validations/admin";
-import { demoOrdersStore, type DemoOrder } from "@/server/demo-orders";
-import {
-  demoCategoriesStore,
-  demoMenuItemsStore,
-  demoTablesStore,
-  initializeDemoDataIfNeeded,
-  type DemoTable,
-} from "@/server/demo-data";
 
 /**
  * Enforces manager or admin role on all admin actions.
@@ -126,8 +120,9 @@ export interface GetAdminOrdersResult {
 export async function getAdminOrdersAction(
   rawInput: AdminOrdersQueryInput
 ): Promise<GetAdminOrdersResult> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -139,10 +134,8 @@ export async function getAdminOrdersAction(
 
   const { page, pageSize, status, paymentStatus, search } = parsed.data;
 
-  // 1. Try DB Query
   try {
-    // Build query conditions
-    const conditions = [];
+    const conditions = [eq(orders.restaurantId, session.restaurantId)];
 
     if (status !== "all") {
       conditions.push(eq(orders.status, status));
@@ -152,9 +145,9 @@ export async function getAdminOrdersAction(
       conditions.push(eq(orders.paymentStatus, paymentStatus));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
-    // Fetch total count
+    // Fetch total count for pagination
     const [countResult] = await db
       .select({ val: count() })
       .from(orders)
@@ -177,177 +170,98 @@ export async function getAdminOrdersAction(
       offset,
     });
 
-    if (dbOrders && dbOrders.length > 0) {
-      // Map rows
-      let filteredRows: AdminOrderRow[] = dbOrders.map((o) => ({
-        id: o.id,
-        orderNumber: o.orderNumber,
-        tableNumber: o.table.tableNumber,
-        status: o.status,
-        paymentStatus: o.paymentStatus,
-        paymentMethod: o.paymentMethod,
-        subtotalPaise: o.subtotalPaise,
-        taxPaise: o.taxPaise,
-        totalPaise: o.totalPaise,
-        customerName: o.customerName,
-        customerPhone: o.customerPhone,
-        specialInstructions: o.specialInstructions,
-        createdAt: o.createdAt.toISOString(),
-        updatedAt: o.updatedAt.toISOString(),
-        items: o.items.map((i) => {
-          let modNames: string[] = [];
-          if (i.selectedModifiersJson) {
-            try {
-              const parsedMods = JSON.parse(i.selectedModifiersJson) as Array<{
-                name: string;
-              }>;
-              modNames = parsedMods.map((m) => m.name);
-            } catch {
-              modNames = [];
-            }
+    let filteredRows: AdminOrderRow[] = dbOrders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      tableNumber: o.table.tableNumber,
+      status: o.status,
+      paymentStatus: o.paymentStatus,
+      paymentMethod: o.paymentMethod,
+      subtotalPaise: o.subtotalPaise,
+      taxPaise: o.taxPaise,
+      totalPaise: o.totalPaise,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone,
+      specialInstructions: o.specialInstructions,
+      createdAt: o.createdAt.toISOString(),
+      updatedAt: o.updatedAt.toISOString(),
+      items: o.items.map((i) => {
+        let modNames: string[] = [];
+        if (i.selectedModifiersJson) {
+          try {
+            const parsedMods = JSON.parse(i.selectedModifiersJson) as Array<{
+              name: string;
+            }>;
+            modNames = parsedMods.map((m) => m.name);
+          } catch {
+            modNames = [];
           }
-          return {
-            id: i.id,
-            name: i.itemName,
-            quantity: i.quantity,
-            pricePaise: i.itemPricePaise,
-            modifiers: modNames,
-          };
-        }),
-        events: o.events.map((e) => ({
-          id: e.id,
-          fromStatus: e.fromStatus,
-          toStatus: e.toStatus,
-          note: e.note,
-          createdAt: e.createdAt.toISOString(),
-        })),
-      }));
+        }
+        return {
+          id: i.id,
+          name: i.itemName,
+          quantity: i.quantity,
+          pricePaise: i.itemPricePaise,
+          modifiers: modNames,
+        };
+      }),
+      events: o.events.map((e) => ({
+        id: e.id,
+        fromStatus: e.fromStatus,
+        toStatus: e.toStatus,
+        note: e.note,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    }));
 
-      // Search filter in memory if provided
-      if (search) {
-        const query = search.toLowerCase();
-        filteredRows = filteredRows.filter(
-          (r) =>
-            r.orderNumber.toLowerCase().includes(query) ||
-            r.tableNumber.toLowerCase().includes(query) ||
-            (r.customerName && r.customerName.toLowerCase().includes(query))
-        );
+    if (search) {
+      const query = search.toLowerCase();
+      filteredRows = filteredRows.filter(
+        (r) =>
+          r.orderNumber.toLowerCase().includes(query) ||
+          r.tableNumber.toLowerCase().includes(query) ||
+          (r.customerName && r.customerName.toLowerCase().includes(query))
+      );
+    }
+
+    // Status counts summary
+    const statusCounts = await db
+      .select({ status: orders.status, val: count() })
+      .from(orders)
+      .where(eq(orders.restaurantId, session.restaurantId))
+      .groupBy(orders.status);
+
+    const summary = {
+      total: 0,
+      placed: 0,
+      preparing: 0,
+      ready: 0,
+      served: 0,
+      cancelled: 0,
+    };
+
+    for (const sc of statusCounts) {
+      summary.total += sc.val;
+      if (sc.status in summary) {
+        summary[sc.status as keyof typeof summary] = sc.val;
       }
-
-      return {
-        success: true,
-        orders: filteredRows,
-        pagination: {
-          page,
-          pageSize,
-          totalCount,
-          totalPages,
-        },
-        summary: {
-          total: totalCount,
-          placed: 0,
-          preparing: 0,
-          ready: 0,
-          served: 0,
-          cancelled: 0,
-        },
-      };
     }
+
+    return {
+      success: true,
+      orders: filteredRows,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages,
+      },
+      summary,
+    };
   } catch (err) {
-    console.warn("DB admin orders query fallback:", (err as Error).message);
+    console.error("Database error in getAdminOrdersAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  // 2. Demo fallback
-  initializeDemoDataIfNeeded();
-
-  let allDemoOrders: DemoOrder[] = Array.from(demoOrdersStore.values());
-
-  // Apply filters
-  if (status !== "all") {
-    allDemoOrders = allDemoOrders.filter((o) => o.status === status);
-  }
-
-  if (paymentStatus !== "all") {
-    allDemoOrders = allDemoOrders.filter((o) => o.paymentStatus === paymentStatus);
-  }
-
-  if (search) {
-    const query = search.toLowerCase();
-    allDemoOrders = allDemoOrders.filter(
-      (o) =>
-        o.orderNumber.toLowerCase().includes(query) ||
-        o.tableNumber.toLowerCase().includes(query) ||
-        (o.customerName && o.customerName.toLowerCase().includes(query))
-    );
-  }
-
-  // Sort descending by created date
-  allDemoOrders.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  const totalCount = allDemoOrders.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const offset = (page - 1) * pageSize;
-  const paginatedOrders = allDemoOrders.slice(offset, offset + pageSize);
-
-  const summary = {
-    total: demoOrdersStore.size,
-    placed: 0,
-    preparing: 0,
-    ready: 0,
-    served: 0,
-    cancelled: 0,
-  };
-
-  demoOrdersStore.forEach((o) => {
-    if (o.status in summary) {
-      summary[o.status as keyof typeof summary]++;
-    }
-  });
-
-  const orderRows: AdminOrderRow[] = paginatedOrders.map((o) => ({
-    id: o.id,
-    orderNumber: o.orderNumber,
-    tableNumber: o.tableNumber,
-    status: o.status,
-    paymentStatus: o.paymentStatus,
-    paymentMethod: o.paymentMethod,
-    subtotalPaise: o.subtotalPaise,
-    taxPaise: o.taxPaise,
-    totalPaise: o.totalPaise,
-    customerName: o.customerName,
-    customerPhone: o.customerPhone,
-    specialInstructions: o.specialInstructions,
-    createdAt: o.createdAt.toISOString(),
-    updatedAt: o.updatedAt.toISOString(),
-    items: o.items.map((i) => ({
-      id: i.id,
-      name: i.itemName,
-      quantity: i.quantity,
-      pricePaise: i.itemPricePaise,
-      modifiers: i.selectedModifiers.map((m) => m.name),
-    })),
-    events: o.events.map((e) => ({
-      id: e.id,
-      fromStatus: e.fromStatus,
-      toStatus: e.toStatus,
-      note: e.note,
-      createdAt: e.createdAt.toISOString(),
-    })),
-  }));
-
-  return {
-    success: true,
-    orders: orderRows,
-    pagination: {
-      page,
-      pageSize,
-      totalCount,
-      totalPages,
-    },
-    summary,
-  };
 }
 
 /**
@@ -373,27 +287,66 @@ export async function cancelOrderAction(
 
   const { orderId, reason } = parsed.data;
 
-  // 1. Try DB cancellation
   try {
     const existing = await db.query.orders.findFirst({
-      where: eq(orders.id, orderId),
-      with: { table: true },
+      where: and(
+        eq(orders.id, orderId),
+        eq(orders.restaurantId, session.restaurantId)
+      ),
+      with: { table: true, payments: true },
     });
 
-    if (existing) {
-      if (existing.status === "served") {
-        return { success: false, error: "Cannot cancel an order that has already been served." };
-      }
-      if (existing.status === "cancelled") {
-        return { success: false, error: "This order is already cancelled." };
-      }
+    if (!existing) {
+      return { success: false, error: "Order not found" };
+    }
 
-      await db.transaction(async (tx) => {
+    if (existing.status === "served") {
+      return { success: false, error: "Cannot cancel an order that has already been served." };
+    }
+    if (existing.status === "cancelled") {
+      return { success: false, error: "This order is already cancelled." };
+    }
+
+    const isPaymentCompleted =
+      existing.paymentStatus === "paid" ||
+      existing.payments.some((p) => p.status === "completed");
+
+    if (session.isDemo && isPaymentCompleted) {
+      return {
+        success: false,
+        error: "Demo manager accounts cannot cancel paid orders.",
+      };
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(orders)
+        .set({
+          status: "cancelled",
+          ...(isPaymentCompleted ? { paymentStatus: "refund_pending" } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+
+      if (isPaymentCompleted) {
         await tx
-          .update(orders)
-          .set({ status: "cancelled", updatedAt: new Date() })
-          .where(eq(orders.id, orderId));
+          .update(payments)
+          .set({ status: "refund_pending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(payments.orderId, orderId),
+              eq(payments.status, "completed")
+            )
+          );
 
+        await tx.insert(orderEvents).values({
+          orderId,
+          fromStatus: existing.status,
+          toStatus: "cancelled",
+          staffUserId: session.userId,
+          note: `Cancelled by Manager ${session.username}: ${reason}. Payment marked refund_pending`,
+        });
+      } else {
         await tx.insert(orderEvents).values({
           orderId,
           fromStatus: existing.status,
@@ -401,71 +354,34 @@ export async function cancelOrderAction(
           staffUserId: session.userId,
           note: `Cancelled by Manager ${session.username}: ${reason}`,
         });
-      });
+      }
+    });
 
-      // Broadcast realtime event
-      await publishRealtimeEvent(
-        `restaurant:${existing.restaurantId}`,
-        "order.status_changed",
-        {
-          orderId,
-          fromStatus: existing.status,
-          toStatus: "cancelled",
-          orderNumber: existing.orderNumber,
-          tableNumber: existing.table.tableNumber,
-          reason,
-        }
-      );
+    // Broadcast realtime event
+    await publishRealtimeEvent(
+      getRestaurantChannel(existing.restaurantId),
+      "order.status_changed",
+      {
+        orderId,
+        fromStatus: existing.status,
+        toStatus: "cancelled",
+      }
+    );
 
-      return { success: true };
-    }
-  } catch (err) {
-    console.warn("DB cancel order fallback:", (err as Error).message);
-  }
-
-  // 2. Demo fallback
-  initializeDemoDataIfNeeded();
-  const demoOrder = demoOrdersStore.get(orderId);
-  if (!demoOrder) {
-    return { success: false, error: "Order not found" };
-  }
-
-  if (demoOrder.status === "served") {
-    return { success: false, error: "Cannot cancel an order that has already been served." };
-  }
-  if (demoOrder.status === "cancelled") {
-    return { success: false, error: "This order is already cancelled." };
-  }
-
-  const previousStatus = demoOrder.status;
-  demoOrder.status = "cancelled";
-  demoOrder.updatedAt = new Date();
-  demoOrder.events.push({
-    id: `evt-cancel-${Date.now()}`,
-    fromStatus: previousStatus,
-    toStatus: "cancelled",
-    note: `Cancelled by Manager ${session.username}: ${reason}`,
-    createdAt: new Date(),
-  });
-
-  await publishRealtimeEvent(
-    `restaurant:${demoOrder.restaurantId}`,
-    "order.status_changed",
-    {
+    await publishRealtimeEvent(`order:${orderId}`, "order.status_changed", {
       orderId,
-      fromStatus: previousStatus,
-      toStatus: "cancelled",
-      orderNumber: demoOrder.orderNumber,
-      tableNumber: demoOrder.tableNumber,
-      reason,
-    }
-  );
+      status: "cancelled",
+    });
 
-  return { success: true };
+    return { success: true };
+  } catch (err) {
+    console.error("Database error in cancelOrderAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
+  }
 }
 
 // ============================================================================
-// 2. Menu Management: Categories, Items & Modifiers
+// 2. Menu Catalog & Modifier Management CRUD
 // ============================================================================
 
 export interface AdminCategoryData {
@@ -509,19 +425,24 @@ export interface GetAdminMenuResult {
 }
 
 export async function getAdminMenuAction(): Promise<GetAdminMenuResult> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 
-  // 1. Try DB
   try {
     const dbCats = await db.query.categories.findMany({
+      where: eq(categories.restaurantId, session.restaurantId),
       orderBy: [asc(categories.sortOrder), asc(categories.name)],
     });
 
     const dbItems = await db.query.menuItems.findMany({
+      where: and(
+        eq(menuItems.restaurantId, session.restaurantId),
+        eq(menuItems.isActive, true)
+      ),
       with: {
         category: true,
         modifiers: true,
@@ -529,86 +450,33 @@ export async function getAdminMenuAction(): Promise<GetAdminMenuResult> {
       orderBy: [asc(menuItems.sortOrder), asc(menuItems.name)],
     });
 
-    if (dbCats && dbCats.length > 0) {
-      const itemsCountByCat = new Map<string, number>();
-      dbItems.forEach((i) => {
-        itemsCountByCat.set(i.categoryId, (itemsCountByCat.get(i.categoryId) ?? 0) + 1);
-      });
-
-      const catList: AdminCategoryData[] = dbCats.map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        sortOrder: c.sortOrder,
-        isActive: c.isActive,
-        itemCount: itemsCountByCat.get(c.id) ?? 0,
-      }));
-
-      const itemList: AdminMenuItemData[] = dbItems.map((i) => ({
-        id: i.id,
-        categoryId: i.categoryId,
-        categoryName: i.category?.name ?? "General",
-        name: i.name,
-        description: i.description,
-        pricePaise: i.pricePaise,
-        isVeg: i.isVeg,
-        prepTimeMinutes: i.prepTimeMinutes,
-        imageUrl: i.imageUrl,
-        isAvailable: i.isAvailable,
-        sortOrder: i.sortOrder,
-        modifiers: i.modifiers.map((m) => ({
-          id: m.id,
-          menuItemId: m.menuItemId,
-          groupName: m.groupName,
-          name: m.name,
-          pricePaise: m.pricePaise,
-          isRequired: m.isRequired,
-        })),
-      }));
-
-      return { success: true, categories: catList, items: itemList };
-    }
-  } catch (err) {
-    console.warn("DB get admin menu fallback:", (err as Error).message);
-  }
-
-  // 2. Demo fallback
-  initializeDemoDataIfNeeded();
-
-  const catList: AdminCategoryData[] = Array.from(demoCategoriesStore.values())
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((c) => {
-      let count = 0;
-      demoMenuItemsStore.forEach((item) => {
-        if (item.categoryId === c.id) count++;
-      });
-      return {
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        sortOrder: c.sortOrder,
-        isActive: c.isActive,
-        itemCount: count,
-      };
+    const itemsCountByCat = new Map<string, number>();
+    dbItems.forEach((i) => {
+      itemsCountByCat.set(i.categoryId, (itemsCountByCat.get(i.categoryId) ?? 0) + 1);
     });
 
-  const catNameMap = new Map(catList.map((c) => [c.id, c.name]));
+    const catList: AdminCategoryData[] = dbCats.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      sortOrder: c.sortOrder,
+      isActive: c.isActive,
+      itemCount: itemsCountByCat.get(c.id) ?? 0,
+    }));
 
-  const itemList: AdminMenuItemData[] = Array.from(demoMenuItemsStore.values())
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((item) => ({
-      id: item.id,
-      categoryId: item.categoryId,
-      categoryName: catNameMap.get(item.categoryId) ?? "General",
-      name: item.name,
-      description: item.description,
-      pricePaise: item.pricePaise,
-      isVeg: item.isVeg,
-      prepTimeMinutes: item.prepTimeMinutes,
-      imageUrl: item.imageUrl,
-      isAvailable: item.isAvailable,
-      sortOrder: item.sortOrder,
-      modifiers: item.modifiers.map((m) => ({
+    const itemList: AdminMenuItemData[] = dbItems.map((i) => ({
+      id: i.id,
+      categoryId: i.categoryId,
+      categoryName: i.category?.name ?? "General",
+      name: i.name,
+      description: i.description,
+      pricePaise: i.pricePaise,
+      isVeg: i.isVeg,
+      prepTimeMinutes: i.prepTimeMinutes,
+      imageUrl: i.imageUrl,
+      isAvailable: i.isAvailable,
+      sortOrder: i.sortOrder,
+      modifiers: i.modifiers.map((m) => ({
         id: m.id,
         menuItemId: m.menuItemId,
         groupName: m.groupName,
@@ -618,7 +486,11 @@ export async function getAdminMenuAction(): Promise<GetAdminMenuResult> {
       })),
     }));
 
-  return { success: true, categories: catList, items: itemList };
+    return { success: true, categories: catList, items: itemList };
+  } catch (err) {
+    console.error("Database error in getAdminMenuAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
+  }
 }
 
 /**
@@ -641,7 +513,6 @@ export async function createCategoryAction(
 
   const { name, slug, sortOrder } = parsed.data;
 
-  // DB
   try {
     const [inserted] = await db
       .insert(categories)
@@ -654,35 +525,23 @@ export async function createCategoryAction(
       })
       .returning({ id: categories.id });
 
-    if (inserted) {
-      return { success: true, categoryId: inserted.id };
+    if (!inserted) {
+      return { success: false, error: "Failed to create category" };
     }
+
+    return { success: true, categoryId: inserted.id };
   } catch (err) {
-    console.warn("DB create category fallback:", (err as Error).message);
+    console.error("Database error in createCategoryAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  // Demo fallback
-  initializeDemoDataIfNeeded();
-  const id = `cat-${Date.now().toString(36)}`;
-  demoCategoriesStore.set(id, {
-    id,
-    restaurantId: session.restaurantId,
-    name,
-    slug,
-    sortOrder,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return { success: true, categoryId: id };
 }
 
 export async function updateCategoryAction(
   rawInput: UpdateCategoryInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -698,30 +557,20 @@ export async function updateCategoryAction(
     await db
       .update(categories)
       .set({ name, slug, sortOrder, isActive, updatedAt: new Date() })
-      .where(eq(categories.id, id));
+      .where(and(eq(categories.id, id), eq(categories.restaurantId, session.restaurantId)));
     return { success: true };
   } catch (err) {
-    console.warn("DB update category fallback:", (err as Error).message);
+    console.error("Database error in updateCategoryAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const existing = demoCategoriesStore.get(id);
-  if (existing) {
-    existing.name = name;
-    existing.slug = slug;
-    existing.sortOrder = sortOrder;
-    existing.isActive = isActive;
-    existing.updatedAt = new Date();
-  }
-
-  return { success: true };
 }
 
 export async function deleteCategoryAction(
   rawInput: DeleteCategoryInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -731,18 +580,35 @@ export async function deleteCategoryAction(
     return { success: false, error: "Invalid category ID" };
   }
 
+  if (session.isDemo) {
+    return { success: false, error: "Demo manager accounts cannot delete categories." };
+  }
+
   const { id } = parsed.data;
 
   try {
-    await db.delete(categories).where(eq(categories.id, id));
+    const hasItems = await db.query.menuItems.findFirst({
+      where: and(
+        eq(menuItems.categoryId, id),
+        eq(menuItems.restaurantId, session.restaurantId)
+      ),
+    });
+
+    if (hasItems) {
+      return {
+        success: false,
+        error: "Cannot delete category containing menu items. Please reassign or delete the menu items first.",
+      };
+    }
+
+    await db
+      .delete(categories)
+      .where(and(eq(categories.id, id), eq(categories.restaurantId, session.restaurantId)));
     return { success: true };
   } catch (err) {
-    console.warn("DB delete category fallback:", (err as Error).message);
+    console.error("Database error in deleteCategoryAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  demoCategoriesStore.delete(id);
-  return { success: true };
 }
 
 /**
@@ -778,7 +644,6 @@ export async function createMenuItemAction(
   // Server-side source of truth: strictly compute integer paise
   const pricePaise = rupeesToPaise(priceRupees);
 
-  // DB
   try {
     const [inserted] = await db
       .insert(menuItems)
@@ -796,41 +661,23 @@ export async function createMenuItemAction(
       })
       .returning({ id: menuItems.id });
 
-    if (inserted) {
-      return { success: true, itemId: inserted.id };
+    if (!inserted) {
+      return { success: false, error: "Failed to create menu item" };
     }
+
+    return { success: true, itemId: inserted.id };
   } catch (err) {
-    console.warn("DB create item fallback:", (err as Error).message);
+    console.error("Database error in createMenuItemAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  // Demo fallback
-  initializeDemoDataIfNeeded();
-  const id = `item-${Date.now().toString(36)}`;
-  demoMenuItemsStore.set(id, {
-    id,
-    restaurantId: session.restaurantId,
-    categoryId,
-    name,
-    description: description ?? null,
-    pricePaise,
-    isVeg,
-    prepTimeMinutes,
-    imageUrl: imageUrl ?? null,
-    isAvailable,
-    sortOrder,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    modifiers: [],
-  });
-
-  return { success: true, itemId: id };
 }
 
 export async function updateMenuItemAction(
   rawInput: UpdateMenuItemInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -870,28 +717,12 @@ export async function updateMenuItemAction(
         sortOrder,
         updatedAt: new Date(),
       })
-      .where(eq(menuItems.id, id));
+      .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, session.restaurantId)));
     return { success: true };
   } catch (err) {
-    console.warn("DB update item fallback:", (err as Error).message);
+    console.error("Database error in updateMenuItemAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const item = demoMenuItemsStore.get(id);
-  if (item) {
-    item.name = name;
-    item.categoryId = categoryId;
-    item.pricePaise = pricePaise;
-    item.isVeg = isVeg;
-    item.prepTimeMinutes = prepTimeMinutes;
-    item.description = description ?? null;
-    item.imageUrl = imageUrl ?? null;
-    item.isAvailable = isAvailable;
-    item.sortOrder = sortOrder;
-    item.updatedAt = new Date();
-  }
-
-  return { success: true };
 }
 
 /**
@@ -900,8 +731,9 @@ export async function updateMenuItemAction(
 export async function toggleMenuItemAvailabilityAction(
   rawInput: ToggleMenuItemAvailabilityInput
 ): Promise<{ success: boolean; isAvailable?: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -917,28 +749,20 @@ export async function toggleMenuItemAvailabilityAction(
     await db
       .update(menuItems)
       .set({ isAvailable, updatedAt: new Date() })
-      .where(eq(menuItems.id, id));
+      .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, session.restaurantId)));
     return { success: true, isAvailable };
   } catch (err) {
-    console.warn("DB toggle item availability fallback:", (err as Error).message);
+    console.error("Database error in toggleMenuItemAvailabilityAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const item = demoMenuItemsStore.get(id);
-  if (item) {
-    item.isAvailable = isAvailable;
-    item.updatedAt = new Date();
-    return { success: true, isAvailable };
-  }
-
-  return { success: false, error: "Menu item not found" };
 }
 
 export async function deleteMenuItemAction(
   rawInput: DeleteMenuItemInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -948,18 +772,35 @@ export async function deleteMenuItemAction(
     return { success: false, error: "Invalid item ID" };
   }
 
+  if (session.isDemo) {
+    return { success: false, error: "Demo manager accounts cannot delete menu items." };
+  }
+
   const { id } = parsed.data;
 
   try {
-    await db.delete(menuItems).where(eq(menuItems.id, id));
+    const appearsInOrders = await db.query.orderItems.findFirst({
+      where: eq(orderItems.menuItemId, id),
+    });
+
+    if (appearsInOrders) {
+      // Soft-delete to preserve order history
+      await db
+        .update(menuItems)
+        .set({ isActive: false, isAvailable: false, updatedAt: new Date() })
+        .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, session.restaurantId)));
+    } else {
+      // Hard delete if never ordered
+      await db
+        .delete(menuItems)
+        .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, session.restaurantId)));
+    }
+
     return { success: true };
   } catch (err) {
-    console.warn("DB delete item fallback:", (err as Error).message);
+    console.error("Database error in deleteMenuItemAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  demoMenuItemsStore.delete(id);
-  return { success: true };
 }
 
 /**
@@ -968,8 +809,9 @@ export async function deleteMenuItemAction(
 export async function createModifierAction(
   rawInput: CreateModifierInput
 ): Promise<{ success: boolean; modifierId?: string; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -983,6 +825,16 @@ export async function createModifierAction(
   const pricePaise = rupeesToPaise(priceRupees);
 
   try {
+    const item = await db.query.menuItems.findFirst({
+      where: and(
+        eq(menuItems.id, menuItemId),
+        eq(menuItems.restaurantId, session.restaurantId)
+      ),
+    });
+    if (!item) {
+      return { success: false, error: "Menu item not found" };
+    }
+
     const [inserted] = await db
       .insert(modifiers)
       .values({
@@ -994,38 +846,23 @@ export async function createModifierAction(
       })
       .returning({ id: modifiers.id });
 
-    if (inserted) {
-      return { success: true, modifierId: inserted.id };
+    if (!inserted) {
+      return { success: false, error: "Failed to create modifier" };
     }
+
+    return { success: true, modifierId: inserted.id };
   } catch (err) {
-    console.warn("DB create modifier fallback:", (err as Error).message);
+    console.error("Database error in createModifierAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const item = demoMenuItemsStore.get(menuItemId);
-  if (item) {
-    const modId = `mod-${Date.now().toString(36)}`;
-    item.modifiers.push({
-      id: modId,
-      menuItemId,
-      groupName,
-      name,
-      pricePaise,
-      isRequired,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    return { success: true, modifierId: modId };
-  }
-
-  return { success: false, error: "Menu item not found" };
 }
 
 export async function deleteModifierAction(
   rawInput: DeleteModifierInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1038,18 +875,20 @@ export async function deleteModifierAction(
   const { id } = parsed.data;
 
   try {
+    const mod = await db.query.modifiers.findFirst({
+      where: eq(modifiers.id, id),
+      with: { menuItem: true },
+    });
+    if (!mod || mod.menuItem.restaurantId !== session.restaurantId) {
+      return { success: false, error: "Modifier not found" };
+    }
+
     await db.delete(modifiers).where(eq(modifiers.id, id));
     return { success: true };
   } catch (err) {
-    console.warn("DB delete modifier fallback:", (err as Error).message);
+    console.error("Database error in deleteModifierAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  demoMenuItemsStore.forEach((item) => {
-    item.modifiers = item.modifiers.filter((m) => m.id !== id);
-  });
-
-  return { success: true };
 }
 
 // ============================================================================
@@ -1070,51 +909,37 @@ export async function getAdminTablesAction(): Promise<{
   tables?: AdminTableData[];
   error?: string;
 }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 
   try {
     const dbTables = await db.query.tables.findMany({
+      where: and(
+        eq(tables.restaurantId, session.restaurantId),
+        eq(tables.isActive, true)
+      ),
       orderBy: [asc(tables.tableNumber)],
     });
 
-    if (dbTables && dbTables.length > 0) {
-      return {
-        success: true,
-        tables: dbTables.map((t) => ({
-          id: t.id,
-          tableNumber: t.tableNumber,
-          capacity: t.capacity,
-          qrToken: t.qrToken,
-          isActive: t.isActive,
-          createdAt: t.createdAt.toISOString(),
-        })),
-      };
-    }
+    return {
+      success: true,
+      tables: dbTables.map((t) => ({
+        id: t.id,
+        tableNumber: t.tableNumber,
+        capacity: t.capacity,
+        qrToken: t.qrToken,
+        isActive: t.isActive,
+        createdAt: t.createdAt.toISOString(),
+      })),
+    };
   } catch (err) {
-    console.warn("DB get tables fallback:", (err as Error).message);
+    console.error("Database error in getAdminTablesAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const tableList: AdminTableData[] = Array.from(demoTablesStore.values())
-    .sort((a, b) => {
-      const numA = parseInt(a.tableNumber.replace(/\D/g, "") || "0", 10);
-      const numB = parseInt(b.tableNumber.replace(/\D/g, "") || "0", 10);
-      return numA - numB;
-    })
-    .map((t) => ({
-      id: t.id,
-      tableNumber: t.tableNumber,
-      capacity: t.capacity,
-      qrToken: t.qrToken,
-      isActive: t.isActive,
-      createdAt: t.createdAt.toISOString(),
-    }));
-
-  return { success: true, tables: tableList };
 }
 
 export async function createTableAction(
@@ -1148,55 +973,33 @@ export async function createTableAction(
       })
       .returning();
 
-    if (inserted) {
-      return {
-        success: true,
-        table: {
-          id: inserted.id,
-          tableNumber: inserted.tableNumber,
-          capacity: inserted.capacity,
-          qrToken: inserted.qrToken,
-          isActive: inserted.isActive,
-          createdAt: inserted.createdAt.toISOString(),
-        },
-      };
+    if (!inserted) {
+      return { success: false, error: "Failed to create table" };
     }
+
+    return {
+      success: true,
+      table: {
+        id: inserted.id,
+        tableNumber: inserted.tableNumber,
+        capacity: inserted.capacity,
+        qrToken: inserted.qrToken,
+        isActive: inserted.isActive,
+        createdAt: inserted.createdAt.toISOString(),
+      },
+    };
   } catch (err) {
-    console.warn("DB create table fallback:", (err as Error).message);
+    console.error("Database error in createTableAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  const id = `tbl-${Date.now().toString(36)}`;
-  const newTable: DemoTable = {
-    id,
-    restaurantId: session.restaurantId,
-    tableNumber,
-    capacity,
-    qrToken,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  demoTablesStore.set(id, newTable);
-
-  return {
-    success: true,
-    table: {
-      id,
-      tableNumber,
-      capacity,
-      qrToken,
-      isActive: true,
-      createdAt: newTable.createdAt.toISOString(),
-    },
-  };
 }
 
 export async function deleteTableAction(
   rawInput: DeleteTableInput
 ): Promise<{ success: boolean; error?: string }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1206,18 +1009,22 @@ export async function deleteTableAction(
     return { success: false, error: "Invalid table ID" };
   }
 
+  if (session.isDemo) {
+    return { success: false, error: "Demo manager accounts cannot delete tables." };
+  }
+
   const { id } = parsed.data;
 
   try {
-    await db.delete(tables).where(eq(tables.id, id));
+    await db
+      .update(tables)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(tables.id, id), eq(tables.restaurantId, session.restaurantId)));
     return { success: true };
   } catch (err) {
-    console.warn("DB delete table fallback:", (err as Error).message);
+    console.error("Database error in deleteTableAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  initializeDemoDataIfNeeded();
-  demoTablesStore.delete(id);
-  return { success: true };
 }
 
 // ============================================================================
@@ -1253,141 +1060,146 @@ export async function getAdminReportsAction(): Promise<{
   reports?: AdminReportsData;
   error?: string;
 }> {
+  let session: StaffSession;
   try {
-    await requireManagerAuth();
+    session = await requireManagerAuth();
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 
-  initializeDemoDataIfNeeded();
+  try {
+    const allDbOrders = await db.query.orders.findMany({
+      where: eq(orders.restaurantId, session.restaurantId),
+      with: {
+        items: true,
+        events: true,
+      },
+      orderBy: [desc(orders.createdAt)],
+    });
 
-  // Aggregate from demo/DB orders
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Collect all orders from demoOrdersStore
-  const allOrders = Array.from(demoOrdersStore.values());
-
-  // Filter orders for today (excluding cancelled for revenue)
-  const todayOrders = allOrders.filter(
-    (o) => new Date(o.createdAt).getTime() >= startOfToday.getTime()
-  );
-
-  const todayCompletedOrders = todayOrders.filter(
-    (o) => o.status !== "cancelled" && (o.paymentStatus === "paid" || o.paymentStatus === "counter")
-  );
-
-  const todayRevenuePaise = todayCompletedOrders.reduce(
-    (acc, o) => acc + o.totalPaise,
-    0
-  );
-  const todayOrderCount = todayOrders.length;
-  const todayAvgTicketPaise =
-    todayCompletedOrders.length > 0
-      ? Math.round(todayRevenuePaise / todayCompletedOrders.length)
-      : 0;
-
-  // Average prep time calculation:
-  // Measure minutes between order creation and 'ready' or 'served' event,
-  // or fallback to 16 min restaurant benchmark.
-  let totalPrepTimeMinutes = 0;
-  let prepOrderCount = 0;
-
-  todayOrders.forEach((o) => {
-    const readyEvent = o.events.find(
-      (e) => e.toStatus === "ready" || e.toStatus === "served"
+    const todayOrders = allDbOrders.filter(
+      (o) => new Date(o.createdAt).getTime() >= startOfToday.getTime()
     );
-    if (readyEvent) {
-      const diffMs =
-        new Date(readyEvent.createdAt).getTime() - new Date(o.createdAt).getTime();
-      const mins = Math.max(1, Math.round(diffMs / 60000));
-      totalPrepTimeMinutes += mins;
-      prepOrderCount++;
-    }
-  });
 
-  const avgPrepTimeMinutes =
-    prepOrderCount > 0 ? Math.round(totalPrepTimeMinutes / prepOrderCount) : 15;
+    const todayCompletedOrders = todayOrders.filter(
+      (o) => o.status !== "cancelled" && (o.paymentStatus === "paid" || o.paymentStatus === "counter")
+    );
 
-  // Top Items aggregated across all orders
-  const itemAggregation = new Map<
-    string,
-    { name: string; isVeg: boolean; count: number; revenuePaise: number }
-  >();
+    const todayRevenuePaise = todayCompletedOrders.reduce(
+      (acc, o) => acc + o.totalPaise,
+      0
+    );
+    const todayOrderCount = todayOrders.length;
+    const todayAvgTicketPaise =
+      todayCompletedOrders.length > 0
+        ? Math.round(todayRevenuePaise / todayCompletedOrders.length)
+        : 0;
 
-  allOrders.forEach((o) => {
-    if (o.status !== "cancelled") {
-      o.items.forEach((item) => {
-        const key = item.itemName;
-        const current = itemAggregation.get(key) ?? {
-          name: item.itemName,
-          isVeg: true,
-          count: 0,
-          revenuePaise: 0,
-        };
-        current.count += item.quantity;
-        current.revenuePaise += item.totalPaise;
-        itemAggregation.set(key, current);
+    let totalPrepTimeMinutes = 0;
+    let prepOrderCount = 0;
+
+    todayOrders.forEach((o) => {
+      const readyEvent = o.events.find(
+        (e) => e.toStatus === "ready" || e.toStatus === "served"
+      );
+      if (readyEvent) {
+        const diffMs =
+          new Date(readyEvent.createdAt).getTime() - new Date(o.createdAt).getTime();
+        const mins = Math.max(1, Math.round(diffMs / 60000));
+        totalPrepTimeMinutes += mins;
+        prepOrderCount++;
+      }
+    });
+
+    const avgPrepTimeMinutes =
+      prepOrderCount > 0 ? Math.round(totalPrepTimeMinutes / prepOrderCount) : 15;
+
+    // Top items across orders
+    const itemAggregation = new Map<
+      string,
+      { name: string; isVeg: boolean; count: number; revenuePaise: number }
+    >();
+
+    allDbOrders.forEach((o) => {
+      if (o.status !== "cancelled") {
+        o.items.forEach((item) => {
+          const key = item.itemName;
+          const current = itemAggregation.get(key) ?? {
+            name: item.itemName,
+            isVeg: true,
+            count: 0,
+            revenuePaise: 0,
+          };
+          current.count += item.quantity;
+          current.revenuePaise += item.totalPaise;
+          itemAggregation.set(key, current);
+        });
+      }
+    });
+
+    const topItems: TopSellingItem[] = Array.from(itemAggregation.entries())
+      .map(([, val], index) => ({
+        id: `top-${index + 1}`,
+        name: val.name,
+        isVeg: !val.name.toLowerCase().includes("chicken") &&
+          !val.name.toLowerCase().includes("murgh") &&
+          !val.name.toLowerCase().includes("gosht") &&
+          !val.name.toLowerCase().includes("fish") &&
+          !val.name.toLowerCase().includes("lamb"),
+        totalQuantity: val.count,
+        totalRevenuePaise: val.revenuePaise,
+      }))
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, 5);
+
+    // 7-day history (past 6 days + today)
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const sevenDayHistory: DayMetric[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(startOfToday.getTime() - i * 86400000);
+      const dayEnd = new Date(dayStart.getTime() + 86400000);
+
+      const dayOrders = allDbOrders.filter((o) => {
+        const t = new Date(o.createdAt).getTime();
+        return t >= dayStart.getTime() && t < dayEnd.getTime();
+      });
+
+      const dayRevenue = dayOrders
+        .filter(
+          (o) =>
+            o.status !== "cancelled" &&
+            (o.paymentStatus === "paid" || o.paymentStatus === "counter")
+        )
+        .reduce((sum, o) => sum + o.totalPaise, 0);
+
+      const dateStr = dayStart.toISOString().split("T")[0] ?? "";
+      const dayLabel = i === 0 ? "Today" : (dayNames[dayStart.getDay()] ?? "");
+
+      sevenDayHistory.push({
+        date: dateStr,
+        dayLabel,
+        revenuePaise: dayRevenue,
+        orderCount: dayOrders.length,
       });
     }
-  });
 
-  const topItems: TopSellingItem[] = Array.from(itemAggregation.entries())
-    .map(([, val], index) => ({
-      id: `top-${index + 1}`,
-      name: val.name,
-      isVeg: !val.name.toLowerCase().includes("chicken") &&
-        !val.name.toLowerCase().includes("murgh") &&
-        !val.name.toLowerCase().includes("gosht") &&
-        !val.name.toLowerCase().includes("fish") &&
-        !val.name.toLowerCase().includes("lamb"),
-      totalQuantity: val.count,
-      totalRevenuePaise: val.revenuePaise,
-    }))
-    .sort((a, b) => b.totalQuantity - a.totalQuantity)
-    .slice(0, 5);
-
-  // 7-day visual chart history (Past 6 days + Today)
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const sevenDayHistory: DayMetric[] = [];
-
-  for (let i = 6; i >= 0; i--) {
-    const dayStart = new Date(startOfToday.getTime() - i * 86400000);
-    const dayEnd = new Date(dayStart.getTime() + 86400000);
-
-    const dayOrders = allOrders.filter((o) => {
-      const t = new Date(o.createdAt).getTime();
-      return t >= dayStart.getTime() && t < dayEnd.getTime();
-    });
-
-    const dayRevenue = dayOrders
-      .filter(
-        (o) =>
-          o.status !== "cancelled" &&
-          (o.paymentStatus === "paid" || o.paymentStatus === "counter")
-      )
-      .reduce((sum, o) => sum + o.totalPaise, 0);
-
-    const dateStr = dayStart.toISOString().split("T")[0] ?? "";
-    const dayLabel = i === 0 ? "Today" : (dayNames[dayStart.getDay()] ?? "");
-
-    sevenDayHistory.push({
-      date: dateStr,
-      dayLabel,
-      revenuePaise: dayRevenue,
-      orderCount: dayOrders.length,
-    });
+    return {
+      success: true,
+      reports: {
+        todayRevenuePaise,
+        todayOrderCount,
+        todayAvgTicketPaise,
+        avgPrepTimeMinutes,
+        topItems,
+        sevenDayHistory,
+      },
+    };
+  } catch (err) {
+    console.error("Database error in getAdminReportsAction:", err);
+    return { success: false, error: "Service temporarily unavailable" };
   }
-
-  return {
-    success: true,
-    reports: {
-      todayRevenuePaise,
-      todayOrderCount,
-      todayAvgTicketPaise,
-      avgPrepTimeMinutes,
-      topItems,
-      sevenDayHistory,
-    },
-  };
 }

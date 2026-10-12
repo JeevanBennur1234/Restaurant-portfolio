@@ -10,11 +10,20 @@ export const orderItemInputSchema = z.object({
   selectedModifierIds: z.array(z.string().trim()).default([]),
 });
 
+export const INDIAN_PHONE_REGEX = /^(?:(?:\+?91|0)?[6-9]\d{9})$/;
+
 export const placeOrderInputSchema = z.object({
   token: z.string().trim().min(1, "Table token is required"),
   items: z
     .array(orderItemInputSchema)
-    .min(1, "At least one item is required in the order"),
+    .min(1, "At least one item is required in the order")
+    .max(30, "Order cannot contain more than 30 items")
+    .refine(
+      (items) => items.reduce((sum, item) => sum + item.quantity, 0) <= 30,
+      {
+        message: "Order cannot contain more than 30 total items",
+      }
+    ),
   paymentMethod: z.enum(["pay_now", "counter"]).default("pay_now"),
   notes: z
     .string()
@@ -23,7 +32,22 @@ export const placeOrderInputSchema = z.object({
     .optional()
     .nullable(),
   customerName: z.string().trim().max(100).optional().nullable(),
-  customerPhone: z.string().trim().max(20).optional().nullable(),
+  customerPhone: z
+    .string()
+    .trim()
+    .refine(
+      (val) => {
+        if (!val || val.length === 0) return true;
+        const cleaned = val.replace(/[\s-]/g, "");
+        return INDIAN_PHONE_REGEX.test(cleaned);
+      },
+      {
+        message:
+          "Please enter a valid 10-digit Indian phone number (e.g., 9876543210 or +91 98765 43210)",
+      }
+    )
+    .optional()
+    .nullable(),
 });
 
 export const createRazorpayOrderSchema = z.object({
@@ -55,3 +79,12 @@ export const orderStatusParamSchema = z.object({
   orderId: z.string().trim().min(1, "Order ID is required"),
   token: z.string().trim().min(1, "Table token is required"),
 });
+
+export const confirmSimulatedPaymentSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required"),
+  token: z.string().trim().min(1, "Table token is required"),
+});
+
+export type ConfirmSimulatedPaymentInput = z.infer<
+  typeof confirmSimulatedPaymentSchema
+>;

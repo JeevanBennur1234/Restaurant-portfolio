@@ -17,9 +17,14 @@ import { Utensils, Flame, Sparkles } from "lucide-react";
 export interface KitchenBoardProps {
   initialTickets: KitchenTicket[];
   session: StaffSession;
+  realtimeChannel: string;
 }
 
-export function KitchenBoard({ initialTickets, session }: KitchenBoardProps) {
+export function KitchenBoard({
+  initialTickets,
+  session,
+  realtimeChannel,
+}: KitchenBoardProps) {
   const [tickets, setTickets] = React.useState<KitchenTicket[]>(initialTickets);
   const [highlightedIds, setHighlightedIds] = React.useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = React.useState(false);
@@ -45,58 +50,70 @@ export function KitchenBoard({ initialTickets, session }: KitchenBoardProps) {
     }, 6000);
   }, []);
 
-  // 1. Supabase Realtime WebSocket subscription
-  React.useEffect(() => {
+  // Supabase client instantiated once per component
+  const supabase = React.useMemo(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    let channel: RealtimeChannel | null = null;
-
     if (
       supabaseUrl &&
       supabaseAnonKey &&
       !supabaseUrl.includes("placeholder") &&
       !supabaseAnonKey.includes("placeholder")
     ) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        channel = supabase
-          .channel(`restaurant:${session.restaurantId}`)
-          .on("broadcast", { event: "order.created" }, (payload) => {
-            const orderId = payload.payload?.orderId as string | undefined;
-            if (orderId) {
-              triggerNewOrderAlert(orderId);
+      return createClient(supabaseUrl, supabaseAnonKey);
+    }
+    return null;
+  }, []);
+
+  // 1. Supabase Realtime WebSocket subscription
+  React.useEffect(() => {
+    if (!supabase || !realtimeChannel) return;
+
+    let channel: RealtimeChannel | null = null;
+
+    try {
+      channel = supabase
+        .channel(realtimeChannel)
+        .on("broadcast", { event: "order.created" }, (payload) => {
+          const orderId = payload.payload?.orderId as string | undefined;
+          if (orderId) {
+            triggerNewOrderAlert(orderId);
+          }
+          // Refresh tickets via authenticated action
+          getKitchenTicketsAction().then((res) => {
+            if (res.success && res.tickets) {
+              setTickets(res.tickets);
             }
-            // Refresh tickets
-            getKitchenTicketsAction().then((res) => {
-              if (res.success && res.tickets) {
-                setTickets(res.tickets);
-              }
-            });
-          })
-          .on("broadcast", { event: "order.status_changed" }, (payload) => {
-            const orderId = payload.payload?.orderId as string | undefined;
-            const toStatus = payload.payload?.toStatus as OrderStatus | undefined;
-            if (orderId && toStatus) {
-              setTickets((prev) =>
-                prev
-                  .map((t) => (t.id === orderId ? { ...t, status: toStatus } : t))
-                  .filter((t) => t.status !== "served" && t.status !== "cancelled")
-              );
+          });
+        })
+        .on("broadcast", { event: "order.status_changed" }, (payload) => {
+          const orderId = payload.payload?.orderId as string | undefined;
+          const toStatus = payload.payload?.toStatus as OrderStatus | undefined;
+          if (orderId && toStatus) {
+            setTickets((prev) =>
+              prev
+                .map((t) => (t.id === orderId ? { ...t, status: toStatus } : t))
+                .filter((t) => t.status !== "served" && t.status !== "cancelled")
+            );
+          }
+          // Re-fetch via authenticated action as event is a hint
+          getKitchenTicketsAction().then((res) => {
+            if (res.success && res.tickets) {
+              setTickets(res.tickets);
             }
-          })
-          .subscribe();
-      } catch (err) {
-        console.warn("Kitchen Supabase Realtime subscription error:", err);
-      }
+          });
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn("Kitchen Supabase Realtime subscription error:", err);
     }
 
     return () => {
       if (channel) {
-        channel.unsubscribe();
+        supabase.removeChannel(channel);
       }
     };
-  }, [session.restaurantId, triggerNewOrderAlert]);
+  }, [supabase, realtimeChannel, triggerNewOrderAlert]);
 
   // 2. 5-Second Polling Fallback
   React.useEffect(() => {

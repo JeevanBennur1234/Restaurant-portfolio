@@ -1,6 +1,6 @@
 import { getStaffSession } from "@/server/auth";
+import { getRestaurantChannel } from "@/server/realtime";
 import { AdminDashboard, AdminLogin } from "@/components/admin";
-
 
 export const metadata = {
   title: "Admin Management · Masala Lane",
@@ -15,5 +15,7 @@ export default async function AdminPage() {
     return <AdminLogin />;
   }
 
-  return <AdminDashboard session={session} />;
+  const realtimeChannel = getRestaurantChannel(session.restaurantId);
+
+  return <AdminDashboard session={session} realtimeChannel={realtimeChannel} />;
 }

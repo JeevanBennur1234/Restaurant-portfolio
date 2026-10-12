@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { formatPaiseToINR } from "@/lib/currency";
 import {
   getOrderDetailsAction,
-  advanceOrderStatusAction,
   createRazorpayOrderAction,
   verifyRazorpayPaymentAction,
+  confirmSimulatedPaymentAction,
   switchOrderToCounterAction,
   type OrderDetails,
 } from "@/server/actions/order";
+import { simulateKitchenStepAction } from "@/server/actions/demo";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 import {
@@ -34,6 +35,7 @@ import type { OrderStatus } from "@/server/db/schema";
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
   token: string;
+  isDemoMode?: boolean;
 }
 
 const statusHeadlines: Record<
@@ -72,7 +74,11 @@ const statusHeadlines: Record<
   },
 };
 
-export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps) {
+export function OrderLiveTracker({
+  initialOrder,
+  token,
+  isDemoMode = false,
+}: OrderLiveTrackerProps) {
   const [order, setOrder] = React.useState<OrderDetails>(initialOrder);
   const [isAdvancing, setIsAdvancing] = React.useState(false);
   const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
@@ -81,70 +87,79 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
   const [isPaying, setIsPaying] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
-  // 1. Setup Supabase Realtime WebSocket listener
-  React.useEffect(() => {
+  const refreshOrder = React.useCallback(async () => {
+    try {
+      const res = await getOrderDetailsAction(order.id, token);
+      if (res.success && res.order) {
+        setOrder(res.order);
+        setLastRefreshed(new Date());
+      }
+    } catch {
+      // Silent fail on network hiccup
+    }
+  }, [order.id, token]);
+
+  // Supabase client instantiated once per component
+  const supabase = React.useMemo(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    let channel: RealtimeChannel | null = null;
-
     if (
       supabaseUrl &&
       supabaseAnonKey &&
       !supabaseUrl.includes("placeholder") &&
       !supabaseAnonKey.includes("placeholder")
     ) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        channel = supabase
-          .channel(`order:${order.id}`)
-          .on("broadcast", { event: "order.status_changed" }, (payload) => {
-            const newStatus = payload.payload?.status as OrderStatus | undefined;
-            if (newStatus) {
-              setOrder((prev) => ({ ...prev, status: newStatus }));
-              setLastRefreshed(new Date());
-            }
-          })
-          .on("broadcast", { event: "order.paid" }, () => {
-            setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
+      return createClient(supabaseUrl, supabaseAnonKey);
+    }
+    return null;
+  }, []);
+
+  // 1. Setup Supabase Realtime WebSocket listener
+  React.useEffect(() => {
+    if (!supabase || !order.id) return;
+
+    let channel: RealtimeChannel | null = null;
+
+    try {
+      channel = supabase
+        .channel(`order:${order.id}`)
+        .on("broadcast", { event: "order.status_changed" }, (payload) => {
+          const newStatus = payload.payload?.status as OrderStatus | undefined;
+          if (newStatus) {
+            setOrder((prev) => ({ ...prev, status: newStatus }));
             setLastRefreshed(new Date());
-          })
-          .on("broadcast", { event: "order.updated" }, (payload) => {
-            const update = payload.payload as Partial<OrderDetails> | undefined;
-            if (update) {
-              setOrder((prev) => ({ ...prev, ...update }));
-              setLastRefreshed(new Date());
-            }
-          })
-          .subscribe();
-      } catch (err) {
-        console.warn("Supabase Realtime subscription error:", err);
-      }
+          }
+          // Treat event as hint and re-fetch via authenticated action
+          refreshOrder();
+        })
+        .on("broadcast", { event: "order.paid" }, () => {
+          setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
+          setLastRefreshed(new Date());
+          refreshOrder();
+        })
+        .on("broadcast", { event: "order.updated" }, () => {
+          refreshOrder();
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn("Supabase Realtime subscription error:", err);
     }
 
     return () => {
       if (channel) {
-        channel.unsubscribe();
+        supabase.removeChannel(channel);
       }
     };
-  }, [order.id]);
+  }, [supabase, order.id, refreshOrder]);
 
   // 2. Setup 5-Second Polling Fallback
   React.useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await getOrderDetailsAction(order.id, token);
-        if (res.success && res.order) {
-          setOrder(res.order);
-          setLastRefreshed(new Date());
-        }
-      } catch {
-        // Silent fail on network hiccup during background polling
-      }
+    const interval = setInterval(() => {
+      refreshOrder();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [order.id, token]);
+  }, [refreshOrder]);
 
   const currentHeadline = statusHeadlines[order.status] ?? statusHeadlines.placed;
 
@@ -161,7 +176,7 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
     if (!nextStatus || isAdvancing) return;
     setIsAdvancing(true);
     try {
-      const res = await advanceOrderStatusAction(order.id, nextStatus);
+      const res = await simulateKitchenStepAction(order.id, token);
       if (res.success && res.newStatus) {
         setOrder((prev) => ({ ...prev, status: res.newStatus! }));
       }
@@ -181,8 +196,29 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
         token,
       });
 
-      if (!rzpRes.success || !rzpRes.razorpayOrderId) {
+      if (!rzpRes.success) {
         setPaymentError(rzpRes.error ?? "Failed to initialize payment gateway");
+        setIsPaying(false);
+        return;
+      }
+
+      if (rzpRes.simulated) {
+        const confirmRes = await confirmSimulatedPaymentAction({
+          orderId: order.id,
+          token,
+        });
+
+        if (confirmRes.success) {
+          setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
+        } else {
+          setPaymentError(confirmRes.error ?? "Payment confirmation failed");
+        }
+        setIsPaying(false);
+        return;
+      }
+
+      if (!rzpRes.razorpayOrderId) {
+        setPaymentError("Failed to retrieve payment order ID");
         setIsPaying(false);
         return;
       }
@@ -190,20 +226,9 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
       const isLoaded = await loadRazorpayScript();
 
       if (!isLoaded || !window.Razorpay) {
-        // Simulated test payment in dev
-        const verifyRes = await verifyRazorpayPaymentAction({
-          orderId: order.id,
-          token,
-          razorpayOrderId: rzpRes.razorpayOrderId,
-          razorpayPaymentId: `pay_test_${Date.now().toString(36)}`,
-          razorpaySignature: "simulated_test_signature",
-        });
-
-        if (verifyRes.success) {
-          setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
-        } else {
-          setPaymentError(verifyRes.error ?? "Payment verification failed");
-        }
+        setPaymentError(
+          "Could not load payment gateway. Please retry or switch to Pay at counter."
+        );
         setIsPaying(false);
         return;
       }
@@ -397,7 +422,7 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
       </Card>
 
       {/* Demo Simulation Advance Pill */}
-      {nextStatus && (
+      {isDemoMode && nextStatus && (
         <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--primary)] bg-[var(--primary-subtle)]/30 p-3 flex items-center justify-between">
           <div className="text-xs">
             <span className="font-bold text-[var(--primary)]">Demo Preview: </span>

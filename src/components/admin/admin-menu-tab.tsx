@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import {
   Plus,
   Edit2,
@@ -590,6 +591,17 @@ export function AdminMenuTab() {
                     {/* Item Name & Veg status */}
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
+                        {item.imageUrl && (
+                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                            <Image
+                              src={item.imageUrl}
+                              alt={item.name}
+                              width={32}
+                              height={32}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        )}
                         <div
                           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
                             item.isVeg
@@ -908,6 +920,17 @@ export function AdminMenuTab() {
                   Item Photo (Upload or URL)
                 </label>
                 <div className="flex items-center gap-2">
+                  {itemImageUrl && (
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                      <Image
+                        src={itemImageUrl}
+                        alt="Preview"
+                        width={36}
+                        height={36}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
                   <input
                     type="text"
                     value={itemImageUrl}

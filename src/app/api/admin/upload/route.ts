@@ -1,17 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
 import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 import { getStaffSession } from "@/server/auth";
-
-const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-]);
+import { env } from "@/server/env";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+export interface DetectedImage {
+  ext: "jpg" | "png" | "webp";
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+}
+
+/**
+ * Validates real file type from magic bytes:
+ * - JPEG: FF D8 FF
+ * - PNG: 89 50 4E 47
+ * - WebP: RIFF....WEBP (RIFF at 0..3, WEBP at 8..11)
+ */
+export function detectImageMagicBytes(buffer: Buffer): DetectedImage | null {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return { ext: "jpg", contentType: "image/jpeg" };
+  }
+
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return { ext: "png", contentType: "image/png" };
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.toString("latin1", 0, 4) === "RIFF" &&
+    buffer.toString("latin1", 8, 12) === "WEBP"
+  ) {
+    return { ext: "webp", contentType: "image/webp" };
+  }
+
+  return null;
+}
+
+/**
+ * Resizes image to max 1600px dimension if sharp is available, otherwise returns buffer as-is.
+ */
+export async function resizeImageIfNeeded(buffer: Buffer): Promise<Buffer> {
+  try {
+    const sharp = (await import("sharp")).default;
+    return await sharp(buffer)
+      .resize(1600, 1600, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .toBuffer();
+  } catch {
+    return buffer;
+  }
+}
 
 export async function POST(request: NextRequest) {
   // 1. Role Guard: Manager or Admin only
@@ -20,6 +72,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { success: false, error: "Unauthorized: Manager session required" },
       { status: 401 }
+    );
+  }
+
+  if (session.isDemo) {
+    return NextResponse.json(
+      { success: false, error: "Demo accounts cannot upload images." },
+      { status: 403 }
+    );
+  }
+
+  // 2. Storage credentials check
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey =
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (
+    !supabaseUrl ||
+    !serviceKey ||
+    supabaseUrl.includes("placeholder") ||
+    serviceKey.includes("placeholder")
+  ) {
+    return NextResponse.json(
+      { success: false, error: "Storage service is not configured" },
+      { status: 500 }
     );
   }
 
@@ -34,16 +111,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid file type. Only JPEG, PNG, and WebP are supported.",
-        },
-        { status: 400 }
-      );
-    }
-
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
@@ -54,35 +121,89 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const rawBuffer = Buffer.from(await file.arrayBuffer());
 
-    // Determine extension
-    let ext = "jpg";
-    if (file.type === "image/png") ext = "png";
-    if (file.type === "image/webp") ext = "webp";
-
-    const fileName = `item-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
-
-    try {
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      await fs.mkdir(uploadsDir, { recursive: true });
-      const filePath = path.join(uploadsDir, fileName);
-      await fs.writeFile(filePath, buffer);
-
-      return NextResponse.json({
-        success: true,
-        url: `/uploads/${fileName}`,
-      });
-    } catch (fsErr) {
-      console.warn("Local filesystem write failed, using data URL fallback:", (fsErr as Error).message);
-      // Data URL fallback ensures reliable previews across all environments
-      const dataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
-      return NextResponse.json({
-        success: true,
-        url: dataUrl,
-      });
+    // 3. Validate real file type via magic bytes (not trusting file.type header)
+    const detected = detectImageMagicBytes(rawBuffer);
+    if (!detected) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid file format. Only JPEG, PNG, and WebP images are supported.",
+        },
+        { status: 400 }
+      );
     }
+
+    // 4. Resize to max 1600px if sharp available
+    const processedBuffer = await resizeImageIfNeeded(rawBuffer);
+
+    // 5. Generate collision-safe server filename (uuid + extension from detected type)
+    const fileName = `${crypto.randomUUID()}.${detected.ext}`;
+
+    // 6. Upload directly to Supabase Storage "menu-images" bucket using service role key
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const { error: uploadError } = await supabase.storage
+      .from("menu-images")
+      .upload(fileName, processedBuffer, {
+        contentType: detected.contentType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      // If bucket does not exist, try creating it once and retry upload
+      const isBucketMissing =
+        uploadError.message?.toLowerCase().includes("not found") ||
+        (uploadError as unknown as { statusCode?: string }).statusCode === "404";
+
+      if (isBucketMissing) {
+        const { error: createBucketError } = await supabase.storage.createBucket(
+          "menu-images",
+          { public: true }
+        );
+
+        if (!createBucketError) {
+          const { error: retryError } = await supabase.storage
+            .from("menu-images")
+            .upload(fileName, processedBuffer, {
+              contentType: detected.contentType,
+              upsert: false,
+            });
+
+          if (retryError) {
+            console.error("Storage upload retry failed:", retryError);
+            return NextResponse.json(
+              { success: false, error: retryError.message || "Failed to upload image" },
+              { status: 500 }
+            );
+          }
+        } else {
+          console.error("Failed to create menu-images bucket:", createBucketError);
+          return NextResponse.json(
+            { success: false, error: uploadError.message || "Storage bucket unavailable" },
+            { status: 500 }
+          );
+        }
+      } else {
+        console.error("Storage upload failed:", uploadError);
+        return NextResponse.json(
+          { success: false, error: uploadError.message || "Failed to upload image" },
+          { status: 500 }
+        );
+      }
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("menu-images")
+      .getPublicUrl(fileName);
+
+    return NextResponse.json({
+      success: true,
+      url: urlData.publicUrl,
+    });
   } catch (error) {
+    console.error("Upload handler error:", error);
     return NextResponse.json(
       {
         success: false,

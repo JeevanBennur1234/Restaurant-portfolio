@@ -1,20 +1,12 @@
-import * as dotenv from "dotenv";
 import * as crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import * as schema from "./schema";
+import { env } from "@/server/env";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
-
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  console.error("❌ DATABASE_URL is not set. Please configure .env.local or .env");
-  process.exit(1);
-}
+const connectionString = env.DATABASE_URL;
 
 const pool = new Pool({ connectionString });
 const db = drizzle(pool, { schema });
@@ -34,9 +26,22 @@ async function seed() {
     console.log(`ℹ️ Restaurant '${existingRestaurant.name}' already exists (ID: ${existingRestaurant.id}).`);
     restaurantId = existingRestaurant.id;
 
-    // Clean up existing child records for fresh seed state
+    // Clean up existing child records in reverse foreign-key order
     console.log("🧹 Cleaning previous seed records for Masala Lane...");
+    const existingOrders = await db.query.orders.findMany({
+      where: eq(schema.orders.restaurantId, restaurantId),
+      columns: { id: true },
+    });
+    if (existingOrders.length > 0) {
+      const orderIds = existingOrders.map((o) => o.id);
+      await db.delete(schema.orderEvents).where(inArray(schema.orderEvents.orderId, orderIds));
+      await db.delete(schema.orderItems).where(inArray(schema.orderItems.orderId, orderIds));
+      await db.delete(schema.payments).where(inArray(schema.payments.orderId, orderIds));
+      await db.delete(schema.orders).where(eq(schema.orders.restaurantId, restaurantId));
+    }
+    await db.delete(schema.orderCounters).where(eq(schema.orderCounters.restaurantId, restaurantId));
     await db.delete(schema.tables).where(eq(schema.tables.restaurantId, restaurantId));
+    await db.delete(schema.menuItems).where(eq(schema.menuItems.restaurantId, restaurantId));
     await db.delete(schema.categories).where(eq(schema.categories.restaurantId, restaurantId));
     await db.delete(schema.staffUsers).where(eq(schema.staffUsers.restaurantId, restaurantId));
   } else {
@@ -54,12 +59,16 @@ async function seed() {
     console.log(`✅ Created Restaurant: Masala Lane (ID: ${restaurantId})`);
   }
 
-  // 2. Insert 12 Tables with random unguessable QR tokens
-  console.log("🍽️ Generating 12 tables with cryptographically unguessable QR tokens...");
+  // 2. Insert 12 Tables (Table 7 gets fixed token 'demo-table-7' if DEMO_MODE === 'true')
+  console.log("🍽️ Generating 12 tables...");
+  const isDemoMode = env.DEMO_MODE === "true";
   const tableValues = Array.from({ length: 12 }, (_, i) => {
     const tableNum = i + 1;
-    // Unguessable 32-character random hex token
-    const qrToken = crypto.randomBytes(16).toString("hex");
+    // When DEMO_MODE === "true", seed Table 7 with fixed token "demo-table-7" so demo launcher links work
+    const qrToken =
+      isDemoMode && tableNum === 7
+        ? "demo-table-7"
+        : crypto.randomBytes(16).toString("hex");
     const capacity = tableNum <= 4 ? 2 : tableNum <= 10 ? 4 : 6;
 
     return {
@@ -473,8 +482,25 @@ async function seed() {
   // 5. Insert Two Staff Users (kitchen, manager) with Hashed Passwords
   console.log("👥 Creating 2 staff users (kitchen, manager) with bcrypt hashed passwords...");
 
-  const kitchenPasswordHash = bcrypt.hashSync("kitchen123", 10);
-  const managerPasswordHash = bcrypt.hashSync("manager123", 10);
+  let kitchenPassword = env.SEED_KITCHEN_PASSWORD;
+  let managerPassword = env.SEED_MANAGER_PASSWORD;
+
+  if (isDemoMode) {
+    kitchenPassword = kitchenPassword || "kitchen123";
+    managerPassword = managerPassword || "manager123";
+  } else {
+    if (!kitchenPassword) {
+      kitchenPassword = crypto.randomBytes(12).toString("base64url");
+      console.log(`🔑 Generated Kitchen Staff Password: ${kitchenPassword}`);
+    }
+    if (!managerPassword) {
+      managerPassword = crypto.randomBytes(12).toString("base64url");
+      console.log(`🔑 Generated Manager Staff Password: ${managerPassword}`);
+    }
+  }
+
+  const kitchenPasswordHash = await bcrypt.hash(kitchenPassword, 10);
+  const managerPasswordHash = await bcrypt.hash(managerPassword, 10);
 
   const staff = [
     {
@@ -484,6 +510,8 @@ async function seed() {
       passwordHash: kitchenPasswordHash,
       role: "kitchen" as const,
       isActive: true,
+      isDemo: isDemoMode,
+      sessionVersion: 1,
     },
     {
       restaurantId,
@@ -492,13 +520,19 @@ async function seed() {
       passwordHash: managerPasswordHash,
       role: "manager" as const,
       isActive: true,
+      isDemo: isDemoMode,
+      sessionVersion: 1,
     },
   ];
 
   for (const user of staff) {
     await db.insert(schema.staffUsers).values(user);
   }
-  console.log("✅ Inserted staff users: 'kitchen' (pw: kitchen123) and 'manager' (pw: manager123).");
+  console.log(
+    isDemoMode
+      ? "✅ Inserted staff users: 'kitchen' (pw: kitchen123) and 'manager' (pw: manager123)."
+      : "✅ Inserted staff users: 'kitchen' and 'manager'."
+  );
 
   console.log("\n🎉 Seed completed successfully!");
   console.log(`Summary:

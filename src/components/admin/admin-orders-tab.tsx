@@ -28,9 +28,10 @@ import type { OrderStatus } from "@/server/db/schema";
 
 interface AdminOrdersTabProps {
   onOrderUpdate?: () => void;
+  refreshKey?: number;
 }
 
-export function AdminOrdersTab({ onOrderUpdate }: AdminOrdersTabProps) {
+export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProps) {
   // Filters & Pagination State
   const [page, setPage] = React.useState(1);
   const pageSize = 10;
@@ -108,6 +109,28 @@ export function AdminOrdersTab({ onOrderUpdate }: AdminOrdersTabProps) {
     return () => {
       isMounted = false;
     };
+  }, [page, pageSize, statusFilter, paymentFilter, searchQuery, refreshKey]);
+
+  // 5-Second Polling Fallback
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      getAdminOrdersAction({
+        page,
+        pageSize,
+        status: statusFilter as "all" | OrderStatus,
+        paymentStatus: paymentFilter as "all" | "pending" | "paid" | "counter" | "failed",
+        search: searchQuery.trim() || undefined,
+      }).then((res) => {
+        if (res.success && res.orders) {
+          setOrders(res.orders);
+          if (res.pagination) {
+            setTotalPages(res.pagination.totalPages);
+            setTotalCount(res.pagination.totalCount);
+          }
+        }
+      });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [page, pageSize, statusFilter, paymentFilter, searchQuery]);
 
   const handleConfirmCancel = async (e: React.FormEvent) => {
