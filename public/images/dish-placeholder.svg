@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="dishGlow" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#78350F" stop-opacity="0.85" />
+      <stop offset="30%" stop-color="#451A03" stop-opacity="0.9" />
+      <stop offset="75%" stop-color="#2E2723" stop-opacity="1" />
+      <stop offset="100%" stop-color="#1A1513" stop-opacity="1" />
+    </radialGradient>
+    <radialGradient id="dishSpiceGlow" cx="55%" cy="40%" r="40%">
+      <stop offset="0%" stop-color="#D97706" stop-opacity="0.45" />
+      <stop offset="60%" stop-color="#9A3412" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#2E2723" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="cardVignette" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.15" />
+      <stop offset="70%" stop-color="#000000" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#1A1513" stop-opacity="0.75" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="900" fill="#1A1513" />
+  <rect width="1200" height="900" fill="url(#dishGlow)" />
+  <circle cx="650" cy="400" r="320" fill="url(#dishSpiceGlow)" />
+
+  <!-- Tasteful Cloche & Sigdi Geometry Motif -->
+  <g stroke="#FAF7F2" stroke-opacity="0.08" stroke-width="1.5" fill="none">
+    <circle cx="600" cy="450" r="180" />
+    <circle cx="600" cy="450" r="260" stroke-dasharray="6 10" />
+    <!-- Subtle Serving Cloche Silhouette -->
+    <path d="M 460 480 A 140 140 0 0 1 740 480 Z" stroke-opacity="0.12" stroke-width="2" />
+    <line x1="440" y1="486" x2="760" y2="486" stroke-opacity="0.15" stroke-width="2" />
+    <circle cx="600" cy="336" r="8" fill="#D97706" fill-opacity="0.4" />
+  </g>
+
+  <rect width="1200" height="900" fill="url(#cardVignette)" />
+
+  <g text-anchor="middle" font-family="'Playfair Display', Georgia, serif">
+    <text x="600" y="550" font-size="14" letter-spacing="6" fill="#D97706" font-family="system-ui, sans-serif" font-weight="600" text-transform="uppercase">
+      MASALA LANE
+    </text>
+    <text x="600" y="595" font-size="34" font-weight="700" fill="#FAF7F2" fill-opacity="0.9" letter-spacing="1">
+      Artisanal Regional Craft
+    </text>
+    <text x="600" y="630" font-size="13" letter-spacing="3" fill="#FAF7F2" fill-opacity="0.5" font-family="system-ui, sans-serif" font-weight="500" text-transform="uppercase">
+      Freshly Prepared to Order
+    </text>
+  </g>
+</svg>

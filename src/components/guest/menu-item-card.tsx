@@ -17,6 +17,7 @@ export interface MenuItemCardProps {
 export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
   const hasModifiers = item.modifiers.length > 0;
+  const [imageError, setImageError] = React.useState(false);
 
   return (
     <article
@@ -95,13 +96,14 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
       {/* Right Visual Image / Placeholder */}
       <div className="relative flex flex-col items-center justify-between w-24 h-24 sm:w-28 sm:h-28 shrink-0">
         <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-md)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
-          {item.imageUrl ? (
+          {item.imageUrl && !imageError ? (
             <Image
               src={item.imageUrl}
               alt={item.name}
               width={112}
               height={112}
               className="h-full w-full object-cover"
+              onError={() => setImageError(true)}
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-[var(--text-muted)]">

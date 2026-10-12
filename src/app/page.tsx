@@ -1,11 +1,24 @@
 import Link from "next/link";
 import Image from "next/image";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { ArrowRight, Sparkles, ChefHat, Smartphone, Flame, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SmoothScroll } from "@/components/ui/smooth-scroll";
 import { Reveal } from "@/components/ui/reveal";
 
 export default function HomePage() {
+  const root = process.cwd();
+  const hasHeroVideo = fs.existsSync(path.resolve(root, "public/media/hero.mp4"));
+  const hasHeroPhoto = fs.existsSync(path.resolve(root, "public/images/hero.jpg"));
+  const hasHeroPoster = fs.existsSync(path.resolve(root, "public/media/hero-poster.jpg"));
+  const hasStoryPhoto = fs.existsSync(path.resolve(root, "public/images/story.jpg"));
+
+  const hasDalMakhani = fs.existsSync(path.resolve(root, "public/images/dishes/dal-makhani.jpg"));
+  const hasButterChicken = fs.existsSync(path.resolve(root, "public/images/dishes/butter-chicken.jpg"));
+  const hasBiryani = fs.existsSync(path.resolve(root, "public/images/dishes/gosht-dum-biryani.jpg"));
+  const hasTruffleNaan = fs.existsSync(path.resolve(root, "public/images/dishes/truffle-cheddar-naan.jpg"));
+
   return (
     <SmoothScroll>
       <div className="flex flex-col min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
@@ -47,16 +60,38 @@ export default function HomePage() {
 
         {/* 00 / HERO SECTION (Full-bleed Warm Food Photography with WCAG AA Dark Overlay) */}
         <section className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center overflow-hidden px-4 sm:px-8 py-24 sm:py-32">
-          {/* Full-bleed Background Photography */}
+          {/* Full-bleed Background Photography or Video */}
           <div className="absolute inset-0 z-0">
-            <Image
-              src="https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=2000&q=85"
-              alt="Warm Indian feast featuring tandoor rotis, slow-simmered gravies, and aromatic spices"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center filter brightness-[0.88] saturate-[1.1]"
-            />
+            {hasHeroVideo ? (
+              <video
+                src="/media/hero.mp4"
+                poster={hasHeroPoster ? "/media/hero-poster.jpg" : "/media/hero-poster.svg"}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="h-full w-full object-cover object-center filter brightness-[0.88] saturate-[1.1]"
+              />
+            ) : hasHeroPhoto ? (
+              <Image
+                src="/images/hero.jpg"
+                alt="Warm Indian feast featuring tandoor rotis, slow-simmered gravies, and aromatic spices"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-center filter brightness-[0.88] saturate-[1.1]"
+              />
+            ) : (
+              <Image
+                src="/images/hero-placeholder.svg"
+                alt="Warm Indian feast featuring tandoor rotis, slow-simmered gravies, and aromatic spices"
+                fill
+                priority
+                sizes="100vw"
+                unoptimized
+                className="object-cover object-center filter brightness-[0.88] saturate-[1.1]"
+              />
+            )}
             {/* Deep Ember Gradient Overlay for Flawless WCAG AA Text Contrast */}
             <div className="absolute inset-0 overlay-hero z-10" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#2E2723] via-[#2E2723]/60 to-transparent z-10" />
@@ -193,10 +228,11 @@ export default function HomePage() {
             <Reveal delay={0.2} className="lg:col-span-6">
               <div className="relative aspect-[4/3] rounded-[var(--radius-xl)] overflow-hidden shadow-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
                 <Image
-                  src="https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=1200&q=85"
+                  src={hasStoryPhoto ? "/images/story.jpg" : "/images/story-placeholder.svg"}
                   alt="Slow simmered rich butter gravy with fresh cream swirl and fenugreek"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
+                  unoptimized={!hasStoryPhoto}
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -241,10 +277,11 @@ export default function HomePage() {
                 <article className="group flex flex-col rounded-[var(--radius-lg)] overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-all">
                   <div className="relative aspect-[4/3] w-full bg-[var(--bg-subtle)] overflow-hidden">
                     <Image
-                      src="https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80"
+                      src={hasDalMakhani ? "/images/dishes/dal-makhani.jpg" : "/images/dish-placeholder.svg"}
                       alt="24-Hour Old Delhi Dal Makhani"
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized={!hasDalMakhani}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3">
@@ -283,10 +320,11 @@ export default function HomePage() {
                 <article className="group flex flex-col rounded-[var(--radius-lg)] overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-all">
                   <div className="relative aspect-[4/3] w-full bg-[var(--bg-subtle)] overflow-hidden">
                     <Image
-                      src="https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=800&q=80"
+                      src={hasButterChicken ? "/images/dishes/butter-chicken.jpg" : "/images/dish-placeholder.svg"}
                       alt="Smoked Burrata Butter Chicken"
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized={!hasButterChicken}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3">
@@ -325,10 +363,11 @@ export default function HomePage() {
                 <article className="group flex flex-col rounded-[var(--radius-lg)] overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-all">
                   <div className="relative aspect-[4/3] w-full bg-[var(--bg-subtle)] overflow-hidden">
                     <Image
-                      src="https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
+                      src={hasBiryani ? "/images/dishes/gosht-dum-biryani.jpg" : "/images/dish-placeholder.svg"}
                       alt="Dum Pukht Awadhi Biryani"
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized={!hasBiryani}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3">
@@ -367,10 +406,11 @@ export default function HomePage() {
                 <article className="group flex flex-col rounded-[var(--radius-lg)] overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-all">
                   <div className="relative aspect-[4/3] w-full bg-[var(--bg-subtle)] overflow-hidden">
                     <Image
-                      src="https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80"
+                      src={hasTruffleNaan ? "/images/dishes/truffle-cheddar-naan.jpg" : "/images/dish-placeholder.svg"}
                       alt="Truffle Cheese Kulcha"
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized={!hasTruffleNaan}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3">

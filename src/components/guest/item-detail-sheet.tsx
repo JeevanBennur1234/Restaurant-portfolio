@@ -6,7 +6,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { VegIndicator } from "./veg-indicator";
 import { formatPaiseToINR } from "@/lib/currency";
-import { Clock, Minus, Plus } from "lucide-react";
+import { Clock, Minus, Plus, Utensils } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
 import type { GuestMenuItem, GuestModifier } from "@/server/queries/guest";
@@ -37,6 +37,7 @@ interface ItemDetailInnerProps {
 }
 
 function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
+  const [bannerError, setBannerError] = React.useState(false);
   const { addItem } = useCart();
   const { showToast } = useToast();
 
@@ -159,7 +160,8 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
     >
       <div className="space-y-6">
         {/* Full-bleed Photography Banner with WCAG AA Dark Overlay */}
-        {item.imageUrl && (
+        {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
+        {item.imageUrl && !bannerError ? (
           <div className="relative -mx-6 -mt-6 h-52 sm:h-64 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
             <Image
               src={item.imageUrl}
@@ -167,11 +169,26 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               fill
               sizes="(max-width: 640px) 100vw, 480px"
               className="object-cover"
+              onError={() => setBannerError(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="absolute bottom-3 left-4 right-4 text-white">
-              <span className="eyebrow-label text-[10px] text-amber-300">
+              <span className="eyebrow text-[10px] text-amber-300">
                 Freshly Prepared · {item.prepTimeMinutes} mins
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="relative -mx-6 -mt-6 h-40 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
+            <div className="flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <Utensils className="h-4 w-4 text-[#D97706]" />
+                <span className="eyebrow text-[10px] text-amber-300">
+                  Freshly Prepared · {item.prepTimeMinutes} mins
+                </span>
+              </div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-300">
+                {item.isVeg ? "Vegetarian" : "Non-Veg"}
               </span>
             </div>
           </div>

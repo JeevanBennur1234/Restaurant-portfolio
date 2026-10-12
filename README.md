@@ -158,6 +158,41 @@ The test suite covers:
 
 ---
 
+## 📸 Food Photography & Media Assets
+
+DinePulse is built around an editorial, photography-led dining experience for **Masala Lane**. Food photos and videos should be placed in `public/images/` and `public/media/`:
+
+### File Locations & Naming Conventions
+- **Hero Background**: Drop `public/images/hero.jpg` (or video `public/media/hero.mp4` + poster `public/media/hero-poster.jpg`).
+- **Heritage Story**: Drop `public/images/story.jpg`.
+- **Seeded Dish Photos**: Drop into `public/images/dishes/<slug>.jpg` named by dish slug:
+  - `butter-chicken.jpg` (Old Delhi Butter Chicken)
+  - `paneer-tikka.jpg` (Paneer Tikka Shashlik)
+  - `dal-makhani.jpg` (Dal Makhani 24-Hour Simmer)
+  - `gosht-dum-biryani.jpg` (Gosht Dum Biryani)
+  - `truffle-cheddar-naan.jpg` (Truffle & Aged Cheddar Naan)
+  - *(See full list by running `npm run check-images`)*
+
+### Recommended Sizes & Compression
+- **Hero Image**: **2400px wide** (e.g. 2400×1350, 16:9 aspect ratio).
+- **Story Image**: **1200×900px** (4:3 aspect ratio).
+- **Dish Photos**: **1200×900px** (4:3 aspect ratio).
+- **Strict Compression**: Every image **must be compressed under 250KB each** (using modern tools like Squoosh, TinyPNG, or ImageOptim). Next.js automatically serves optimized `image/avif` and `image/webp` to supported browsers.
+
+### Image Audit Script
+To verify which referenced food photos are currently present or missing on disk:
+
+```bash
+npm run check-images
+```
+
+### Graceful Fallbacks (Zero Layout Shift)
+Until custom food photos are added:
+- The app automatically renders tasteful warm-toned gradient SVG placeholders with fixed aspect ratios (`hero-placeholder.svg`, `story-placeholder.svg`, `dish-placeholder.svg`).
+- The guest menu card and detail sheet feature an error boundary fallback (`onError`) to prevent layout shifts or broken image badges if a file is missing.
+
+---
+
 ## 🌐 Portals & Routes
 
 | Route | Role / Persona | Description |
