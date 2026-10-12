@@ -440,10 +440,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                       <button
                         type="button"
                         onClick={() => updateQuantity(cartItem.id, -1)}
-                        className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Decrease quantity"
                       >
-                        <Minus className="h-3 w-3" />
+                        <Minus className="h-3.5 w-3.5" />
                       </button>
                       <span className="w-6 text-center text-xs font-mono font-bold text-[var(--text-primary)]">
                         {cartItem.quantity}
@@ -451,20 +451,20 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                       <button
                         type="button"
                         onClick={() => updateQuantity(cartItem.id, 1)}
-                        className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Increase quantity"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => removeItem(cartItem.id)}
-                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
                       aria-label="Remove item"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

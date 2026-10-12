@@ -63,14 +63,14 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <div className="flex flex-col min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
       {/* Top Bar */}
-      <header className="sticky top-0 z-40 bg-[var(--bg-surface)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-8 py-3">
+      <header className="sticky top-0 z-40 bg-[var(--bg-surface)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 group">
-              <span className="font-serif text-xl font-bold tracking-tight text-[var(--primary)] group-hover:opacity-90">
-                DinePulse
+              <span className="font-serif text-2xl font-bold tracking-tight text-[var(--primary)] group-hover:opacity-90 transition-opacity">
+                Masala Lane
               </span>
             </Link>
             <div className="h-4 w-px bg-[var(--border-subtle)]" />
@@ -88,7 +88,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
               href="https://intallo.in/contact"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--primary)]/10 hover:bg-[var(--primary)]/15 px-3 py-1.5 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--primary)]/10 hover:bg-[var(--primary)]/15 px-3.5 py-2 rounded-full transition-colors min-h-[44px]"
             >
               <span>Contact Intallo</span>
               <ExternalLink className="h-3.5 w-3.5" />
@@ -98,12 +98,18 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
       </header>
 
       {/* Main Showcase Hero */}
-      <section className="px-4 sm:px-8 pt-8 pb-6 max-w-7xl mx-auto w-full text-center">
+      <section className="px-4 sm:px-8 pt-10 pb-8 max-w-7xl mx-auto w-full text-center space-y-4">
+        <div className="inline-flex items-center gap-2">
+          <span className="eyebrow-label text-[#D97706]">
+            00 / Live Split-Screen Showcase
+          </span>
+        </div>
+
         <div className="max-w-3xl mx-auto space-y-3">
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[var(--text-primary)]">
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--text-primary)] leading-[1.05]">
             Instant QR Dining & Real-Time Kitchen Operations
           </h1>
-          <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-sans">
+          <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-sans max-w-2xl mx-auto">
             A unified hospitality architecture by Intallo: guest self-ordering, automated server-verified billing, and a zero-latency digital kitchen dispatch system.
           </p>
         </div>
@@ -129,7 +135,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
             onClick={() => window.open("/t/demo-table-7", "_blank")}
             leftIcon={<Smartphone className="h-4 w-4" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
-            className="shadow-md"
+            className="shadow-md min-h-[44px] px-5"
           >
             Open as Guest (Table 7)
           </Button>
@@ -142,7 +148,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
             disabled={!isDemoMode}
             leftIcon={<ChefHat className="h-4 w-4" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
-            className="shadow-md bg-stone-800 text-stone-100 hover:bg-stone-900 border border-stone-700"
+            className="shadow-md bg-[#2E2723] text-[#FAF7F2] hover:bg-[#221C19] border border-[var(--border-subtle)] min-h-[44px] px-5"
           >
             Open as Kitchen
           </Button>
@@ -155,7 +161,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
             disabled={!isDemoMode}
             leftIcon={<ShieldCheck className="h-4 w-4 text-[var(--primary)]" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
-            className="shadow-sm"
+            className="shadow-sm min-h-[44px] px-5"
           >
             Open as Manager
           </Button>
@@ -165,9 +171,9 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
             size="sm"
             onClick={() => setIframeKey((k) => k + 1)}
             title="Reload live screens"
-            className="text-xs text-[var(--text-secondary)]"
+            className="text-xs text-[var(--text-secondary)] min-h-[44px] px-4"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Reload Screens
           </Button>
         </div>
@@ -179,10 +185,10 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
         )}
 
         {/* Responsive View Switcher for smaller screens */}
-        <div className="mt-6 lg:hidden flex items-center justify-center gap-1 p-1 bg-[var(--bg-subtle)] rounded-lg max-w-xs mx-auto border border-[var(--border-subtle)]">
+        <div className="mt-6 lg:hidden flex items-center justify-center gap-1.5 p-1 bg-[var(--bg-subtle)] rounded-full max-w-xs mx-auto border border-[var(--border-subtle)]">
           <button
             onClick={() => setActiveTab("guest")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors min-h-[44px] flex items-center justify-center ${
               activeTab === "guest"
                 ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
                 : "text-[var(--text-secondary)]"
@@ -192,7 +198,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
           </button>
           <button
             onClick={() => setActiveTab("kitchen")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`flex-1 py-2 text-xs font-semibold rounded-full transition-colors min-h-[44px] flex items-center justify-center ${
               activeTab === "kitchen"
                 ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
                 : "text-[var(--text-secondary)]"
@@ -204,7 +210,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
       </section>
 
       {/* Split Screen Showcase */}
-      <section className="flex-1 px-4 sm:px-8 pb-12 max-w-7xl mx-auto w-full">
+      <section className="flex-1 px-4 sm:px-8 pb-16 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Guest App in Phone Frame (5 columns on desktop) */}
           <div
@@ -216,14 +222,14 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                  Guest App (Table 7)
+                  01 / Guest App (Table 7)
                 </span>
               </div>
               <a
                 href="/t/demo-table-7"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1"
+                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px] items-center"
               >
                 <span>Fullscreen</span>
                 <ExternalLink className="h-3 w-3" />
@@ -260,14 +266,14 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse" />
                 <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                  Live Kitchen Display System (KDS)
+                  02 / Live Kitchen Display (KDS)
                 </span>
               </div>
               <a
                 href="/kitchen"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1"
+                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px] items-center"
               >
                 <span>Open in Tab</span>
                 <ExternalLink className="h-3 w-3" />

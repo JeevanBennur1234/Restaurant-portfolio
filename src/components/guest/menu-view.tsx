@@ -99,7 +99,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
           <button
             type="button"
             onClick={() => setDietaryFilter("all")}
-            className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none ${
+            className={`inline-flex items-center px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
               dietaryFilter === "all"
                 ? "bg-[var(--secondary)] text-[var(--secondary-foreground)] border-[var(--secondary)]"
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
@@ -111,7 +111,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
           <button
             type="button"
             onClick={() => setDietaryFilter("veg")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
               dietaryFilter === "veg"
                 ? "bg-emerald-800 text-white border-emerald-800"
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
@@ -124,7 +124,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
           <button
             type="button"
             onClick={() => setDietaryFilter("non-veg")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
               dietaryFilter === "non-veg"
                 ? "bg-amber-950 text-white border-amber-950"
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
@@ -141,7 +141,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
         aria-label="Menu categories"
         className="sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 px-4 py-2.5 backdrop-blur-md no-scrollbar shadow-2xs"
       >
-        {categories.map((cat) => {
+        {categories.map((cat, idx) => {
           const count = itemsByCategory.get(cat.id)?.length ?? 0;
           const isActive = activeCategoryId === cat.id;
 
@@ -150,13 +150,16 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
               key={cat.id}
               type="button"
               onClick={() => handleCategoryClick(cat.id)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium tracking-wide transition-all cursor-pointer select-none ${
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all cursor-pointer select-none min-h-[44px] flex items-center ${
                 isActive
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-xs font-semibold"
                   : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
               }`}
             >
-              {cat.name}
+              <span className="font-mono text-[10px] opacity-75 mr-1.5">
+                {String(idx + 1).padStart(2, "0")}
+              </span>
+              <span>{cat.name}</span>
               {count > 0 && (
                 <span
                   className={`ml-1.5 text-[10px] font-mono ${
@@ -186,7 +189,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
             </p>
           </div>
         ) : (
-          categories.map((category) => {
+          categories.map((category, catIndex) => {
             const catItems = itemsByCategory.get(category.id) ?? [];
             if (catItems.length === 0) return null;
 
@@ -197,9 +200,14 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
                 className="scroll-mt-28 space-y-3"
               >
                 <div className="flex items-baseline justify-between border-b border-[var(--border-subtle)] pb-2">
-                  <h2 className="font-serif text-xl font-bold tracking-tight text-[var(--text-primary)]">
-                    {category.name}
-                  </h2>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-mono font-bold text-[var(--accent)]">
+                      {String(catIndex + 1).padStart(2, "0")} /
+                    </span>
+                    <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+                      {category.name}
+                    </h2>
+                  </div>
                   <span className="text-xs font-mono text-[var(--text-muted)]">
                     {catItems.length} {catItems.length === 1 ? "item" : "items"}
                   </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { VegIndicator } from "./veg-indicator";
@@ -119,7 +120,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               type="button"
               disabled={quantity <= 1 || !isAvailable}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
               aria-label="Decrease quantity"
             >
               <Minus className="h-4 w-4" />
@@ -131,7 +132,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               type="button"
               disabled={quantity >= 20 || !isAvailable}
               onClick={() => setQuantity((q) => Math.min(20, q + 1))}
-              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
               aria-label="Increase quantity"
             >
               <Plus className="h-4 w-4" />
@@ -144,7 +145,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             variant="primary"
             disabled={!isAvailable}
             onClick={handleAddToCart}
-            className="flex-1 justify-between shadow-md px-3 text-xs sm:text-sm min-w-0"
+            className="flex-1 justify-between shadow-md px-4 text-xs sm:text-sm min-w-0 min-h-[44px]"
           >
             <span className="truncate pr-1">
               {isAvailable ? "Add to Order" : "Unavailable"}
@@ -157,6 +158,25 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       }
     >
       <div className="space-y-6">
+        {/* Full-bleed Photography Banner with WCAG AA Dark Overlay */}
+        {item.imageUrl && (
+          <div className="relative -mx-6 -mt-6 h-52 sm:h-64 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 480px"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="absolute bottom-3 left-4 right-4 text-white">
+              <span className="eyebrow-label text-[10px] text-amber-300">
+                Freshly Prepared · {item.prepTimeMinutes} mins
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Item Header */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -185,15 +205,20 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         {/* Modifiers List */}
         {modifierGroups.size > 0 && (
           <div className="space-y-5 border-t border-[var(--border-subtle)] pt-4">
-            {Array.from(modifierGroups.entries()).map(([groupName, mods]) => {
+            {Array.from(modifierGroups.entries()).map(([groupName, mods], groupIndex) => {
               const isRadio = mods.some((m) => m.isRequired);
 
               return (
                 <div key={groupName} className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                      {groupName}
-                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-bold text-[var(--accent)]">
+                        {String(groupIndex + 1).padStart(2, "0")} /
+                      </span>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                        {groupName}
+                      </h3>
+                    </div>
                     <span className="text-[11px] font-mono text-[var(--text-muted)]">
                       {isRadio ? "Choose 1 (Required)" : "Optional"}
                     </span>
@@ -207,7 +232,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                         <label
                           key={mod.id}
                           onClick={() => toggleModifier(mod, isRadio)}
-                          className={`flex items-center justify-between p-3 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer ${
+                          className={`flex items-center justify-between p-3.5 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[44px] ${
                             isSelected
                               ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 text-[var(--text-primary)] font-medium"
                               : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"

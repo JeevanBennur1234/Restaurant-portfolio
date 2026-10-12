@@ -78,11 +78,11 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
                 e.stopPropagation();
                 if (isAvailable) onSelect(item);
               }}
-              className="h-7 px-2.5 text-xs font-semibold rounded-full"
+              className="min-h-[44px] min-w-[44px] px-3.5 text-xs font-semibold rounded-full flex items-center justify-center border-[var(--border-strong)]"
             >
               {isAvailable ? (
                 <>
-                  <Plus className="h-3 w-3 mr-0.5" /> Add
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
                 </>
               ) : (
                 "Unavailable"
@@ -123,7 +123,7 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
               e.stopPropagation();
               if (isAvailable) onSelect(item);
             }}
-            className="h-6 px-3 text-[11px] font-semibold rounded-full shadow-xs"
+            className="min-h-[32px] px-3.5 text-[11px] font-semibold rounded-full shadow-xs"
           >
             {isAvailable ? "ADD" : "OUT"}
           </Button>
