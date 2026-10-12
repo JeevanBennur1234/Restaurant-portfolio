@@ -269,22 +269,13 @@ export async function authenticateStaff(
     const rateLimitKey = `${username.toLowerCase().trim()}:${ip}`;
     const now = new Date();
 
-    // 1. Check rate limit
-    const attempt = await db.query.loginAttempts.findFirst({
-      where: eq(loginAttempts.key, rateLimitKey),
-    });
-
-    if (attempt) {
-      const windowElapsed = now.getTime() - attempt.windowStart.getTime();
-      if (
-        windowElapsed < RATE_LIMIT_WINDOW_MS &&
-        attempt.count >= MAX_FAILED_ATTEMPTS
-      ) {
-        return {
-          success: false,
-          error: "Too many failed login attempts. Please try again in 15 minutes.",
-        };
-      }
+    // 1. Reserve attempt BEFORE checking password (atomic upsert)
+    const count = await recordFailedAttempt(rateLimitKey, now);
+    if (count > MAX_FAILED_ATTEMPTS) {
+      return {
+        success: false,
+        error: "Too many failed login attempts. Please try again in 15 minutes.",
+      };
     }
 
     // 2. Query user from DB
@@ -302,7 +293,6 @@ export async function authenticateStaff(
     }
 
     if (!isMatch || !user || !user.isActive) {
-      await recordFailedAttempt(rateLimitKey, now);
       return { success: false, error: "Invalid username or password" };
     }
 

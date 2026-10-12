@@ -78,6 +78,13 @@ describe("Staff Authentication Security", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCookieStore.clear();
+    vi.mocked(db.insert).mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ count: 1 }]),
+        }),
+      }),
+    } as never);
   });
 
   describe("Token Verification & Signature Integrity", () => {
@@ -301,11 +308,13 @@ describe("Staff Authentication Security", () => {
     });
 
     it("blocks after 5 failed attempts per username+IP in 15 minutes", async () => {
-      // Simulate 5 existing failed attempts in current window
-      vi.mocked(db.query.loginAttempts.findFirst).mockResolvedValue({
-        key: "targetuser:1.2.3.4",
-        count: 5,
-        windowStart: new Date(Date.now() - 2 * 60 * 1000), // 2 min ago
+      // Simulate rate limit exceeded on atomic attempt reservation
+      vi.mocked(db.insert).mockReturnValueOnce({
+        values: vi.fn().mockReturnValue({
+          onConflictDoUpdate: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ count: 6 }]),
+          }),
+        }),
       } as never);
 
       const result = await authenticateStaff("targetuser", "wrongpass", "1.2.3.4");
@@ -316,6 +325,51 @@ describe("Staff Authentication Security", () => {
       );
       // DB user lookup should NOT even be reached when blocked by rate limiter
       expect(db.query.staffUsers.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("fires 30 parallel wrong-password attempts against a limit of 5 and asserts that at most 5 reach bcrypt.compare", async () => {
+      let atomicCounter = 0;
+      // Mock db.insert to atomically increment and return the counter, mimicking Postgres atomic upsert
+      vi.mocked(db.insert).mockImplementation(() => ({
+        values: vi.fn().mockReturnValue({
+          onConflictDoUpdate: vi.fn().mockReturnValue({
+            returning: vi.fn().mockImplementation(async () => {
+              atomicCounter++;
+              return [{ count: atomicCounter }];
+            }),
+          }),
+        }),
+      } as never));
+
+      // Spy on bcrypt.compare to count calls
+      const bcryptCompareSpy = vi.spyOn(bcrypt, "compare");
+      bcryptCompareSpy.mockClear();
+
+      // Mock user lookup returning user with wrong password or nonexistent
+      vi.mocked(db.query.staffUsers.findFirst).mockResolvedValue(null as never);
+
+      // Fire 30 parallel wrong-password attempts
+      const attempts = Array.from({ length: 30 }, (_, i) =>
+        authenticateStaff("targetuser", `wrongpass_${i}`, "192.168.1.100")
+      );
+
+      const results = await Promise.all(attempts);
+
+      // Total attempts reaching bcrypt.compare must be at most 5
+      expect(bcryptCompareSpy.mock.calls.length).toBeLessThanOrEqual(5);
+      expect(bcryptCompareSpy.mock.calls.length).toBe(5);
+
+      // Verify that attempts 1..5 failed with "Invalid username or password"
+      const invalidPassResults = results.filter(
+        (r) => r.error === "Invalid username or password"
+      );
+      expect(invalidPassResults.length).toBe(5);
+
+      // Verify that attempts 6..30 failed with "Too many failed login attempts..."
+      const rateLimitedResults = results.filter(
+        (r) => r.error === "Too many failed login attempts. Please try again in 15 minutes."
+      );
+      expect(rateLimitedResults.length).toBe(25);
     });
 
     it("allows login when password is correct and clears rate limit record", async () => {
