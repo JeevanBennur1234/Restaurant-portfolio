@@ -1,5 +1,6 @@
 import { env } from "@/server/env";
 import { DemoShowcase } from "@/components/demo/demo-showcase";
+import { SmoothScroll } from "@/components/ui/smooth-scroll";
 
 export const metadata = {
   title: "Live Showcase | DinePulse by Intallo",
@@ -10,5 +11,9 @@ export const metadata = {
 export default function DemoPage() {
   const isDemoMode = env.DEMO_MODE === "true";
 
-  return <DemoShowcase isDemoMode={isDemoMode} />;
+  return (
+    <SmoothScroll>
+      <DemoShowcase isDemoMode={isDemoMode} />
+    </SmoothScroll>
+  );
 }

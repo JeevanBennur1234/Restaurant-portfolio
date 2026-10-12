@@ -425,7 +425,7 @@ describe("Next.js 16 Proxy Security Headers (src/proxy.ts)", () => {
     expect(csp).toContain("wss://xyzcompany.supabase.co");
     expect(csp).toContain("fonts.googleapis.com");
     expect(csp).toContain("fonts.gstatic.com");
-
+    expect(csp).toContain("media-src 'self'");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(res.headers.get("Permissions-Policy")).toContain("camera=()");

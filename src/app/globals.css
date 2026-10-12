@@ -90,6 +90,12 @@
   --ember-accent: #D97706;
   --ember-accent-hover: #F59E0B;
   --ember-border: rgba(250, 247, 242, 0.14);
+
+  /* Fluid Editorial Typography Tokens */
+  --text-display: clamp(3rem, 9vw, 9rem);
+  --text-h1: clamp(2.25rem, 5vw, 4rem);
+  --text-h2: clamp(1.75rem, 3.5vw, 2.75rem);
+  --text-eyebrow: 0.75rem;
 }
 
 @theme {
@@ -185,22 +191,66 @@ h1, h2, h3, .font-serif {
   letter-spacing: 0.22em;
 }
 
+/* Eyebrow Label Utility */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
 /* Dark "Ember" Section Styling (Espresso #2E2723, Cream #FAF7F2, Saffron #D97706) */
+.ember-section,
 .section-ember {
   background-color: var(--ember-bg);
   color: var(--ember-text);
 }
 
-.section-ember .text-muted-ember {
+.section-ember .text-muted-ember,
+.ember-section .text-muted-ember {
   color: var(--ember-muted);
 }
 
-.section-ember .text-accent-ember {
+.section-ember .text-accent-ember,
+.ember-section .text-accent-ember {
   color: var(--ember-accent);
 }
 
-.section-ember .border-ember {
+.section-ember .border-ember,
+.ember-section .border-ember {
   border-color: var(--ember-border);
+}
+
+/* 1px Hairline Divider using --border-strong */
+.hairline {
+  border: none;
+  border-top: 1px solid var(--border-strong);
+  height: 0;
+  margin: 0;
+}
+
+/* CSS-only Infinite Horizontal Marquee Ticker */
+@keyframes marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation-play-state: paused !important;
+  }
 }
 
 /* Photo Overlays for WCAG AA Text Contrast */
