@@ -112,57 +112,71 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       isOpen={isOpen}
       onClose={onClose}
       side="bottom"
-      className="max-h-[85vh] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      className="max-h-[88vh] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
       footer={
-        <div className="flex items-center gap-3">
-          {/* Quantity Controls */}
-          <div className="flex items-center border border-[var(--border-strong)] rounded-[var(--radius-md)] bg-[var(--bg-surface)] px-1">
-            <button
-              type="button"
-              disabled={quantity <= 1 || !isAvailable}
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
-              aria-label="Decrease quantity"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <span className="w-8 text-center text-sm font-semibold font-mono text-[var(--text-primary)]">
-              {quantity}
-            </span>
-            <button
-              type="button"
-              disabled={quantity >= 20 || !isAvailable}
-              onClick={() => setQuantity((q) => Math.min(20, q + 1))}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
-              aria-label="Increase quantity"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="space-y-2">
+          {/* Detailed Price Breakdown */}
+          {modifierTotalPaise > 0 && (
+            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] px-1">
+              <span>
+                Base {formatPaiseToINR(item.pricePaise)} + Customizations{" "}
+                {formatPaiseToINR(modifierTotalPaise)}
+              </span>
+              <span className="font-mono text-[var(--text-muted)]">
+                {quantity} × {formatPaiseToINR(unitTotalPaise)}
+              </span>
+            </div>
+          )}
 
-          {/* Add CTA */}
-          <Button
-            size="lg"
-            variant="primary"
-            disabled={!isAvailable}
-            onClick={handleAddToCart}
-            className="flex-1 justify-between shadow-md px-4 text-xs sm:text-sm min-w-0 min-h-[44px]"
-          >
-            <span className="truncate pr-1">
-              {isAvailable ? "Add to Order" : "Unavailable"}
-            </span>
-            <span className="font-mono font-bold shrink-0">
-              {formatPaiseToINR(lineTotalPaise)}
-            </span>
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Quantity Stepper (min 44px tap targets) */}
+            <div className="flex items-center border border-[var(--border-strong)] rounded-[var(--radius-md)] bg-[var(--bg-surface)]">
+              <button
+                type="button"
+                disabled={quantity <= 1 || !isAvailable}
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 cursor-pointer"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-8 text-center text-sm font-semibold font-mono text-[var(--text-primary)]">
+                {quantity}
+              </span>
+              <button
+                type="button"
+                disabled={quantity >= 20 || !isAvailable}
+                onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 cursor-pointer"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Add CTA (min 48px height) */}
+            <Button
+              size="lg"
+              variant="primary"
+              disabled={!isAvailable}
+              onClick={handleAddToCart}
+              className="flex-1 justify-between shadow-md px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
+            >
+              <span className="truncate pr-1">
+                {isAvailable ? "Add to Order" : "Unavailable"}
+              </span>
+              <span className="font-mono font-bold shrink-0">
+                {formatPaiseToINR(lineTotalPaise)}
+              </span>
+            </Button>
+          </div>
         </div>
       }
     >
       <div className="space-y-6">
-        {/* Full-bleed Photography Banner with WCAG AA Dark Overlay */}
         {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
         {item.imageUrl && !bannerError ? (
-          <div className="relative -mx-6 -mt-6 h-52 sm:h-64 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
+          <div className="relative -mx-5 -mt-5 h-52 sm:h-64 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
             <Image
               src={item.imageUrl}
               alt={item.name}
@@ -172,14 +186,17 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               onError={() => setBannerError(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <div className="absolute bottom-3 left-4 right-4 text-white">
+            <div className="absolute bottom-3 left-4 right-4 text-white flex items-center justify-between">
               <span className="eyebrow text-[10px] text-amber-300">
                 Freshly Prepared · {item.prepTimeMinutes} mins
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/20">
+                {item.isVeg ? "Vegetarian" : "Non-Veg"}
               </span>
             </div>
           </div>
         ) : (
-          <div className="relative -mx-6 -mt-6 h-40 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
+          <div className="relative -mx-5 -mt-5 h-40 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
             <div className="flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <Utensils className="h-4 w-4 text-[#D97706]" />
@@ -187,7 +204,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                   Freshly Prepared · {item.prepTimeMinutes} mins
                 </span>
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-300">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-300 bg-white/10 px-2 py-0.5 rounded-full">
                 {item.isVeg ? "Vegetarian" : "Non-Veg"}
               </span>
             </div>
@@ -249,13 +266,13 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                         <label
                           key={mod.id}
                           onClick={() => toggleModifier(mod, isRadio)}
-                          className={`flex items-center justify-between p-3.5 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[44px] ${
+                          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[48px] select-none ${
                             isSelected
-                              ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 text-[var(--text-primary)] font-medium"
+                              ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 text-[var(--text-primary)] font-medium ring-1 ring-[var(--primary)]"
                               : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
                           }`}
                         >
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-3">
                             <input
                               type={isRadio ? "radio" : "checkbox"}
                               name={groupName}
@@ -266,7 +283,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                             <span>{mod.name}</span>
                           </div>
 
-                          <span className="font-mono text-xs text-[var(--text-muted)]">
+                          <span className="font-mono text-xs text-[var(--text-muted)] font-medium">
                             {mod.pricePaise > 0
                               ? `+${formatPaiseToINR(mod.pricePaise)}`
                               : "Free"}

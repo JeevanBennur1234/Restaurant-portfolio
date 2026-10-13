@@ -62,6 +62,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   // Compute 5% GST preview for guest transparency
   const taxPreviewPaise = Math.round(totalPaise * 0.05);
   const grandTotalPaise = totalPaise + taxPreviewPaise;
+  const totalItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Initiates Razorpay Checkout flow
   const initiateRazorpayPayment = async (orderId: string, orderNumber: string) => {
@@ -265,30 +266,34 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       onClose={() => {
         if (!isSubmitting) setIsCartOpen(false);
       }}
-      title="Your Table Order"
-      description={`Items selected for ${tableLabel}`}
       side="bottom"
       className="max-h-[92vh] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
       footer={
         items.length > 0 ? (
           <div className="space-y-3">
-            {/* Bill Summary */}
-            <div className="space-y-1 text-xs">
+            {/* Clearer Bill Breakdown */}
+            <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-3.5 space-y-2 text-xs">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
-                <span>Items Subtotal</span>
-                <span className="font-mono font-medium">
+                <span>Items Subtotal ({totalItemCount} {totalItemCount === 1 ? "item" : "items"})</span>
+                <span className="font-mono font-medium text-[var(--text-primary)]">
                   {formatPaiseToINR(totalPaise)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
-                <span>GST (5%)</span>
-                <span className="font-mono font-medium">
+                <span className="flex items-center gap-1">
+                  <span>GST (5%)</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                    (CGST 2.5% + SGST 2.5%)
+                  </span>
+                </span>
+                <span className="font-mono font-medium text-[var(--text-primary)]">
                   {formatPaiseToINR(taxPreviewPaise)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-sm font-bold text-[var(--text-primary)] pt-1 border-t border-[var(--border-subtle)]">
+              <div className="hairline my-1" />
+              <div className="flex items-center justify-between text-sm font-bold text-[var(--text-primary)] pt-0.5">
                 <span>Total Amount Due</span>
-                <span className="font-mono text-base text-[var(--primary)]">
+                <span className="font-mono text-base text-[var(--primary)] font-extrabold">
                   {formatPaiseToINR(grandTotalPaise)}
                 </span>
               </div>
@@ -311,7 +316,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                         onClick={() =>
                           initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
                         }
-                        className="text-xs h-7 px-2.5 flex-1"
+                        className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
                         leftIcon={<RotateCcw className="h-3 w-3" />}
                       >
                         Retry Online Payment
@@ -321,7 +326,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                         variant="outline"
                         isLoading={isSubmitting}
                         onClick={handleSwitchToCounter}
-                        className="text-xs h-7 px-2.5 flex-1 bg-white"
+                        className="text-xs min-h-[44px] h-11 px-2.5 flex-1 bg-white"
                       >
                         Pay at Counter Instead
                       </Button>
@@ -331,14 +336,14 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Action Buttons (min 48px height) */}
             <div className="flex items-center gap-2 pt-1">
               <Button
                 variant="outline"
                 size="md"
                 disabled={isSubmitting}
                 onClick={clearCart}
-                className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0"
+                className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0 min-h-[48px] h-12 px-4"
               >
                 Clear
               </Button>
@@ -348,7 +353,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 isLoading={isSubmitting}
                 disabled={isSubmitting}
                 onClick={handleCheckoutSubmit}
-                className="flex-1 font-semibold shadow-sm justify-between px-3 text-xs sm:text-sm min-w-0"
+                className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
               >
                 <span className="truncate pr-1">
                   {statusMessage ||
@@ -371,6 +376,28 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         ) : null
       }
     >
+      {/* Visual Header Banner */}
+      <div className="relative -mx-5 -mt-5 mb-5 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] p-4 sm:p-5 text-[#FAF7F2] border-b border-[var(--border-subtle)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[var(--primary)]/25 blur-xl"
+        />
+        <div className="flex items-center justify-between relative z-10">
+          <div>
+            <span className="eyebrow text-[10px] text-amber-300/90 font-medium tracking-[0.2em]">
+              Masala Lane · Table Service
+            </span>
+            <h3 className="font-serif text-xl sm:text-2xl font-bold leading-tight text-[#FAF7F2]">
+              Your Table Order
+            </h3>
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-xs font-semibold border border-white/20 backdrop-blur-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span>{tableLabel}</span>
+          </div>
+        </div>
+      </div>
+
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center text-[var(--text-muted)]">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--bg-subtle)] mb-3">
@@ -380,7 +407,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
             Your cart is empty
           </p>
           <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-xs">
-            Explore our curated menu and tap &quot;Add&quot; on any item to build your table order.
+            Explore our curated menu and tap &quot;+&quot; on any item to build your table order.
           </p>
         </div>
       ) : (
@@ -415,10 +442,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                   key={cartItem.id}
                   className="py-3 flex items-start justify-between gap-3"
                 >
-                  <div className="space-y-0.5 flex-1">
+                  <div className="space-y-0.5 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <VegIndicator isVeg={menuItem.isVeg} size="sm" />
-                      <h4 className="font-serif text-sm font-semibold text-[var(--text-primary)]">
+                      <h4 className="font-serif text-sm font-semibold text-[var(--text-primary)] truncate">
                         {menuItem.name}
                       </h4>
                     </div>
@@ -434,13 +461,13 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                     </div>
                   </div>
 
-                  {/* Quantity Controls */}
+                  {/* Quantity Stepper & Remove Button (min 44px tap targets) */}
                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                     <div className="flex items-center border border-[var(--border-strong)] rounded-[var(--radius-sm)] bg-[var(--bg-surface)]">
                       <button
                         type="button"
                         onClick={() => updateQuantity(cartItem.id, -1)}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                        className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Decrease quantity"
                       >
                         <Minus className="h-3.5 w-3.5" />
@@ -451,7 +478,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                       <button
                         type="button"
                         onClick={() => updateQuantity(cartItem.id, 1)}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                        className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Increase quantity"
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -461,7 +488,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                     <button
                       type="button"
                       onClick={() => removeItem(cartItem.id)}
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
                       aria-label="Remove item"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -472,7 +499,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
             })}
           </div>
 
-          {/* Payment Method Selector */}
+          {/* Payment Method Selector (min 64px tap targets) */}
           <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] block">
               Payment Choice
@@ -483,7 +510,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               <button
                 type="button"
                 onClick={() => setPaymentMethod("pay_now")}
-                className={`p-3 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "pay_now"
                     ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 ring-1 ring-[var(--primary)] text-[var(--text-primary)]"
                     : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -507,7 +534,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               <button
                 type="button"
                 onClick={() => setPaymentMethod("counter")}
-                className={`p-3 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer ${
+                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "counter"
                     ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
                     : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -543,7 +570,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Less spicy, serve water with lemon, no onions"
-              className="w-full text-xs rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 px-3 py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
+              className="w-full text-xs rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 px-3 py-2.5 min-h-[44px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
             />
           </div>
         </div>

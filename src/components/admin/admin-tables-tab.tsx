@@ -181,7 +181,8 @@ export function AdminTablesTab() {
             return (
               <div
                 key={table.id}
-                className="group relative flex flex-col justify-between p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--primary)]/50 transition-all shadow-xs"
+                tabIndex={0}
+                className="group relative flex flex-col justify-between p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--primary)] hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] transition-all shadow-xs"
               >
                 <div>
                   <div className="flex items-start justify-between">

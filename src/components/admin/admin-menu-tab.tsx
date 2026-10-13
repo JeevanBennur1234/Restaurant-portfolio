@@ -567,8 +567,8 @@ export function AdminMenuTab() {
             No menu items match your current filter.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin">
+            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">Item</th>
@@ -584,7 +584,8 @@ export function AdminMenuTab() {
                 {filteredItems.map((item) => (
                   <tr
                     key={item.id}
-                    className={`hover:bg-[var(--bg-subtle)]/50 transition-colors ${
+                    tabIndex={0}
+                    className={`hover:bg-[var(--bg-subtle)]/80 focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] transition-colors ${
                       !item.isAvailable ? "opacity-60 bg-[var(--bg-subtle)]/20" : ""
                     }`}
                   >

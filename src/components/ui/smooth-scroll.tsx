@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import Lenis from "lenis";
 
 export interface SmoothScrollProps {
   children: React.ReactNode;
@@ -10,6 +9,7 @@ export interface SmoothScrollProps {
 
 /**
  * Smooth scrolling provider powered by Lenis:
+ * - Lazy-loaded dynamically on client only to keep first-load JS minimal
  * - Disabled under prefers-reduced-motion
  * - Never mounts on guest ordering (/t/*), kitchen display (/kitchen) or admin hub (/admin)
  */
@@ -36,25 +36,36 @@ export function SmoothScroll({ children }: SmoothScrollProps) {
       return;
     }
 
-    const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: "vertical",
-      gestureOrientation: "vertical",
-      smoothWheel: true,
+    let isDestroyed = false;
+    let lenisInstance: { raf: (time: number) => void; destroy: () => void } | null = null;
+    let rafId: number;
+
+    // Dynamically lazy-load Lenis
+    import("lenis").then(({ default: Lenis }) => {
+      if (isDestroyed) return;
+
+      const lenis = new Lenis({
+        duration: 1.1,
+        easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: "vertical",
+        gestureOrientation: "vertical",
+        smoothWheel: true,
+      });
+
+      lenisInstance = lenis;
+
+      function raf(time: number) {
+        lenis.raf(time);
+        rafId = requestAnimationFrame(raf);
+      }
+
+      rafId = requestAnimationFrame(raf);
     });
 
-    let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-
-    rafId = requestAnimationFrame(raf);
-
     return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
+      isDestroyed = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      lenisInstance?.destroy();
     };
   }, [pathname]);
 

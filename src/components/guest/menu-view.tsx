@@ -1,23 +1,31 @@
 "use client";
 
 import * as React from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { MenuItemCard } from "./menu-item-card";
 import { ItemDetailSheet } from "./item-detail-sheet";
 import { CartBar } from "./cart-bar";
 import { CartSheet } from "./cart-sheet";
 import { VegIndicator } from "./veg-indicator";
-import { Search, X, UtensilsCrossed } from "lucide-react";
+import { Search, X, UtensilsCrossed, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { GuestCategory, GuestMenuItem, GuestTable } from "@/server/queries/guest";
 
 export interface MenuViewProps {
   categories: GuestCategory[];
   items: GuestMenuItem[];
   table: GuestTable;
+  restaurantName?: string;
 }
 
 type DietaryFilter = "all" | "veg" | "non-veg";
 
-export function MenuView({ categories, items, table }: MenuViewProps) {
+export function MenuView({
+  categories,
+  items,
+  table,
+  restaurantName = "Masala Lane",
+}: MenuViewProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [dietaryFilter, setDietaryFilter] = React.useState<DietaryFilter>("all");
   const [activeCategoryId, setActiveCategoryId] = React.useState<string>(
@@ -25,6 +33,11 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
   );
   const [selectedItemForSheet, setSelectedItemForSheet] =
     React.useState<GuestMenuItem | null>(null);
+
+  const shouldReduceMotion = useReducedMotion();
+  const isManualScrollRef = React.useRef(false);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const navRef = React.useRef<HTMLElement | null>(null);
 
   // Filter items based on search and dietary filter
   const filteredItems = React.useMemo(() => {
@@ -61,19 +74,121 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
   }, [categories, filteredItems]);
 
   const handleCategoryClick = (categoryId: string) => {
+    isManualScrollRef.current = true;
     setActiveCategoryId(categoryId);
+
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      isManualScrollRef.current = false;
+    }, 750);
+
     const element = document.getElementById(`category-section-${categoryId}`);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      element.scrollIntoView({
+        behavior: shouldReduceMotion ? "auto" : "smooth",
+        block: "start",
+      });
     }
   };
 
+  // Scroll-spy with IntersectionObserver
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isManualScrollRef.current) return;
+
+        const visibleEntries = entries.filter((e) => e.isIntersecting);
+        if (visibleEntries.length > 0) {
+          // Find the section whose top is closest to sticky category bar (~110px offset)
+          visibleEntries.sort(
+            (a, b) =>
+              Math.abs(a.boundingClientRect.top - 110) -
+              Math.abs(b.boundingClientRect.top - 110)
+          );
+          const topTarget = visibleEntries[0].target;
+          const matchedId = topTarget.id.replace("category-section-", "");
+          if (matchedId) {
+            setActiveCategoryId(matchedId);
+          }
+        }
+      },
+      {
+        rootMargin: "-110px 0px -55% 0px",
+        threshold: [0, 0.1, 0.5],
+      }
+    );
+
+    for (const cat of categories) {
+      const el = document.getElementById(`category-section-${cat.id}`);
+      if (el) observer.observe(el);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, [categories]);
+
+  // Keep active category tab scrolled into horizontal view within the nav bar
+  React.useEffect(() => {
+    if (!navRef.current) return;
+    const activeBtn = navRef.current.querySelector<HTMLElement>(
+      `[data-category-id="${activeCategoryId}"]`
+    );
+    if (activeBtn) {
+      activeBtn.scrollIntoView({
+        behavior: shouldReduceMotion ? "auto" : "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, [activeCategoryId, shouldReduceMotion]);
+
   return (
     <div className="flex-1 flex flex-col pb-28">
+      {/* Compact Editorial Hero Banner (<200px tall so menu starts on screen one) */}
+      <section
+        aria-label="Restaurant banner"
+        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] px-4 py-4 sm:py-5 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
+      >
+        {/* Ambient warm tandoor glow */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[var(--primary)]/20 blur-2xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-[var(--accent)]/15 blur-2xl"
+        />
+
+        <div className="relative max-w-2xl mx-auto w-full">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="eyebrow text-[10px] sm:text-[11px] text-amber-300/90 font-medium tracking-[0.2em]">
+              00 · Table Dining
+            </span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-xs font-semibold border border-white/15 backdrop-blur-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>{table.tableNumber}</span>
+            </div>
+          </div>
+
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
+            <span>{restaurantName}</span>
+            <Sparkles className="h-4 w-4 text-[#D97706] opacity-75 shrink-0" />
+          </h1>
+
+          <p className="mt-1 text-xs text-stone-300 leading-relaxed max-w-md line-clamp-1">
+            Clay-pot curries, slow tandoor grills & coastal specials prepared fresh.
+          </p>
+        </div>
+      </section>
+
       {/* Search Bar & Veg/Non-Veg Filter Section */}
       <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border-subtle)] space-y-3">
         {/* Search Input */}
-        <div className="relative flex items-center">
+        <div className="relative flex items-center max-w-2xl mx-auto w-full">
           <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="search"
@@ -95,7 +210,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
         </div>
 
         {/* Dietary Filters Toggle */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5 max-w-2xl mx-auto w-full">
           <button
             type="button"
             onClick={() => setDietaryFilter("all")}
@@ -136,45 +251,67 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
         </div>
       </div>
 
-      {/* Sticky Category Tabs Bar */}
+      {/* Sticky Category Tabs Bar with Sliding Active Indicator */}
       <nav
+        ref={navRef}
         aria-label="Menu categories"
         className="sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 px-4 py-2.5 backdrop-blur-md no-scrollbar shadow-2xs"
       >
-        {categories.map((cat, idx) => {
-          const count = itemsByCategory.get(cat.id)?.length ?? 0;
-          const isActive = activeCategoryId === cat.id;
+        <div className="flex gap-2 max-w-2xl mx-auto w-full">
+          {categories.map((cat, idx) => {
+            const count = itemsByCategory.get(cat.id)?.length ?? 0;
+            const isActive = activeCategoryId === cat.id;
 
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => handleCategoryClick(cat.id)}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all cursor-pointer select-none min-h-[44px] flex items-center ${
-                isActive
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-xs font-semibold"
-                  : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
-              }`}
-            >
-              <span className="font-mono text-[10px] opacity-75 mr-1.5">
-                {String(idx + 1).padStart(2, "0")}
-              </span>
-              <span>{cat.name}</span>
-              {count > 0 && (
+            return (
+              <button
+                key={cat.id}
+                data-category-id={cat.id}
+                type="button"
+                onClick={() => handleCategoryClick(cat.id)}
+                className={cn(
+                  "relative shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-colors cursor-pointer select-none min-h-[44px] flex items-center z-10",
+                  isActive
+                    ? "text-white font-semibold"
+                    : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
+                )}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="activeCategoryPill"
+                    transition={
+                      shouldReduceMotion
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 450, damping: 32 }
+                    }
+                    className="absolute inset-0 rounded-full bg-[var(--primary)] -z-10 shadow-xs"
+                  />
+                )}
                 <span
-                  className={`ml-1.5 text-[10px] font-mono ${
-                    isActive ? "opacity-90" : "opacity-60"
-                  }`}
+                  className={cn(
+                    "font-mono text-[10px] mr-1.5 transition-colors",
+                    isActive ? "text-white/80" : "opacity-75"
+                  )}
                 >
-                  ({count})
+                  {String(idx + 1).padStart(2, "0")}
                 </span>
-              )}
-            </button>
-          );
-        })}
+                <span>{cat.name}</span>
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      "ml-1.5 text-[10px] font-mono transition-colors",
+                      isActive ? "text-white/85" : "opacity-60"
+                    )}
+                  >
+                    ({count})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
-      {/* Menu Sections & Item Cards */}
+      {/* Menu Sections & Image-Led Item Cards */}
       <main className="p-4 space-y-8 max-w-2xl mx-auto w-full">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[var(--text-muted)]">
@@ -197,7 +334,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
               <section
                 key={category.id}
                 id={`category-section-${category.id}`}
-                className="scroll-mt-28 space-y-3"
+                className="scroll-mt-28 space-y-3.5"
               >
                 <div className="flex items-baseline justify-between border-b border-[var(--border-subtle)] pb-2">
                   <div className="flex items-baseline gap-2">
@@ -213,7 +350,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
                   </span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {catItems.map((item) => (
                     <MenuItemCard
                       key={item.id}
@@ -238,7 +375,7 @@ export function MenuView({ categories, items, table }: MenuViewProps) {
       {/* Cart Bottom Sheet */}
       <CartSheet tableLabel={table.tableNumber} token={table.qrToken} />
 
-      {/* Sticky Bottom "View Cart" Bar */}
+      {/* Sticky Bottom "View Cart" Floating Bar */}
       <CartBar />
     </div>
   );

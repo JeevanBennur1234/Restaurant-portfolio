@@ -114,7 +114,7 @@ export function Sheet({
 
   const sideClasses: Record<SheetSide, string> = {
     bottom:
-      "inset-x-0 bottom-0 max-h-[90vh] rounded-t-[var(--radius-xl)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-sheet)] animate-in slide-in-from-bottom duration-250",
+      "inset-x-0 bottom-0 max-h-[90vh] rounded-t-[var(--radius-xl)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-sheet)] animate-sheet-slide-up",
     right:
       "inset-y-0 right-0 h-full w-full sm:max-w-md border-l border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] animate-in slide-in-from-right duration-250",
     left:
@@ -130,7 +130,7 @@ export function Sheet({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-[var(--bg-overlay)] backdrop-blur-xs transition-opacity cursor-pointer"
+        className="fixed inset-0 bg-[var(--bg-overlay)] backdrop-blur-xs transition-opacity cursor-pointer animate-sheet-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />

@@ -230,7 +230,6 @@ h1, h2, h3, .font-serif {
   margin: 0;
 }
 
-/* CSS-only Infinite Horizontal Marquee Ticker */
 @keyframes marquee {
   0% {
     transform: translate3d(0, 0, 0);
@@ -253,6 +252,69 @@ h1, h2, h3, .font-serif {
   }
 }
 
+/* Bottom Sheet & UI Transition Animations */
+@keyframes sheet-slide-up {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheet-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-sheet-slide-up {
+  animation: sheet-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-sheet-fade-in {
+  animation: sheet-fade-in 0.2s ease-out forwards;
+}
+
+.animate-bump {
+  animation: bump 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Single-run smooth highlight pulse for new kitchen tickets */
+@keyframes highlight-pulse-once {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.8);
+    border-color: #D97706;
+  }
+  40% {
+    box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.45);
+    border-color: #F59E0B;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+    border-color: #2E2A26;
+  }
+}
+
+.animate-highlight-once {
+  animation: highlight-pulse-once 2.2s cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
+}
+
 /* Photo Overlays for WCAG AA Text Contrast */
 .overlay-warm-dark {
   background: linear-gradient(
@@ -272,6 +334,12 @@ h1, h2, h3, .font-serif {
   );
 }
 
+/* Visible Focus Rings for Keyboard Accessibility (WCAG 2.4.7 AA) */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* Motion: Subtle and purposeful; always respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -281,5 +349,6 @@ h1, h2, h3, .font-serif {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    transform: none !important;
   }
 }

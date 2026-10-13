@@ -73,12 +73,12 @@ export function AdminNavbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo & Restaurant Title */}
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-white shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-white shadow-sm ring-2 ring-[var(--primary)]/20">
               <UtensilsCrossed className="h-5 w-5" />
             </div>
             <div>
@@ -86,7 +86,7 @@ export function AdminNavbar({
                 <span className="font-serif text-lg font-bold tracking-tight text-[var(--text-primary)]">
                   {session.restaurantName || "Masala Lane"}
                 </span>
-                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                   Manager Hub
                 </span>
               </div>
@@ -96,8 +96,11 @@ export function AdminNavbar({
             </div>
           </div>
 
-          {/* Center Tabs Desktop */}
-          <nav className="hidden md:flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-subtle)]">
+          {/* Center Tabs Desktop with High-Contrast Active State */}
+          <nav
+            aria-label="Admin Navigation Tabs"
+            className="hidden md:flex items-center gap-1.5 bg-[var(--bg-subtle)] p-1.5 rounded-xl border border-[var(--border-subtle)]"
+          >
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
@@ -105,16 +108,22 @@ export function AdminNavbar({
                   key={item.id}
                   type="button"
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] min-h-[36px] ${
                     isActive
-                      ? "bg-[var(--bg-surface)] text-[var(--primary)] shadow-xs font-semibold"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]/50"
+                      ? "bg-[var(--primary)] text-white shadow-xs font-semibold"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] font-medium"
                   }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
                   {item.badge !== undefined && (
-                    <span className="ml-1 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold px-1.5 py-0.2">
+                    <span
+                      className={`ml-1 rounded-full text-[10px] font-bold px-1.5 py-0.2 ${
+                        isActive
+                          ? "bg-white text-[var(--primary)]"
+                          : "bg-[var(--primary)] text-white"
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
@@ -128,7 +137,7 @@ export function AdminNavbar({
             <Link
               href="/kitchen"
               target="_blank"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)]"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
               title="Open Kitchen Display System in new tab"
             >
               <ChefHat className="h-3.5 w-3.5" />
@@ -139,7 +148,7 @@ export function AdminNavbar({
             <Link
               href="/t/demo"
               target="_blank"
-              className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)]"
+              className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
               title="Open Guest Ordering preview"
             >
               <span>Guest Menu</span>
@@ -151,7 +160,7 @@ export function AdminNavbar({
               size="sm"
               onClick={handleLogout}
               isLoading={isLoggingOut}
-              className="h-8 text-xs text-[var(--text-secondary)] hover:text-red-600 dark:hover:text-red-400"
+              className="h-8.5 text-xs text-[var(--text-secondary)] hover:text-red-600 dark:hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
               leftIcon={<LogOut className="h-3.5 w-3.5" />}
             >
               Sign out
@@ -159,8 +168,8 @@ export function AdminNavbar({
           </div>
         </div>
 
-        {/* Mobile Sub-Navigation Bar */}
-        <div className="flex md:hidden overflow-x-auto py-2 gap-1 border-t border-[var(--border-subtle)] scrollbar-none">
+        {/* Mobile Sub-Navigation Bar with Clean Tabs */}
+        <div className="flex md:hidden overflow-x-auto py-2 gap-1.5 border-t border-[var(--border-subtle)] no-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -168,10 +177,10 @@ export function AdminNavbar({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
+                className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer min-h-[38px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
                   isActive
-                    ? "bg-[var(--primary)] text-white font-semibold"
-                    : "text-[var(--text-secondary)] bg-[var(--bg-subtle)]"
+                    ? "bg-[var(--primary)] text-white font-semibold shadow-xs"
+                    : "text-[var(--text-secondary)] bg-[var(--bg-surface)] border border-[var(--border-subtle)]"
                 }`}
               >
                 {item.icon}

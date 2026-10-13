@@ -85,11 +85,14 @@ export function AdminReportsTab() {
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-xs">
         <div>
-          <h3 className="font-serif text-lg font-bold text-[var(--text-primary)]">
-            Executive Analytics & Sales Reports
+          <span className="eyebrow text-[10px] text-amber-700 font-semibold tracking-[0.2em]">
+            Executive Overview
+          </span>
+          <h3 className="font-serif text-lg sm:text-xl font-bold text-[var(--text-primary)]">
+            Sales & Operational Analytics
           </h3>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Today&apos;s real-time order volume, ticket benchmarks, kitchen turnaround, and 7-day revenue trend.
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+            Real-time daily turnover, ticket volume, kitchen prep benchmark, and 7-day revenue trend.
           </p>
         </div>
 
@@ -98,113 +101,117 @@ export function AdminReportsTab() {
           size="sm"
           onClick={() => fetchReports(true)}
           isLoading={isLoading}
-          className="text-xs self-start sm:self-auto"
+          className="text-xs self-start sm:self-auto h-9 px-3"
           leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />}
         >
           Refresh Data
         </Button>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* KPI Cards Grid with Large Display Numerals */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Today's Revenue */}
-        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Today&apos;s Revenue
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
                 <IndianRupee className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none">
               {formatPaiseToINR(reports.todayRevenuePaise)}
             </div>
-            <p className="text-[11px] text-[var(--text-secondary)] mt-1">
-              Active &amp; completed dining orders today
+            <p className="text-[11px] text-[var(--text-secondary)] mt-2">
+              Active &amp; completed orders today
             </p>
           </CardContent>
         </Card>
 
         {/* 2. Today's Order Count */}
-        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Orders Today
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300">
                 <ShoppingBag className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)] font-mono">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none">
               {reports.todayOrderCount}
             </div>
-            <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+            <p className="text-[11px] text-[var(--text-secondary)] mt-2">
               Total dining tickets received
             </p>
           </CardContent>
         </Card>
 
         {/* 3. Average Ticket Size */}
-        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Average Ticket
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none">
               {formatPaiseToINR(reports.todayAvgTicketPaise)}
             </div>
-            <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+            <p className="text-[11px] text-[var(--text-secondary)] mt-2">
               Average spend per dining table
             </p>
           </CardContent>
         </Card>
 
         {/* 4. Average Prep Time */}
-        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Avg. Prep Time
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300">
                 <Clock className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)] font-mono">
-              {reports.avgPrepTimeMinutes} mins
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none">
+              {reports.avgPrepTimeMinutes} <span className="text-xl font-sans font-medium text-[var(--text-secondary)]">min</span>
             </div>
-            <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+            <p className="text-[11px] text-[var(--text-secondary)] mt-2">
               From order placed to kitchen ready
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* 7-Day Revenue & Orders Chart */}
+      {/* Brand-Coloured 7-Day Revenue & Orders Trend Chart */}
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-6">
           <div>
-            <h4 className="font-serif text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <BarChart3 className="h-4.5 w-4.5 text-[var(--primary)]" />
-              <span>7-Day Sales &amp; Order Volume Trend</span>
+            <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-[var(--primary)]" />
+              <span>7-Day Revenue &amp; Ticket Volume Trend</span>
             </h4>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Daily gross sales and ticket quantities over the last 7 calendar days.
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Daily gross sales and ticket turnover over the last 7 calendar days.
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-3 rounded-xs bg-[var(--primary)]" />
-              <span className="text-[var(--text-secondary)]">Daily Revenue</span>
+              <span className="text-[var(--text-secondary)]">Today (Terracotta)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-3 w-3 rounded-xs bg-[var(--accent)]" />
+              <span className="text-[var(--text-secondary)]">Past Days (Saffron)</span>
             </div>
           </div>
         </div>
@@ -225,24 +232,24 @@ export function AdminReportsTab() {
                   className="flex flex-col items-center justify-end h-full group"
                 >
                   {/* Tooltip / Value on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 text-center text-[10px] font-mono bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-2 py-1 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-10">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 text-center text-[10px] font-mono bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-10">
                     <div className="font-bold">{formatPaiseToINR(day.revenuePaise)}</div>
                     <div className="text-[9px] opacity-80">{day.orderCount} orders</div>
                   </div>
 
-                  {/* Order count pill */}
+                  {/* Order count label */}
                   <span className="text-[10px] font-mono font-semibold text-[var(--text-muted)] mb-1">
-                    {day.orderCount} orders
+                    {day.orderCount} {day.orderCount === 1 ? "ord" : "ords"}
                   </span>
 
-                  {/* Revenue Bar */}
-                  <div className="w-full max-w-[42px] bg-[var(--bg-subtle)] rounded-t-lg overflow-hidden flex flex-col justify-end p-0.5">
+                  {/* Brand-Coloured Bar */}
+                  <div className="w-full max-w-[44px] bg-[var(--bg-subtle)] rounded-t-lg overflow-hidden flex flex-col justify-end p-0.5">
                     <div
                       style={{ height: `${heightPct}%` }}
                       className={`w-full rounded-t-md transition-all duration-500 ${
                         isToday
-                          ? "bg-[var(--primary)] shadow-sm"
-                          : "bg-[var(--accent)] hover:bg-[var(--primary)]"
+                          ? "bg-gradient-to-t from-[var(--primary)] to-[#D96B43] shadow-md ring-1 ring-[var(--primary)]"
+                          : "bg-[var(--accent)] hover:bg-[var(--primary)] opacity-90 hover:opacity-100"
                       }`}
                     />
                   </div>
@@ -251,7 +258,7 @@ export function AdminReportsTab() {
                   <div className="mt-3 text-center">
                     <div
                       className={`text-xs font-semibold ${
-                        isToday ? "text-[var(--primary)]" : "text-[var(--text-primary)]"
+                        isToday ? "text-[var(--primary)] font-bold" : "text-[var(--text-primary)]"
                       }`}
                     >
                       {day.dayLabel}
@@ -267,16 +274,16 @@ export function AdminReportsTab() {
         </div>
       </div>
 
-      {/* Top Selling Items Table */}
+      {/* Top Selling Items Table (Scrolls horizontally inside container on small screens) */}
       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="font-serif text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <Award className="h-4.5 w-4.5 text-amber-500" />
+            <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-500" />
               <span>Top 5 High-Demand Menu Dishes</span>
             </h4>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Ranked by quantity ordered and cumulative revenue contribution.
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Ranked by total quantity ordered and cumulative revenue contribution.
             </p>
           </div>
         </div>
@@ -286,35 +293,40 @@ export function AdminReportsTab() {
             No item sales recorded yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          /* Container ensures table scrolls horizontally on small screens without breaking layout */
+          <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin rounded-xl border border-[var(--border-subtle)]">
+            <table className="w-full text-left text-xs border-collapse min-w-[540px]">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
-                  <th className="py-2.5 px-3">Rank</th>
-                  <th className="py-2.5 px-3">Item Name</th>
-                  <th className="py-2.5 px-3 text-center">Units Sold</th>
-                  <th className="py-2.5 px-3 text-right">Revenue Generated</th>
+                  <th className="py-3 px-4">Rank</th>
+                  <th className="py-3 px-4">Item Name</th>
+                  <th className="py-3 px-4 text-center">Units Sold</th>
+                  <th className="py-3 px-4 text-right">Revenue Generated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {reports.topItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-[var(--bg-subtle)]/40 transition-colors">
+                  <tr
+                    key={item.id}
+                    tabIndex={0}
+                    className="hover:bg-[var(--bg-subtle)]/80 focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] transition-colors cursor-default"
+                  >
                     {/* Rank */}
-                    <td className="py-3 px-3 font-mono font-bold text-xs text-[var(--primary)]">
+                    <td className="py-3.5 px-4 font-mono font-bold text-xs text-[var(--primary)]">
                       #{index + 1}
                     </td>
 
                     {/* Item */}
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2.5">
                         <div
                           className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border ${
-                            item.isVeg ? "border-emerald-600 bg-white" : "border-red-700 bg-white"
+                            item.isVeg ? "border-emerald-600 bg-white" : "border-amber-900 bg-white"
                           }`}
                         >
                           <div
                             className={`h-1.5 w-1.5 rounded-full ${
-                              item.isVeg ? "bg-emerald-600" : "bg-red-700"
+                              item.isVeg ? "bg-emerald-600" : "bg-amber-900"
                             }`}
                           />
                         </div>
@@ -325,12 +337,12 @@ export function AdminReportsTab() {
                     </td>
 
                     {/* Units Sold */}
-                    <td className="py-3 px-3 text-center font-mono font-bold text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-[var(--text-primary)]">
                       {item.totalQuantity}
                     </td>
 
                     {/* Revenue */}
-                    <td className="py-3 px-3 text-right font-mono font-semibold text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-[var(--text-primary)]">
                       {formatPaiseToINR(item.totalRevenuePaise)}
                     </td>
                   </tr>

@@ -331,8 +331,8 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin">
+            <table className="w-full text-left text-xs border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">Order #</th>
@@ -353,7 +353,8 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
                   return (
                     <tr
                       key={order.id}
-                      className="hover:bg-[var(--bg-subtle)]/50 transition-colors"
+                      tabIndex={0}
+                      className="hover:bg-[var(--bg-subtle)]/80 focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] transition-colors"
                     >
                       {/* Order Number */}
                       <td className="py-3.5 px-4 font-mono font-bold text-[var(--text-primary)]">
@@ -393,8 +394,9 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(order)}
-                          className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                           title="View order details"
+                          aria-label={`View order ${order.orderNumber}`}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -407,8 +409,9 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
                               setCancelReason("");
                               setCancelError(null);
                             }}
-                            className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                             title="Cancel order"
+                            aria-label={`Cancel order ${order.orderNumber}`}
                           >
                             <XCircle className="h-4 w-4" />
                           </button>

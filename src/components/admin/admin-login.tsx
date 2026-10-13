@@ -65,17 +65,26 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-subtle)] flex flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-[var(--bg-surface)] border-[var(--border-subtle)] shadow-xl text-[var(--text-primary)]">
+    <div className="min-h-screen bg-[var(--bg-app)] flex flex-col items-center justify-center p-4 text-[var(--text-primary)]">
+      {/* Ambient background glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute h-96 w-96 rounded-full bg-[var(--primary)]/10 blur-3xl -top-20"
+      />
+
+      <Card className="relative w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] text-[var(--text-primary)] rounded-[var(--radius-xl)]">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] text-white mb-3 shadow-md">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary)] text-white mb-3 shadow-md ring-4 ring-[var(--primary)]/15">
             <UtensilsCrossed className="h-7 w-7" />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight font-serif text-[var(--text-primary)]">
-            Masala Lane Management
+          <span className="eyebrow text-[10px] text-amber-700 tracking-[0.2em]">
+            Restaurant Management · Operations
+          </span>
+          <CardTitle className="text-2xl font-bold tracking-tight font-serif text-[var(--text-primary)] mt-1">
+            Masala Lane Hub
           </CardTitle>
-          <CardDescription className="text-xs text-[var(--text-secondary)]">
-            DinePulse Admin Console · Sign in with floor manager or administrative credentials.
+          <CardDescription className="text-xs text-[var(--text-secondary)] mt-1">
+            Sign in with authorized restaurant manager or administrative credentials.
           </CardDescription>
         </CardHeader>
 
@@ -101,7 +110,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Manager username"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] font-mono"
+                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
@@ -118,7 +127,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] font-mono"
+                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
@@ -128,7 +137,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
               variant="primary"
               isLoading={isLoading}
               disabled={isDemoLoading}
-              className="w-full h-11 font-bold uppercase tracking-wider shadow-md mt-2"
+              className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-sm"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
               Sign In to Admin Hub
@@ -148,7 +157,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
                 isLoading={isDemoLoading}
                 disabled={isLoading}
                 onClick={handleDemoLogin}
-                className="w-full h-11 border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center gap-2"
+                className="w-full h-11 min-h-[44px] border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Continue as demo manager</span>
@@ -159,7 +168,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
           <div className="pt-2 text-center">
             <Link
               href="/kitchen"
-              className="text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1"
+              className="text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
             >
               <ChefHat className="h-3.5 w-3.5" />
               <span>Looking for Kitchen Display System? Open /kitchen</span>
