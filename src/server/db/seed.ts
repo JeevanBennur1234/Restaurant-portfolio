@@ -10,7 +10,14 @@ export { SEEDED_DISHES };
 
 const connectionString = env.DATABASE_URL;
 
-const pool = new Pool({ connectionString });
+const pool = new Pool({
+  connectionString,
+  ssl:
+    connectionString.includes("supabase.co") ||
+    connectionString.includes("sslmode=require")
+      ? { rejectUnauthorized: false }
+      : undefined,
+});
 const db = drizzle(pool, { schema });
 
 async function seed() {

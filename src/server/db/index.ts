@@ -14,6 +14,11 @@ const pool =
   globalForDb.conn ??
   new Pool({
     connectionString,
+    ssl:
+      connectionString.includes("supabase.co") ||
+      connectionString.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
   });
 
 if (env.NODE_ENV !== "production") {

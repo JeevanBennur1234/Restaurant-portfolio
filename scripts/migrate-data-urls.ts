@@ -54,7 +54,14 @@ async function resizeImageIfNeeded(buffer: Buffer): Promise<Buffer> {
 async function migrateDataUrls() {
   console.log("🔍 Checking for menu_items with data: URLs...");
 
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+    ssl:
+      env.DATABASE_URL.includes("supabase.co") ||
+      env.DATABASE_URL.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
+  });
   const db = drizzle(pool, { schema });
 
   try {

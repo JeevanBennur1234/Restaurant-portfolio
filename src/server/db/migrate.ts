@@ -6,6 +6,11 @@ import { env } from "@/server/env";
 export async function runMigrations(): Promise<void> {
   const pool = new pg.Pool({
     connectionString: env.DATABASE_URL,
+    ssl:
+      env.DATABASE_URL.includes("supabase.co") ||
+      env.DATABASE_URL.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
   });
   const db = drizzle(pool);
 
