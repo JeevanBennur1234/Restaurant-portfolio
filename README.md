@@ -208,7 +208,7 @@ Until custom food photos are added:
 
 ---
 
-## ☁️ Vercel Deployment & Cron Setup
+## ☁️ Vercel Deployment
 
 ### Deploying to Vercel
 
@@ -229,26 +229,9 @@ Until custom food photos are added:
    ```
 5. Deploy.
 
-### 6-Hour Demo Reset Cron Setup
+### Demo Reset Setup
 
-The project includes a `vercel.json` configuration to automatically reset the demo database every 6 hours:
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/demo/reset",
-      "schedule": "0 */6 * * *"
-    }
-  ]
-}
-```
-
-The endpoint verifies:
-1. `DEMO_MODE === "true"`.
-2. `Authorization: Bearer <DEMO_RESET_SECRET>` or `Authorization: Bearer <CRON_SECRET>` header using timing-safe comparison.
-
-In Vercel Project Settings, set `CRON_SECRET` (or `DEMO_RESET_SECRET`) in **Environment Variables**. Vercel Cron Jobs automatically provides `CRON_SECRET` in the `Authorization: Bearer <CRON_SECRET>` header when invoking the cron path `/api/demo/reset`.
+Demo reset runs from GitHub Actions (demo-reset.yml). Set the repo secrets DEMO_RESET_URL (https://<customer-site>/api/demo/reset) and DEMO_RESET_SECRET.
 
 ---
 

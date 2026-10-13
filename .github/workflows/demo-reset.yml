@@ -1,0 +1,26 @@
+name: Demo Reset
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  reset:
+    name: Reset Demo Data
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Demo Reset
+        env:
+          DEMO_RESET_URL: ${{ secrets.DEMO_RESET_URL }}
+          DEMO_RESET_SECRET: ${{ secrets.DEMO_RESET_SECRET }}
+        run: |
+          if [ -z "$DEMO_RESET_URL" ] || [ -z "$DEMO_RESET_SECRET" ]; then
+            echo "DEMO_RESET_URL or DEMO_RESET_SECRET secret is not configured. Skipping demo reset."
+            exit 0
+          fi
+
+          curl --fail-with-body -sS -X POST "$DEMO_RESET_URL" \
+            -H "Authorization: Bearer $DEMO_RESET_SECRET"
