@@ -1,62 +1,22 @@
-import { eq, asc, and } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
-  tables,
-  restaurants,
-  categories,
-  menuItems,
-} from "@/server/db/schema";
-import { tokenParamSchema } from "@/lib/validations/guest";
+  getMenuForTable,
+  type GuestModifier,
+  type GuestMenuItem,
+  type GuestCategory,
+  type GuestTable,
+  type GuestRestaurant,
+  type GuestMenuData,
+} from "@/server/services/customer";
 
-export interface GuestModifier {
-  id: string;
-  groupName: string;
-  name: string;
-  pricePaise: number;
-  isRequired: boolean;
-}
-
-export interface GuestMenuItem {
-  id: string;
-  categoryId: string;
-  name: string;
-  description: string | null;
-  pricePaise: number;
-  isVeg: boolean;
-  prepTimeMinutes: number;
-  imageUrl: string | null;
-  isAvailable: boolean;
-  sortOrder: number;
-  modifiers: GuestModifier[];
-}
-
-export interface GuestCategory {
-  id: string;
-  name: string;
-  slug: string;
-  sortOrder: number;
-}
-
-export interface GuestTable {
-  id: string;
-  tableNumber: string;
-  capacity: number;
-  qrToken: string;
-}
-
-export interface GuestRestaurant {
-  id: string;
-  name: string;
-  slug: string;
-  currency: string;
-}
-
-export interface GuestMenuData {
-  restaurant: GuestRestaurant;
-  table: GuestTable;
-  categories: GuestCategory[];
-  items: GuestMenuItem[];
-}
+export type {
+  GuestModifier,
+  GuestMenuItem,
+  GuestCategory,
+  GuestTable,
+  GuestRestaurant,
+  GuestMenuData,
+};
 
 export type GuestQueryResult =
   | { success: true; data: GuestMenuData }
@@ -70,108 +30,25 @@ export type GuestQueryResult =
     };
 
 /**
- * Resolves a QR token to table and menu data exclusively from PostgreSQL.
+ * Resolves a QR token to table and menu data via the customer service.
  */
 export async function getGuestTableAndMenu(
   rawToken: string
 ): Promise<GuestQueryResult> {
-  const parsed = tokenParamSchema.safeParse(rawToken);
-  if (!parsed.success) {
-    return { success: false, error: "INVALID_TOKEN" };
+  const result = await getMenuForTable({ db }, rawToken);
+  if (result.ok) {
+    return { success: true, data: result.data };
   }
-  const token = parsed.data;
 
-  try {
-    const tableRecord = await db.query.tables.findFirst({
-      where: eq(tables.qrToken, token),
-    });
+  type GuestQueryError = Extract<GuestQueryResult, { success: false }>["error"];
+  const validErrors: Record<string, GuestQueryError> = {
+    INVALID_TOKEN: "INVALID_TOKEN",
+    NOT_FOUND: "NOT_FOUND",
+    INACTIVE_TABLE: "INACTIVE_TABLE",
+  };
 
-    if (!tableRecord) {
-      return { success: false, error: "NOT_FOUND" };
-    }
-
-    if (!tableRecord.isActive) {
-      return { success: false, error: "INACTIVE_TABLE" };
-    }
-
-    const restaurantRecord = await db.query.restaurants.findFirst({
-      where: eq(restaurants.id, tableRecord.restaurantId),
-    });
-
-    if (!restaurantRecord || !restaurantRecord.isActive) {
-      return { success: false, error: "NOT_FOUND" };
-    }
-
-    const categoryRecords = await db.query.categories.findMany({
-      where: and(
-        eq(categories.restaurantId, restaurantRecord.id),
-        eq(categories.isActive, true)
-      ),
-      orderBy: [asc(categories.sortOrder)],
-    });
-
-    const menuItemRecords = await db.query.menuItems.findMany({
-      where: and(
-        eq(menuItems.restaurantId, restaurantRecord.id),
-        eq(menuItems.isActive, true)
-      ),
-      orderBy: [asc(menuItems.sortOrder)],
-    });
-
-    const modifierRecords = await db.query.modifiers.findMany();
-    const modifiersByItemId = new Map<string, GuestModifier[]>();
-    for (const m of modifierRecords) {
-      const list = modifiersByItemId.get(m.menuItemId) ?? [];
-      list.push({
-        id: m.id,
-        groupName: m.groupName,
-        name: m.name,
-        pricePaise: m.pricePaise,
-        isRequired: m.isRequired,
-      });
-      modifiersByItemId.set(m.menuItemId, list);
-    }
-
-    const formattedItems: GuestMenuItem[] = menuItemRecords.map((item) => ({
-      id: item.id,
-      categoryId: item.categoryId,
-      name: item.name,
-      description: item.description,
-      pricePaise: item.pricePaise,
-      isVeg: item.isVeg,
-      prepTimeMinutes: item.prepTimeMinutes,
-      imageUrl: item.imageUrl,
-      isAvailable: item.isAvailable,
-      sortOrder: item.sortOrder,
-      modifiers: modifiersByItemId.get(item.id) ?? [],
-    }));
-
-    return {
-      success: true,
-      data: {
-        restaurant: {
-          id: restaurantRecord.id,
-          name: restaurantRecord.name,
-          slug: restaurantRecord.slug,
-          currency: restaurantRecord.currency,
-        },
-        table: {
-          id: tableRecord.id,
-          tableNumber: tableRecord.tableNumber,
-          capacity: tableRecord.capacity,
-          qrToken: tableRecord.qrToken,
-        },
-        categories: categoryRecords.map((c) => ({
-          id: c.id,
-          name: c.name,
-          slug: c.slug,
-          sortOrder: c.sortOrder,
-        })),
-        items: formattedItems,
-      },
-    };
-  } catch (error) {
-    console.error("Database query failed in getGuestTableAndMenu:", error);
-    return { success: false, error: "Service temporarily unavailable" };
-  }
+  return {
+    success: false,
+    error: validErrors[result.message] ?? "Service temporarily unavailable",
+  };
 }

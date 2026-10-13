@@ -1,0 +1,1090 @@
+import crypto from "crypto";
+import { eq, desc, asc, and, count } from "drizzle-orm";
+import {
+  orders,
+  orderItems,
+  orderEvents,
+  payments,
+  tables,
+  categories,
+  menuItems,
+  modifiers,
+  type OrderStatus,
+} from "@/server/db/schema";
+import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
+import { rupeesToPaise } from "@/lib/currency";
+import {
+  adminOrdersQuerySchema,
+  cancelOrderSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  deleteCategorySchema,
+  createMenuItemSchema,
+  updateMenuItemSchema,
+  toggleMenuItemAvailabilitySchema,
+  deleteMenuItemSchema,
+  createModifierSchema,
+  deleteModifierSchema,
+  createTableSchema,
+  deleteTableSchema,
+  type AdminOrdersQueryInput,
+  type CancelOrderInput,
+  type CreateCategoryInput,
+  type UpdateCategoryInput,
+  type DeleteCategoryInput,
+  type CreateMenuItemInput,
+  type UpdateMenuItemInput,
+  type ToggleMenuItemAvailabilityInput,
+  type DeleteMenuItemInput,
+  type CreateModifierInput,
+  type DeleteModifierInput,
+  type CreateTableInput,
+  type DeleteTableInput,
+} from "@/lib/validations/admin";
+import { ok, fail, type ServiceResult, type Ctx } from "./result";
+
+function checkManagerActor(ctx: Ctx) {
+  if (!ctx.actor) {
+    return fail("UNAUTHENTICATED", "Unauthorized: Staff authentication required", 401);
+  }
+  if (ctx.actor.role !== "manager" && ctx.actor.role !== "admin") {
+    return fail("FORBIDDEN", "Forbidden: Manager access required", 403);
+  }
+  return null;
+}
+
+export interface AdminOrderItemSummary {
+  id: string;
+  name: string;
+  quantity: number;
+  pricePaise: number;
+  modifiers: string[];
+}
+
+export interface AdminOrderRow {
+  id: string;
+  orderNumber: string;
+  tableNumber: string;
+  status: OrderStatus;
+  paymentStatus: string;
+  paymentMethod: string | null;
+  subtotalPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  customerName: string | null;
+  customerPhone: string | null;
+  specialInstructions: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: AdminOrderItemSummary[];
+  events: Array<{
+    id: string;
+    fromStatus: OrderStatus | null;
+    toStatus: OrderStatus;
+    note: string | null;
+    createdAt: string;
+  }>;
+}
+
+export interface GetAdminOrdersData {
+  orders: AdminOrderRow[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+  summary: {
+    total: number;
+    placed: number;
+    preparing: number;
+    ready: number;
+    served: number;
+    cancelled: number;
+  };
+}
+
+export interface AdminCategoryData {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  isActive: boolean;
+  itemCount: number;
+}
+
+export interface AdminModifierData {
+  id: string;
+  menuItemId: string;
+  groupName: string;
+  name: string;
+  pricePaise: number;
+  isRequired: boolean;
+}
+
+export interface AdminMenuItemData {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  description: string | null;
+  pricePaise: number;
+  isVeg: boolean;
+  prepTimeMinutes: number;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  sortOrder: number;
+  modifiers: AdminModifierData[];
+}
+
+export interface GetAdminMenuData {
+  categories: AdminCategoryData[];
+  items: AdminMenuItemData[];
+}
+
+export interface AdminTableData {
+  id: string;
+  tableNumber: string;
+  capacity: number;
+  qrToken: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface TopSellingItem {
+  id: string;
+  name: string;
+  isVeg: boolean;
+  totalQuantity: number;
+  totalRevenuePaise: number;
+}
+
+export interface DayMetric {
+  date: string;
+  dayLabel: string;
+  revenuePaise: number;
+  orderCount: number;
+}
+
+export interface AdminReportsData {
+  todayRevenuePaise: number;
+  todayOrderCount: number;
+  todayAvgTicketPaise: number;
+  avgPrepTimeMinutes: number;
+  topItems: TopSellingItem[];
+  sevenDayHistory: DayMetric[];
+}
+
+export async function getAdminOrders(
+  ctx: Ctx,
+  rawInput: AdminOrdersQueryInput
+): Promise<ServiceResult<GetAdminOrdersData>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = adminOrdersQuerySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid orders filter query parameters", 400);
+  }
+
+  const { page, pageSize, status, paymentStatus, search } = parsed.data;
+
+  try {
+    const conditions = [eq(orders.restaurantId, ctx.actor!.restaurantId)];
+
+    if (status !== "all") {
+      conditions.push(eq(orders.status, status));
+    }
+
+    if (paymentStatus !== "all") {
+      conditions.push(eq(orders.paymentStatus, paymentStatus));
+    }
+
+    const whereClause = and(...conditions);
+
+    // Fetch total count for pagination
+    const [countResult] = await ctx.db
+      .select({ val: count() })
+      .from(orders)
+      .where(whereClause);
+    const totalCount = countResult?.val ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    // Fetch orders with pagination
+    const offset = (page - 1) * pageSize;
+    const dbOrders = await ctx.db.query.orders.findMany({
+      where: whereClause,
+      with: {
+        table: true,
+        items: true,
+        events: {
+          orderBy: [desc(orderEvents.createdAt)],
+        },
+      },
+      orderBy: [desc(orders.createdAt)],
+      limit: pageSize,
+      offset,
+    });
+
+    // Client-side search fallback across orderNumber, tableNumber, or customerName
+    let filteredOrders = dbOrders;
+    if (search && search.trim().length > 0) {
+      const q = search.trim().toLowerCase();
+      filteredOrders = dbOrders.filter(
+        (o) =>
+          o.orderNumber.toLowerCase().includes(q) ||
+          o.table.tableNumber.toLowerCase().includes(q) ||
+          (o.customerName && o.customerName.toLowerCase().includes(q))
+      );
+    }
+
+    // Status metrics summary
+    const allRestaurantOrders = await ctx.db.query.orders.findMany({
+      where: eq(orders.restaurantId, ctx.actor!.restaurantId),
+      columns: { status: true },
+    });
+
+    const summary = {
+      total: allRestaurantOrders.length,
+      placed: allRestaurantOrders.filter((o) => o.status === "placed").length,
+      preparing: allRestaurantOrders.filter((o) => o.status === "preparing").length,
+      ready: allRestaurantOrders.filter((o) => o.status === "ready").length,
+      served: allRestaurantOrders.filter((o) => o.status === "served").length,
+      cancelled: allRestaurantOrders.filter((o) => o.status === "cancelled").length,
+    };
+
+    const formattedOrders: AdminOrderRow[] = filteredOrders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      tableNumber: o.table.tableNumber,
+      status: o.status,
+      paymentStatus: o.paymentStatus,
+      paymentMethod: o.paymentMethod,
+      subtotalPaise: o.subtotalPaise,
+      taxPaise: o.taxPaise,
+      totalPaise: o.totalPaise,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone,
+      specialInstructions: o.specialInstructions,
+      createdAt: o.createdAt.toISOString(),
+      updatedAt: o.updatedAt.toISOString(),
+      items: o.items.map((i) => {
+        let modNames: string[] = [];
+        if (i.selectedModifiersJson) {
+          try {
+            const parsedMods = JSON.parse(i.selectedModifiersJson) as Array<{ name: string }>;
+            modNames = parsedMods.map((m) => m.name);
+          } catch {
+            modNames = [];
+          }
+        }
+        return {
+          id: i.id,
+          name: i.itemName,
+          quantity: i.quantity,
+          pricePaise: i.itemPricePaise,
+          modifiers: modNames,
+        };
+      }),
+      events: o.events.map((e) => ({
+        id: e.id,
+        fromStatus: e.fromStatus,
+        toStatus: e.toStatus,
+        note: e.note,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    }));
+
+    return ok({
+      orders: formattedOrders,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages,
+      },
+      summary,
+    });
+  } catch (err) {
+    console.error("Database error in getAdminOrders service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function cancelOrder(
+  ctx: Ctx,
+  rawInput: CancelOrderInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = cancelOrderSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail(
+      "VALIDATION",
+      parsed.error.issues[0]?.message ?? "Invalid cancellation input",
+      400
+    );
+  }
+
+  const { orderId, reason } = parsed.data;
+
+  try {
+    const existing = await ctx.db.query.orders.findFirst({
+      where: and(
+        eq(orders.id, orderId),
+        eq(orders.restaurantId, ctx.actor!.restaurantId)
+      ),
+      with: { table: true, payments: true },
+    });
+
+    if (!existing) {
+      return fail("NOT_FOUND", "Order not found", 404);
+    }
+
+    if (existing.status === "served") {
+      return fail("CONFLICT", "Cannot cancel an order that has already been served.", 400);
+    }
+    if (existing.status === "cancelled") {
+      return fail("CONFLICT", "This order is already cancelled.", 400);
+    }
+
+    const isPaymentCompleted =
+      existing.paymentStatus === "paid" ||
+      existing.payments.some((p) => p.status === "completed");
+
+    if (ctx.actor!.isDemo && isPaymentCompleted) {
+      return fail("FORBIDDEN", "Demo manager accounts cannot cancel paid orders.", 403);
+    }
+
+    await ctx.db.transaction(async (tx) => {
+      await tx
+        .update(orders)
+        .set({
+          status: "cancelled",
+          ...(isPaymentCompleted ? { paymentStatus: "refund_pending" } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+
+      if (isPaymentCompleted) {
+        await tx
+          .update(payments)
+          .set({ status: "refund_pending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(payments.orderId, orderId),
+              eq(payments.status, "completed")
+            )
+          );
+
+        await tx.insert(orderEvents).values({
+          orderId,
+          fromStatus: existing.status,
+          toStatus: "cancelled",
+          staffUserId: ctx.actor!.userId,
+          note: `Cancelled by Manager ${ctx.actor!.username ?? ctx.actor!.role}: ${reason}. Payment marked refund_pending`,
+        });
+      } else {
+        await tx.insert(orderEvents).values({
+          orderId,
+          fromStatus: existing.status,
+          toStatus: "cancelled",
+          staffUserId: ctx.actor!.userId,
+          note: `Cancelled by Manager ${ctx.actor!.username ?? ctx.actor!.role}: ${reason}`,
+        });
+      }
+    });
+
+    // Broadcast realtime event
+    await publishRealtimeEvent(
+      getRestaurantChannel(existing.restaurantId),
+      "order.status_changed",
+      {
+        orderId,
+        fromStatus: existing.status,
+        toStatus: "cancelled",
+      }
+    );
+
+    await publishRealtimeEvent(`order:${orderId}`, "order.status_changed", {
+      orderId,
+      status: "cancelled",
+    });
+
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in cancelOrder service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function getAdminMenu(
+  ctx: Ctx
+): Promise<ServiceResult<GetAdminMenuData>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  try {
+    const dbCats = await ctx.db.query.categories.findMany({
+      where: eq(categories.restaurantId, ctx.actor!.restaurantId),
+      orderBy: [asc(categories.sortOrder), asc(categories.name)],
+    });
+
+    const dbItems = await ctx.db.query.menuItems.findMany({
+      where: and(
+        eq(menuItems.restaurantId, ctx.actor!.restaurantId),
+        eq(menuItems.isActive, true)
+      ),
+      with: {
+        category: true,
+        modifiers: true,
+      },
+      orderBy: [asc(menuItems.sortOrder), asc(menuItems.name)],
+    });
+
+    const itemsCountByCat = new Map<string, number>();
+    dbItems.forEach((i) => {
+      itemsCountByCat.set(i.categoryId, (itemsCountByCat.get(i.categoryId) ?? 0) + 1);
+    });
+
+    const catList: AdminCategoryData[] = dbCats.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      sortOrder: c.sortOrder,
+      isActive: c.isActive,
+      itemCount: itemsCountByCat.get(c.id) ?? 0,
+    }));
+
+    const itemList: AdminMenuItemData[] = dbItems.map((i) => ({
+      id: i.id,
+      categoryId: i.categoryId,
+      categoryName: i.category?.name ?? "General",
+      name: i.name,
+      description: i.description,
+      pricePaise: i.pricePaise,
+      isVeg: i.isVeg,
+      prepTimeMinutes: i.prepTimeMinutes,
+      imageUrl: i.imageUrl,
+      isAvailable: i.isAvailable,
+      sortOrder: i.sortOrder,
+      modifiers: i.modifiers.map((m) => ({
+        id: m.id,
+        menuItemId: m.menuItemId,
+        groupName: m.groupName,
+        name: m.name,
+        pricePaise: m.pricePaise,
+        isRequired: m.isRequired,
+      })),
+    }));
+
+    return ok({ categories: catList, items: itemList });
+  } catch (err) {
+    console.error("Database error in getAdminMenu service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function createCategory(
+  ctx: Ctx,
+  rawInput: CreateCategoryInput
+): Promise<ServiceResult<{ categoryId: string }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = createCategorySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid category data", 400);
+  }
+
+  const { name, slug, sortOrder } = parsed.data;
+
+  try {
+    const [inserted] = await ctx.db
+      .insert(categories)
+      .values({
+        restaurantId: ctx.actor!.restaurantId,
+        name,
+        slug,
+        sortOrder,
+        isActive: true,
+      })
+      .returning({ id: categories.id });
+
+    if (!inserted) {
+      return fail("INTERNAL", "Failed to create category", 500);
+    }
+
+    return ok({ categoryId: inserted.id });
+  } catch (err) {
+    console.error("Database error in createCategory service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function updateCategory(
+  ctx: Ctx,
+  rawInput: UpdateCategoryInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = updateCategorySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid category data", 400);
+  }
+
+  const { id, name, slug, sortOrder, isActive } = parsed.data;
+
+  try {
+    await ctx.db
+      .update(categories)
+      .set({ name, slug, sortOrder, isActive, updatedAt: new Date() })
+      .where(and(eq(categories.id, id), eq(categories.restaurantId, ctx.actor!.restaurantId)));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in updateCategory service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function deleteCategory(
+  ctx: Ctx,
+  rawInput: DeleteCategoryInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = deleteCategorySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid category ID", 400);
+  }
+
+  if (ctx.actor!.isDemo) {
+    return fail("FORBIDDEN", "Demo manager accounts cannot delete categories.", 403);
+  }
+
+  const { id } = parsed.data;
+
+  try {
+    const hasItems = await ctx.db.query.menuItems.findFirst({
+      where: and(
+        eq(menuItems.categoryId, id),
+        eq(menuItems.restaurantId, ctx.actor!.restaurantId)
+      ),
+    });
+
+    if (hasItems) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete category containing menu items. Please reassign or delete the menu items first.",
+        400
+      );
+    }
+
+    await ctx.db
+      .delete(categories)
+      .where(and(eq(categories.id, id), eq(categories.restaurantId, ctx.actor!.restaurantId)));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in deleteCategory service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function createMenuItem(
+  ctx: Ctx,
+  rawInput: CreateMenuItemInput
+): Promise<ServiceResult<{ itemId: string }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = createMenuItemSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid item data", 400);
+  }
+
+  const {
+    name,
+    categoryId,
+    priceRupees,
+    isVeg,
+    prepTimeMinutes,
+    description,
+    imageUrl,
+    isAvailable,
+    sortOrder,
+  } = parsed.data;
+
+  const pricePaise = rupeesToPaise(priceRupees);
+
+  try {
+    const [inserted] = await ctx.db
+      .insert(menuItems)
+      .values({
+        restaurantId: ctx.actor!.restaurantId,
+        categoryId,
+        name,
+        description: description ?? null,
+        pricePaise,
+        isVeg,
+        prepTimeMinutes,
+        imageUrl: imageUrl ?? null,
+        isAvailable,
+        sortOrder,
+      })
+      .returning({ id: menuItems.id });
+
+    if (!inserted) {
+      return fail("INTERNAL", "Failed to create menu item", 500);
+    }
+
+    return ok({ itemId: inserted.id });
+  } catch (err) {
+    console.error("Database error in createMenuItem service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function updateMenuItem(
+  ctx: Ctx,
+  rawInput: UpdateMenuItemInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = updateMenuItemSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid item data", 400);
+  }
+
+  const {
+    id,
+    name,
+    categoryId,
+    priceRupees,
+    isVeg,
+    prepTimeMinutes,
+    description,
+    imageUrl,
+    isAvailable,
+    sortOrder,
+  } = parsed.data;
+
+  const pricePaise = rupeesToPaise(priceRupees);
+
+  try {
+    await ctx.db
+      .update(menuItems)
+      .set({
+        name,
+        categoryId,
+        pricePaise,
+        isVeg,
+        prepTimeMinutes,
+        description: description ?? null,
+        imageUrl: imageUrl ?? null,
+        isAvailable,
+        sortOrder,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, ctx.actor!.restaurantId)));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in updateMenuItem service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function toggleMenuItemAvailability(
+  ctx: Ctx,
+  rawInput: ToggleMenuItemAvailabilityInput
+): Promise<ServiceResult<{ isAvailable: boolean }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = toggleMenuItemAvailabilitySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid availability toggle parameters", 400);
+  }
+
+  const { id, isAvailable } = parsed.data;
+
+  try {
+    await ctx.db
+      .update(menuItems)
+      .set({ isAvailable, updatedAt: new Date() })
+      .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, ctx.actor!.restaurantId)));
+    return ok({ isAvailable });
+  } catch (err) {
+    console.error("Database error in toggleMenuItemAvailability service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function deleteMenuItem(
+  ctx: Ctx,
+  rawInput: DeleteMenuItemInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = deleteMenuItemSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid item ID", 400);
+  }
+
+  if (ctx.actor!.isDemo) {
+    return fail("FORBIDDEN", "Demo manager accounts cannot delete menu items.", 403);
+  }
+
+  const { id } = parsed.data;
+
+  try {
+    const appearsInOrders = await ctx.db.query.orderItems.findFirst({
+      where: eq(orderItems.menuItemId, id),
+    });
+
+    if (appearsInOrders) {
+      await ctx.db
+        .update(menuItems)
+        .set({ isActive: false, isAvailable: false, updatedAt: new Date() })
+        .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, ctx.actor!.restaurantId)));
+    } else {
+      await ctx.db
+        .delete(menuItems)
+        .where(and(eq(menuItems.id, id), eq(menuItems.restaurantId, ctx.actor!.restaurantId)));
+    }
+
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in deleteMenuItem service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function createModifier(
+  ctx: Ctx,
+  rawInput: CreateModifierInput
+): Promise<ServiceResult<{ modifierId: string }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = createModifierSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid modifier data", 400);
+  }
+
+  const { menuItemId, groupName, name, priceRupees, isRequired } = parsed.data;
+  const pricePaise = rupeesToPaise(priceRupees);
+
+  try {
+    const item = await ctx.db.query.menuItems.findFirst({
+      where: and(
+        eq(menuItems.id, menuItemId),
+        eq(menuItems.restaurantId, ctx.actor!.restaurantId)
+      ),
+    });
+    if (!item) {
+      return fail("NOT_FOUND", "Menu item not found", 404);
+    }
+
+    const [inserted] = await ctx.db
+      .insert(modifiers)
+      .values({
+        menuItemId,
+        groupName,
+        name,
+        pricePaise,
+        isRequired,
+      })
+      .returning({ id: modifiers.id });
+
+    if (!inserted) {
+      return fail("INTERNAL", "Failed to create modifier", 500);
+    }
+
+    return ok({ modifierId: inserted.id });
+  } catch (err) {
+    console.error("Database error in createModifier service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function deleteModifier(
+  ctx: Ctx,
+  rawInput: DeleteModifierInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = deleteModifierSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid modifier ID", 400);
+  }
+
+  const { id } = parsed.data;
+
+  try {
+    const mod = await ctx.db.query.modifiers.findFirst({
+      where: eq(modifiers.id, id),
+      with: { menuItem: true },
+    });
+    if (!mod || mod.menuItem.restaurantId !== ctx.actor!.restaurantId) {
+      return fail("NOT_FOUND", "Modifier not found", 404);
+    }
+
+    await ctx.db.delete(modifiers).where(eq(modifiers.id, id));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in deleteModifier service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function getAdminTables(
+  ctx: Ctx
+): Promise<ServiceResult<AdminTableData[]>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  try {
+    const dbTables = await ctx.db.query.tables.findMany({
+      where: and(
+        eq(tables.restaurantId, ctx.actor!.restaurantId),
+        eq(tables.isActive, true)
+      ),
+      orderBy: [asc(tables.tableNumber)],
+    });
+
+    return ok(
+      dbTables.map((t) => ({
+        id: t.id,
+        tableNumber: t.tableNumber,
+        capacity: t.capacity,
+        qrToken: t.qrToken,
+        isActive: t.isActive,
+        createdAt: t.createdAt.toISOString(),
+      }))
+    );
+  } catch (err) {
+    console.error("Database error in getAdminTables service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function createTable(
+  ctx: Ctx,
+  rawInput: CreateTableInput
+): Promise<ServiceResult<AdminTableData>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = createTableSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", parsed.error.issues[0]?.message ?? "Invalid table parameters", 400);
+  }
+
+  const { tableNumber, capacity } = parsed.data;
+  const qrToken = `ml-tbl-${crypto.randomBytes(6).toString("hex")}`;
+
+  try {
+    const [inserted] = await ctx.db
+      .insert(tables)
+      .values({
+        restaurantId: ctx.actor!.restaurantId,
+        tableNumber,
+        capacity,
+        qrToken,
+        isActive: true,
+      })
+      .returning();
+
+    if (!inserted) {
+      return fail("INTERNAL", "Failed to create table", 500);
+    }
+
+    return ok({
+      id: inserted.id,
+      tableNumber: inserted.tableNumber,
+      capacity: inserted.capacity,
+      qrToken: inserted.qrToken,
+      isActive: inserted.isActive,
+      createdAt: inserted.createdAt.toISOString(),
+    });
+  } catch (err) {
+    console.error("Database error in createTable service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function deleteTable(
+  ctx: Ctx,
+  rawInput: DeleteTableInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = deleteTableSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail("VALIDATION", "Invalid table ID", 400);
+  }
+
+  if (ctx.actor!.isDemo) {
+    return fail("FORBIDDEN", "Demo manager accounts cannot delete tables.", 403);
+  }
+
+  const { id } = parsed.data;
+
+  try {
+    await ctx.db
+      .update(tables)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(tables.id, id), eq(tables.restaurantId, ctx.actor!.restaurantId)));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in deleteTable service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function getAdminReports(
+  ctx: Ctx
+): Promise<ServiceResult<AdminReportsData>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  try {
+    const allDbOrders = await ctx.db.query.orders.findMany({
+      where: eq(orders.restaurantId, ctx.actor!.restaurantId),
+      with: {
+        items: true,
+        events: true,
+      },
+      orderBy: [desc(orders.createdAt)],
+    });
+
+    const now = ctx.now ?? new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const todayOrders = allDbOrders.filter(
+      (o) => new Date(o.createdAt).getTime() >= startOfToday.getTime()
+    );
+
+    const todayCompletedOrders = todayOrders.filter(
+      (o) => o.status !== "cancelled" && (o.paymentStatus === "paid" || o.paymentStatus === "counter")
+    );
+
+    const todayRevenuePaise = todayCompletedOrders.reduce(
+      (acc, o) => acc + o.totalPaise,
+      0
+    );
+    const todayOrderCount = todayOrders.length;
+    const todayAvgTicketPaise =
+      todayCompletedOrders.length > 0
+        ? Math.round(todayRevenuePaise / todayCompletedOrders.length)
+        : 0;
+
+    let totalPrepTimeMinutes = 0;
+    let prepOrderCount = 0;
+
+    todayOrders.forEach((o) => {
+      const readyEvent = o.events.find(
+        (e) => e.toStatus === "ready" || e.toStatus === "served"
+      );
+      if (readyEvent) {
+        const diffMs =
+          new Date(readyEvent.createdAt).getTime() - new Date(o.createdAt).getTime();
+        const mins = Math.max(1, Math.round(diffMs / 60000));
+        totalPrepTimeMinutes += mins;
+        prepOrderCount++;
+      }
+    });
+
+    const avgPrepTimeMinutes =
+      prepOrderCount > 0 ? Math.round(totalPrepTimeMinutes / prepOrderCount) : 15;
+
+    // Top items across orders
+    const itemAggregation = new Map<
+      string,
+      { name: string; isVeg: boolean; count: number; revenuePaise: number }
+    >();
+
+    allDbOrders.forEach((o) => {
+      if (o.status !== "cancelled") {
+        o.items.forEach((item) => {
+          const key = item.itemName;
+          const current = itemAggregation.get(key) ?? {
+            name: item.itemName,
+            isVeg: true,
+            count: 0,
+            revenuePaise: 0,
+          };
+          current.count += item.quantity;
+          current.revenuePaise += item.totalPaise;
+          itemAggregation.set(key, current);
+        });
+      }
+    });
+
+    const topItems: TopSellingItem[] = Array.from(itemAggregation.entries())
+      .map(([, val], index) => ({
+        id: `top-${index + 1}`,
+        name: val.name,
+        isVeg: !val.name.toLowerCase().includes("chicken") &&
+          !val.name.toLowerCase().includes("murgh") &&
+          !val.name.toLowerCase().includes("gosht") &&
+          !val.name.toLowerCase().includes("fish") &&
+          !val.name.toLowerCase().includes("lamb"),
+        totalQuantity: val.count,
+        totalRevenuePaise: val.revenuePaise,
+      }))
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, 5);
+
+    // 7-day history (past 6 days + today)
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const sevenDayHistory: DayMetric[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(startOfToday.getTime() - i * 86400000);
+      const dayEnd = new Date(dayStart.getTime() + 86400000);
+
+      const dayOrders = allDbOrders.filter((o) => {
+        const t = new Date(o.createdAt).getTime();
+        return t >= dayStart.getTime() && t < dayEnd.getTime();
+      });
+
+      const dayRevenue = dayOrders
+        .filter(
+          (o) =>
+            o.status !== "cancelled" &&
+            (o.paymentStatus === "paid" || o.paymentStatus === "counter")
+        )
+        .reduce((sum, o) => sum + o.totalPaise, 0);
+
+      const dateStr = dayStart.toISOString().split("T")[0] ?? "";
+      const dayLabel = i === 0 ? "Today" : (dayNames[dayStart.getDay()] ?? "");
+
+      sevenDayHistory.push({
+        date: dateStr,
+        dayLabel,
+        revenuePaise: dayRevenue,
+        orderCount: dayOrders.length,
+      });
+    }
+
+    return ok({
+      todayRevenuePaise,
+      todayOrderCount,
+      todayAvgTicketPaise,
+      avgPrepTimeMinutes,
+      topItems,
+      sevenDayHistory,
+    });
+  } catch (err) {
+    console.error("Database error in getAdminReports service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
