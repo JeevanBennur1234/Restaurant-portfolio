@@ -38,6 +38,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22",
     "@types/pdfkit": "^0.17.6",

@@ -24,8 +24,10 @@ import {
   toggleMenuItemAvailabilitySchema,
   deleteMenuItemSchema,
   createModifierSchema,
+  updateModifierSchema,
   deleteModifierSchema,
   createTableSchema,
+  updateTableSchema,
   deleteTableSchema,
   type AdminOrdersQueryInput,
   type CancelOrderInput,
@@ -37,8 +39,10 @@ import {
   type ToggleMenuItemAvailabilityInput,
   type DeleteMenuItemInput,
   type CreateModifierInput,
+  type UpdateModifierInput,
   type DeleteModifierInput,
   type CreateTableInput,
+  type UpdateTableInput,
   type DeleteTableInput,
 } from "@/lib/validations/admin";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
@@ -843,6 +847,91 @@ export async function deleteModifier(
   }
 }
 
+export async function updateModifier(
+  ctx: Ctx,
+  rawInput: { id: string; menuItemId?: string } & UpdateModifierInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = updateModifierSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail(
+      "VALIDATION",
+      parsed.error.issues[0]?.message ?? "Invalid modifier parameters",
+      400
+    );
+  }
+
+  const { id } = rawInput;
+  if (!id) {
+    return fail("VALIDATION", "Modifier ID is required", 400);
+  }
+
+  try {
+    const mod = await ctx.db.query.modifiers.findFirst({
+      where: eq(modifiers.id, id),
+      with: { menuItem: true },
+    });
+    if (!mod || mod.menuItem.restaurantId !== ctx.actor!.restaurantId) {
+      return fail("NOT_FOUND", "Modifier not found", 404);
+    }
+
+    const updates: Partial<typeof modifiers.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.groupName !== undefined) updates.groupName = parsed.data.groupName;
+    if (parsed.data.isRequired !== undefined) updates.isRequired = parsed.data.isRequired;
+    if (parsed.data.priceRupees !== undefined) {
+      updates.pricePaise = rupeesToPaise(parsed.data.priceRupees);
+    }
+
+    await ctx.db.update(modifiers).set(updates).where(eq(modifiers.id, id));
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in updateModifier service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+export async function getModifiersForItem(
+  ctx: Ctx,
+  menuItemId: string
+): Promise<ServiceResult<AdminModifierData[]>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  try {
+    const item = await ctx.db.query.menuItems.findFirst({
+      where: and(
+        eq(menuItems.id, menuItemId),
+        eq(menuItems.restaurantId, ctx.actor!.restaurantId)
+      ),
+      with: { modifiers: true },
+    });
+
+    if (!item) {
+      return fail("NOT_FOUND", "Menu item not found", 404);
+    }
+
+    return ok(
+      item.modifiers.map((m) => ({
+        id: m.id,
+        menuItemId: m.menuItemId,
+        groupName: m.groupName,
+        name: m.name,
+        pricePaise: m.pricePaise,
+        isRequired: m.isRequired,
+      }))
+    );
+  } catch (err) {
+    console.error("Database error in getModifiersForItem service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+
 export async function getAdminTables(
   ctx: Ctx
 ): Promise<ServiceResult<AdminTableData[]>> {
@@ -948,6 +1037,59 @@ export async function deleteTable(
     return fail("INTERNAL", "Service temporarily unavailable", 500);
   }
 }
+
+export async function updateTable(
+  ctx: Ctx,
+  rawInput: { id: string } & UpdateTableInput
+): Promise<ServiceResult<{ success: true }>> {
+  const authErr = checkManagerActor(ctx);
+  if (authErr) return authErr;
+
+  const parsed = updateTableSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return fail(
+      "VALIDATION",
+      parsed.error.issues[0]?.message ?? "Invalid table parameters",
+      400
+    );
+  }
+
+  const { id } = rawInput;
+  if (!id) {
+    return fail("VALIDATION", "Table ID is required", 400);
+  }
+
+  try {
+    const existing = await ctx.db.query.tables.findFirst({
+      where: and(
+        eq(tables.id, id),
+        eq(tables.restaurantId, ctx.actor!.restaurantId)
+      ),
+    });
+
+    if (!existing) {
+      return fail("NOT_FOUND", "Table not found", 404);
+    }
+
+    const updates: Partial<typeof tables.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (parsed.data.tableNumber !== undefined) updates.tableNumber = parsed.data.tableNumber;
+    if (parsed.data.capacity !== undefined) updates.capacity = parsed.data.capacity;
+    if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
+
+    await ctx.db
+      .update(tables)
+      .set(updates)
+      .where(and(eq(tables.id, id), eq(tables.restaurantId, ctx.actor!.restaurantId)));
+
+    return ok({ success: true });
+  } catch (err) {
+    console.error("Database error in updateTable service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
 
 export async function getAdminReports(
   ctx: Ctx

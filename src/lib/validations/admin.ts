@@ -159,6 +159,19 @@ export const createModifierSchema = z.object({
 
 export type CreateModifierInput = z.infer<typeof createModifierSchema>;
 
+export const updateModifierSchema = z.object({
+  groupName: z.string().trim().min(2, "Group name must be at least 2 characters").optional(),
+  name: z.string().trim().min(1, "Modifier name is required").optional(),
+  priceRupees: z.coerce
+    .number()
+    .min(0, "Price cannot be negative")
+    .max(50000, "Price is too large")
+    .optional(),
+  isRequired: z.boolean().optional(),
+});
+
+export type UpdateModifierInput = z.infer<typeof updateModifierSchema>;
+
 export const deleteModifierSchema = z.object({
   id: z.string().trim().min(1, "Modifier ID is required"),
 });
@@ -180,8 +193,22 @@ export const createTableSchema = z.object({
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;
 
+export const updateTableSchema = z.object({
+  tableNumber: z.string().trim().min(1, "Table number is required").optional(),
+  capacity: z.coerce
+    .number()
+    .int()
+    .min(1, "Capacity must be at least 1 seat")
+    .max(30, "Capacity cannot exceed 30 seats")
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+
+export type UpdateTableInput = z.infer<typeof updateTableSchema>;
+
 export const deleteTableSchema = z.object({
   id: z.string().trim().min(1, "Table ID is required"),
 });
 
 export type DeleteTableInput = z.infer<typeof deleteTableSchema>;
+

@@ -7,6 +7,8 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -396,6 +398,29 @@ export const orderCounters = pgTable("order_counters", {
 });
 
 // ============================================================================
+// 13. Idempotency Keys (Order creation replay protection)
+// ============================================================================
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    key: text("key").notNull(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id, { onDelete: "cascade" }),
+    requestHash: text("request_hash").notNull(),
+    responseStatus: integer("response_status").notNull(),
+    responseBody: jsonb("response_body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.restaurantId, table.key] }),
+    index("idempotency_keys_created_at_idx").on(table.createdAt),
+  ]
+);
+
+// ============================================================================
 // Drizzle Relations
 // ============================================================================
 export const restaurantsRelations = relations(restaurants, ({ many, one }) => ({
@@ -405,6 +430,7 @@ export const restaurantsRelations = relations(restaurants, ({ many, one }) => ({
   orders: many(orders),
   staffUsers: many(staffUsers),
   orderCounter: one(orderCounters),
+  idempotencyKeys: many(idempotencyKeys),
 }));
 
 export const tablesRelations = relations(tables, ({ one, many }) => ({
@@ -498,3 +524,11 @@ export const orderCountersRelations = relations(orderCounters, ({ one }) => ({
     references: [restaurants.id],
   }),
 }));
+
+export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [idempotencyKeys.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
