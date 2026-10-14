@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   AlertCircle,
@@ -11,7 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { loginStaffAction } from "@/server/actions/kitchen";
+import { authApi } from "@/lib/api/auth";
+// TODO(P5): replace with demo API
 import { demoLoginAction } from "@/server/actions/demo";
 
 export interface AdminLoginProps {
@@ -19,6 +21,7 @@ export interface AdminLoginProps {
 }
 
 export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
+  const router = useRouter();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -33,11 +36,11 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
     setError(null);
 
     try {
-      const res = await loginStaffAction({ username, password });
-      if (res.success) {
-        window.location.reload();
+      const res = await authApi.login(username, password);
+      if (res.ok) {
+        router.refresh();
       } else {
-        setError(res.error || "Invalid manager credentials");
+        setError(res.message);
       }
     } catch (err) {
       setError((err as Error).message || "Authentication failed");
@@ -51,6 +54,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
     setIsDemoLoading(true);
     setError(null);
     try {
+      // TODO(P5): replace with demo API
       const res = await demoLoginAction("manager");
       if (res.success) {
         window.location.reload();

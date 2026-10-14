@@ -1,17 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { KitchenHeader } from "./kitchen-header";
 import { KitchenTicketCard } from "./kitchen-ticket";
 import { playKitchenChime } from "@/lib/sound";
-import {
-  getKitchenTicketsAction,
-  transitionOrderStatusAction,
-  type KitchenTicket,
-} from "@/server/actions/kitchen";
-import type { StaffSession } from "@/server/auth";
-import type { OrderStatus } from "@/server/db/schema";
+import { kitchenApi } from "@/lib/api/kitchen";
+import type { KitchenTicket, OrderStatus, StaffSession } from "@/lib/api/types";
 import { Utensils, Flame, Sparkles } from "lucide-react";
 
 export interface KitchenBoardProps {
@@ -25,6 +21,7 @@ export function KitchenBoard({
   session,
   realtimeChannel,
 }: KitchenBoardProps) {
+  const router = useRouter();
   const [tickets, setTickets] = React.useState<KitchenTicket[]>(initialTickets);
   const [highlightedIds, setHighlightedIds] = React.useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = React.useState(false);
@@ -79,10 +76,12 @@ export function KitchenBoard({
           if (orderId) {
             triggerNewOrderAlert(orderId);
           }
-          // Refresh tickets via authenticated action
-          getKitchenTicketsAction().then((res) => {
-            if (res.success && res.tickets) {
-              setTickets(res.tickets);
+          // Refresh tickets via API client
+          kitchenApi.listTickets().then((res) => {
+            if (res.ok) {
+              setTickets(res.data);
+            } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
+              router.refresh();
             }
           });
         })
@@ -96,10 +95,12 @@ export function KitchenBoard({
                 .filter((t) => t.status !== "served" && t.status !== "cancelled")
             );
           }
-          // Re-fetch via authenticated action as event is a hint
-          getKitchenTicketsAction().then((res) => {
-            if (res.success && res.tickets) {
-              setTickets(res.tickets);
+          // Re-fetch via API client as event is a hint
+          kitchenApi.listTickets().then((res) => {
+            if (res.ok) {
+              setTickets(res.data);
+            } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
+              router.refresh();
             }
           });
         })
@@ -113,32 +114,55 @@ export function KitchenBoard({
         supabase.removeChannel(channel);
       }
     };
-  }, [supabase, realtimeChannel, triggerNewOrderAlert]);
+  }, [supabase, realtimeChannel, triggerNewOrderAlert, router]);
 
-  // 2. 5-Second Polling Fallback
+  // 2. Polling Fallback with 401 redirect and 429 backoff using Retry-After
   React.useEffect(() => {
-    const interval = setInterval(async () => {
+    let timeoutId: NodeJS.Timeout;
+    let isCancelled = false;
+
+    const poll = async () => {
+      let delayMs = 5000;
       try {
-        const res = await getKitchenTicketsAction();
-        if (res.success && res.tickets) {
-          // Check if any new ticket arrived that wasn't in current list
+        const res = await kitchenApi.listTickets();
+        if (isCancelled) return;
+
+        if (res.ok) {
           setTickets((current) => {
             const currentIds = new Set(current.map((t) => t.id));
-            const brandNewTickets = res.tickets!.filter((t) => !currentIds.has(t.id));
+            const brandNewTickets = res.data.filter((t) => !currentIds.has(t.id));
 
             for (const newTicket of brandNewTickets) {
               triggerNewOrderAlert(newTicket.id);
             }
-            return res.tickets!;
+            return res.data;
           });
+        } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
+          // 401: Refresh to login view
+          router.refresh();
+          return;
+        } else if (res.status === 429) {
+          // 429: Back off using Retry-After header
+          const retryAfterSec =
+            res.retryAfter && res.retryAfter > 0 ? res.retryAfter : 15;
+          delayMs = retryAfterSec * 1000;
         }
       } catch {
         // Silently tolerate background network hiccups
       }
-    }, 5000);
 
-    return () => clearInterval(interval);
-  }, [triggerNewOrderAlert]);
+      if (!isCancelled) {
+        timeoutId = setTimeout(poll, delayMs);
+      }
+    };
+
+    timeoutId = setTimeout(poll, 5000);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [triggerNewOrderAlert, router]);
 
   // Handle transition tap action (enforcing valid transition server-side)
   const handleTransition = async (orderId: string, toStatus: OrderStatus) => {
@@ -149,12 +173,16 @@ export function KitchenBoard({
         .filter((t) => t.status !== "served" && t.status !== "cancelled")
     );
 
-    const result = await transitionOrderStatusAction({ orderId, toStatus });
-    if (!result.success) {
+    const result = await kitchenApi.transition(orderId, toStatus);
+    if (!result.ok) {
+      if (result.status === 401 || result.code === "UNAUTHENTICATED") {
+        router.refresh();
+        return;
+      }
       // Revert if server rejected transition
-      const refreshed = await getKitchenTicketsAction();
-      if (refreshed.success && refreshed.tickets) {
-        setTickets(refreshed.tickets);
+      const refreshed = await kitchenApi.listTickets();
+      if (refreshed.ok) {
+        setTickets(refreshed.data);
       }
     }
   };

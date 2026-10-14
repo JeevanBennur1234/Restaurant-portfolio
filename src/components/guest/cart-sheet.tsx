@@ -18,13 +18,8 @@ import {
 } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
-import {
-  placeOrderAction,
-  createRazorpayOrderAction,
-  verifyRazorpayPaymentAction,
-  confirmSimulatedPaymentAction,
-  switchOrderToCounterAction,
-} from "@/server/actions/order";
+import { customerApi } from "@/lib/api/customer";
+import { userMessageFor } from "@/lib/api/errors";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 
@@ -48,6 +43,14 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   const [pendingOrderNumber, setPendingOrderNumber] = React.useState<string | null>(null);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
+  // Idempotency: generate one key per checkout attempt.
+  // Reused when retrying after network error or 5xx; replaced when cart contents change or on success.
+  const [idempotencyKey, setIdempotencyKey] = React.useState<string>(() =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2) + Date.now().toString(36)
+  );
+
   const {
     items,
     updateQuantity,
@@ -59,6 +62,22 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
     setIsCartOpen,
   } = useCart();
 
+  // Regenerate idempotency key when cart contents change
+  const itemsSignature = React.useMemo(
+    () =>
+      JSON.stringify(
+        items.map((i) => [i.menuItemId, i.quantity, i.selectedModifierIds])
+      ),
+    [items]
+  );
+  const prevItemsSigRef = React.useRef(itemsSignature);
+  React.useEffect(() => {
+    if (prevItemsSigRef.current !== itemsSignature) {
+      prevItemsSigRef.current = itemsSignature;
+      setIdempotencyKey(crypto.randomUUID());
+    }
+  }, [itemsSignature]);
+
   // Compute 5% GST preview for guest transparency
   const taxPreviewPaise = Math.round(totalPaise * 0.05);
   const grandTotalPaise = totalPaise + taxPreviewPaise;
@@ -67,21 +86,24 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   // Initiates Razorpay Checkout flow
   const initiateRazorpayPayment = async (orderId: string, orderNumber: string) => {
     setStatusMessage("Opening secure checkout...");
-    const rzpOrderRes = await createRazorpayOrderAction({ orderId, token });
+    const rzpOrderRes = await customerApi.createRazorpayOrder({ orderId, token });
 
-    if (!rzpOrderRes.success) {
+    if (!rzpOrderRes.ok) {
       setPaymentError(
-        rzpOrderRes.error ?? "Could not initialize payment. Please retry or choose Pay at counter."
+        userMessageFor(
+          rzpOrderRes.code,
+          rzpOrderRes.message || "Could not initialize payment. Please retry or choose Pay at counter."
+        )
       );
       setIsSubmitting(false);
       setStatusMessage(null);
       return;
     }
 
-    if (rzpOrderRes.simulated) {
+    if (rzpOrderRes.data.simulated) {
       setStatusMessage("Confirming demo payment...");
-      const confirmRes = await confirmSimulatedPaymentAction({ orderId, token });
-      if (confirmRes.success) {
+      const confirmRes = await customerApi.simulatePayment({ orderId, token });
+      if (confirmRes.ok) {
         clearCart();
         setIsCartOpen(false);
         showToast({
@@ -92,14 +114,19 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         });
         router.push(`/t/${token}/order/${orderId}`);
       } else {
-        setPaymentError(confirmRes.error ?? "Payment confirmation failed.");
+        setPaymentError(
+          userMessageFor(
+            confirmRes.code,
+            confirmRes.message || "Payment confirmation failed."
+          )
+        );
       }
       setIsSubmitting(false);
       setStatusMessage(null);
       return;
     }
 
-    if (!rzpOrderRes.razorpayOrderId) {
+    if (!rzpOrderRes.data.razorpayOrderId) {
       setPaymentError(
         "Could not retrieve payment order ID. Please retry or choose Pay at counter."
       );
@@ -121,18 +148,18 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
 
     // Launch official Razorpay Checkout popup
     const rzpOptions: RazorpayOptions = {
-      key: rzpOrderRes.keyId ?? "rzp_test_placeholder",
-      amount: rzpOrderRes.amountPaise ?? grandTotalPaise,
+      key: rzpOrderRes.data.keyId ?? "rzp_test_placeholder",
+      amount: rzpOrderRes.data.amountPaise ?? grandTotalPaise,
       currency: "INR",
       name: "Masala Lane",
       description: `Order #${orderNumber} • ${tableLabel}`,
-      order_id: rzpOrderRes.razorpayOrderId,
+      order_id: rzpOrderRes.data.razorpayOrderId,
       handler: async function (response: RazorpaySuccessResponse) {
         setStatusMessage("Verifying payment with bank...");
         setIsSubmitting(true);
 
         // Never trust client-side success: verify signature strictly on server
-        const verifyRes = await verifyRazorpayPaymentAction({
+        const verifyRes = await customerApi.verifyRazorpayPayment({
           orderId,
           token,
           razorpayOrderId: response.razorpay_order_id,
@@ -140,7 +167,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
           razorpaySignature: response.razorpay_signature,
         });
 
-        if (verifyRes.success) {
+        if (verifyRes.ok) {
           clearCart();
           setIsCartOpen(false);
           showToast({
@@ -152,7 +179,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
           router.push(`/t/${token}/order/${orderId}`);
         } else {
           setPaymentError(
-            verifyRes.error ?? "Payment verification failed on the server."
+            userMessageFor(
+              verifyRes.code,
+              verifyRes.message || "Payment verification failed on the server."
+            )
           );
         }
         setIsSubmitting(false);
@@ -195,33 +225,45 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         notes: notes.trim() || undefined,
       };
 
-      const result = await placeOrderAction(payload);
+      const result = await customerApi.placeOrder(token, payload, {
+        idempotencyKey,
+      });
 
-      if (result.success && result.orderId && result.orderNumber) {
-        setPendingOrderId(result.orderId);
-        setPendingOrderNumber(result.orderNumber);
-
-        // If Pay at counter: order is already sent to kitchen!
-        if (paymentMethod === "counter") {
-          clearCart();
-          setIsCartOpen(false);
-          showToast({
-            title: "Order Sent to Kitchen",
-            message: `Order #${result.orderNumber} placed for ${tableLabel}`,
-            variant: "success",
-            duration: 3500,
-          });
-          router.push(`/t/${token}/order/${result.orderId}`);
-          return;
-        }
-
-        // If Pay now: initiate Razorpay Checkout
-        await initiateRazorpayPayment(result.orderId, result.orderNumber);
-      } else {
-        setPaymentError(result.error ?? "Could not place order. Please try again.");
+      if (!result.ok) {
+        // On failure (network failure or 5xx), the SAME idempotencyKey is preserved for retries
+        setPaymentError(
+          userMessageFor(
+            result.code,
+            result.message || "Could not place order. Please try again."
+          )
+        );
         setIsSubmitting(false);
         setStatusMessage(null);
+        return;
       }
+
+      // Successful order placement: reset idempotency key for next order
+      setIdempotencyKey(crypto.randomUUID());
+
+      setPendingOrderId(result.data.orderId);
+      setPendingOrderNumber(result.data.orderNumber);
+
+      // If Pay at counter: order is already sent to kitchen!
+      if (paymentMethod === "counter") {
+        clearCart();
+        setIsCartOpen(false);
+        showToast({
+          title: "Order Sent to Kitchen",
+          message: `Order #${result.data.orderNumber} placed for ${tableLabel}`,
+          variant: "success",
+          duration: 3500,
+        });
+        router.push(`/t/${token}/order/${result.data.orderId}`);
+        return;
+      }
+
+      // If Pay now: initiate Razorpay Checkout
+      await initiateRazorpayPayment(result.data.orderId, result.data.orderNumber);
     } catch (err) {
       setPaymentError((err as Error).message ?? "An unexpected error occurred.");
       setIsSubmitting(false);
@@ -235,13 +277,12 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
     setStatusMessage("Switching to Pay at counter...");
 
     try {
-      const res = await switchOrderToCounterAction({
+      const res = await customerApi.payAtCounter({
         orderId: pendingOrderId,
         token,
-        targetMethod: "counter",
       });
 
-      if (res.success) {
+      if (res.ok) {
         clearCart();
         setIsCartOpen(false);
         showToast({
@@ -252,7 +293,9 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         });
         router.push(`/t/${token}/order/${pendingOrderId}`);
       } else {
-        setPaymentError(res.error ?? "Failed to switch payment method");
+        setPaymentError(
+          userMessageFor(res.code, res.message || "Failed to switch payment method")
+        );
       }
     } finally {
       setIsSubmitting(false);

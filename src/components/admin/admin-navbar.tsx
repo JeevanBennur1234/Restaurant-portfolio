@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   UtensilsCrossed,
   ChefHat,
@@ -13,8 +14,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { logoutStaffAction } from "@/server/actions/kitchen";
-import type { StaffSession } from "@/server/auth";
+import { authApi } from "@/lib/api/auth";
+import type { StaffSession } from "@/lib/api/types";
 
 export type AdminTab = "orders" | "menu" | "tables" | "reports";
 
@@ -31,13 +32,14 @@ export function AdminNavbar({
   session,
   activeOrdersCount = 0,
 }: AdminNavbarProps) {
+  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logoutStaffAction();
-      window.location.reload();
+      await authApi.logout();
+      router.refresh();
     } finally {
       setIsLoggingOut(false);
     }

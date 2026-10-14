@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getGuestTableAndMenu } from "@/server/queries/guest";
+import { db } from "@/server/db";
+import { getMenuForTable } from "@/server/services/customer";
 import { GuestHeader } from "@/components/guest/guest-header";
 import { MenuView } from "@/components/guest/menu-view";
 import { CartProvider } from "@/components/guest/cart-context";
@@ -15,9 +16,9 @@ export async function generateMetadata({
   params,
 }: GuestPageProps): Promise<Metadata> {
   const { token } = await params;
-  const result = await getGuestTableAndMenu(token);
+  const result = await getMenuForTable({ db }, token);
 
-  if (!result.success) {
+  if (!result.ok) {
     return {
       title: "Table Not Found | Masala Lane",
       description: "Invalid table QR code session.",
@@ -32,10 +33,16 @@ export async function generateMetadata({
 
 export default async function GuestTablePage({ params }: GuestPageProps) {
   const { token } = await params;
-  const result = await getGuestTableAndMenu(token);
+  const result = await getMenuForTable({ db }, token);
 
-  if (!result.success) {
-    return <InvalidTokenView reason={result.error} />;
+  if (!result.ok) {
+    const reason =
+      result.message === "INVALID_TOKEN" ||
+      result.message === "NOT_FOUND" ||
+      result.message === "INACTIVE_TABLE"
+        ? result.message
+        : "Service temporarily unavailable";
+    return <InvalidTokenView reason={reason} />;
   }
 
   const { restaurant, table, categories, items } = result.data;

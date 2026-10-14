@@ -9,7 +9,7 @@ import { CartSheet } from "./cart-sheet";
 import { VegIndicator } from "./veg-indicator";
 import { Search, X, UtensilsCrossed, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { GuestCategory, GuestMenuItem, GuestTable } from "@/server/queries/guest";
+import type { GuestCategory, GuestMenuItem, GuestTable } from "@/lib/api/types";
 
 export interface MenuViewProps {
   categories: GuestCategory[];

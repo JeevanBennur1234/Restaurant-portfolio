@@ -8,14 +8,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPaiseToINR } from "@/lib/currency";
-import {
-  getOrderDetailsAction,
-  createRazorpayOrderAction,
-  verifyRazorpayPaymentAction,
-  confirmSimulatedPaymentAction,
-  switchOrderToCounterAction,
-  type OrderDetails,
-} from "@/server/actions/order";
+import { customerApi } from "@/lib/api/customer";
+import { userMessageFor } from "@/lib/api/errors";
+import type { OrderDetails, OrderStatus } from "@/lib/api/types";
+// TODO(P5): replace with demo API
 import { simulateKitchenStepAction } from "@/server/actions/demo";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
@@ -30,7 +26,6 @@ import {
   CreditCard,
   Banknote,
 } from "lucide-react";
-import type { OrderStatus } from "@/server/db/schema";
 
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
@@ -89,9 +84,9 @@ export function OrderLiveTracker({
 
   const refreshOrder = React.useCallback(async () => {
     try {
-      const res = await getOrderDetailsAction(order.id, token);
-      if (res.success && res.order) {
-        setOrder(res.order);
+      const res = await customerApi.getOrder({ orderId: order.id, token });
+      if (res.ok && res.data) {
+        setOrder(res.data);
         setLastRefreshed(new Date());
       }
     } catch {
@@ -176,6 +171,7 @@ export function OrderLiveTracker({
     if (!nextStatus || isAdvancing) return;
     setIsAdvancing(true);
     try {
+      // TODO(P5): replace with demo API
       const res = await simulateKitchenStepAction(order.id, token);
       if (res.success && res.newStatus) {
         setOrder((prev) => ({ ...prev, status: res.newStatus! }));
@@ -191,33 +187,43 @@ export function OrderLiveTracker({
     setPaymentError(null);
 
     try {
-      const rzpRes = await createRazorpayOrderAction({
+      const rzpRes = await customerApi.createRazorpayOrder({
         orderId: order.id,
         token,
       });
 
-      if (!rzpRes.success) {
-        setPaymentError(rzpRes.error ?? "Failed to initialize payment gateway");
+      if (!rzpRes.ok) {
+        setPaymentError(
+          userMessageFor(
+            rzpRes.code,
+            rzpRes.message || "Failed to initialize payment gateway"
+          )
+        );
         setIsPaying(false);
         return;
       }
 
-      if (rzpRes.simulated) {
-        const confirmRes = await confirmSimulatedPaymentAction({
+      if (rzpRes.data.simulated) {
+        const confirmRes = await customerApi.simulatePayment({
           orderId: order.id,
           token,
         });
 
-        if (confirmRes.success) {
+        if (confirmRes.ok) {
           setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
         } else {
-          setPaymentError(confirmRes.error ?? "Payment confirmation failed");
+          setPaymentError(
+            userMessageFor(
+              confirmRes.code,
+              confirmRes.message || "Payment confirmation failed"
+            )
+          );
         }
         setIsPaying(false);
         return;
       }
 
-      if (!rzpRes.razorpayOrderId) {
+      if (!rzpRes.data.razorpayOrderId) {
         setPaymentError("Failed to retrieve payment order ID");
         setIsPaying(false);
         return;
@@ -234,15 +240,15 @@ export function OrderLiveTracker({
       }
 
       const options: RazorpayOptions = {
-        key: rzpRes.keyId ?? "rzp_test_placeholder",
-        amount: rzpRes.amountPaise ?? order.totalPaise,
+        key: rzpRes.data.keyId ?? "rzp_test_placeholder",
+        amount: rzpRes.data.amountPaise ?? order.totalPaise,
         currency: "INR",
         name: "Masala Lane",
         description: `Order #${order.orderNumber} • ${order.tableNumber}`,
-        order_id: rzpRes.razorpayOrderId,
+        order_id: rzpRes.data.razorpayOrderId,
         handler: async (response: RazorpaySuccessResponse) => {
           setIsPaying(true);
-          const verifyRes = await verifyRazorpayPaymentAction({
+          const verifyRes = await customerApi.verifyRazorpayPayment({
             orderId: order.id,
             token,
             razorpayOrderId: response.razorpay_order_id,
@@ -250,10 +256,15 @@ export function OrderLiveTracker({
             razorpaySignature: response.razorpay_signature,
           });
 
-          if (verifyRes.success) {
+          if (verifyRes.ok) {
             setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
           } else {
-            setPaymentError(verifyRes.error ?? "Verification failed on server");
+            setPaymentError(
+              userMessageFor(
+                verifyRes.code,
+                verifyRes.message || "Verification failed on server"
+              )
+            );
           }
           setIsPaying(false);
         },
@@ -283,19 +294,20 @@ export function OrderLiveTracker({
     setIsPaying(true);
     setPaymentError(null);
     try {
-      const res = await switchOrderToCounterAction({
+      const res = await customerApi.payAtCounter({
         orderId: order.id,
         token,
-        targetMethod: "counter",
       });
-      if (res.success) {
+      if (res.ok) {
         setOrder((prev) => ({
           ...prev,
           paymentStatus: "counter",
           paymentMethod: "counter",
         }));
       } else {
-        setPaymentError(res.error ?? "Failed to switch payment method");
+        setPaymentError(
+          userMessageFor(res.code, res.message || "Failed to switch payment method")
+        );
       }
     } finally {
       setIsPaying(false);

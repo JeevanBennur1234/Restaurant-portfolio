@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { OrderStatus } from "@/server/db/schema";
+import type { OrderStatus } from "@/lib/api/types";
 import { Check, Clock, Flame, BellRing, Sparkles, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 

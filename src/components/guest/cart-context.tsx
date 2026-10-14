@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { GuestMenuItem } from "@/server/queries/guest";
+import type { GuestMenuItem } from "@/lib/api/types";
 
 export interface CartItem {
   id: string; // Composite key: `${menuItemId}::${modifierIds.sort().join(",")}`

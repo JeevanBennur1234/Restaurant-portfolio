@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Volume2, VolumeX, Maximize2, Minimize2, LogOut, Clock, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { unlockAudioContext } from "@/lib/sound";
-import { logoutStaffAction } from "@/server/actions/kitchen";
-import type { StaffSession } from "@/server/auth";
+import { authApi } from "@/lib/api/auth";
+import type { StaffSession } from "@/lib/api/types";
 
 export interface KitchenHeaderProps {
   session: StaffSession;
@@ -62,9 +63,11 @@ export function KitchenHeader({
     }
   };
 
+  const router = useRouter();
+
   const handleLogout = async () => {
-    await logoutStaffAction();
-    window.location.reload();
+    await authApi.logout();
+    router.refresh();
   };
 
   return (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getOrderDetailsAction } from "@/server/actions/order";
+import { db } from "@/server/db";
+import { getOrder } from "@/server/services/customer";
 import { env } from "@/server/env";
 import { GuestHeader } from "@/components/guest/guest-header";
 import { OrderLiveTracker } from "@/components/guest/order-live-tracker";
@@ -19,26 +20,28 @@ export async function generateMetadata({
   params,
 }: OrderPageProps): Promise<Metadata> {
   const { id, token } = await params;
-  const result = await getOrderDetailsAction(id, token);
+  const result = await getOrder({ db }, { orderId: id, token });
 
-  if (!result.success || !result.order) {
+  if (!result.ok || !result.data) {
     return {
       title: "Order Not Found | Masala Lane",
       description: "Live table order tracking.",
     };
   }
 
+  const order = result.data;
+
   return {
-    title: `Order #${result.order.orderNumber} (${result.order.tableNumber}) | ${result.order.restaurantName}`,
-    description: `Live order status tracker for ${result.order.tableNumber} at ${result.order.restaurantName}.`,
+    title: `Order #${order.orderNumber} (${order.tableNumber}) | ${order.restaurantName}`,
+    description: `Live order status tracker for ${order.tableNumber} at ${order.restaurantName}.`,
   };
 }
 
 export default async function GuestOrderTrackerPage({ params }: OrderPageProps) {
   const { id, token } = await params;
-  const result = await getOrderDetailsAction(id, token);
+  const result = await getOrder({ db }, { orderId: id, token });
 
-  if (!result.success || !result.order) {
+  if (!result.ok || !result.data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 py-16 max-w-md mx-auto w-full text-center">
         <Card className="w-full text-left">
@@ -66,7 +69,7 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
     );
   }
 
-  const { order } = result;
+  const order = result.data;
   const isDemoMode = env.DEMO_MODE === "true";
 
   return (

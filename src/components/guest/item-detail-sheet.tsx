@@ -9,7 +9,7 @@ import { formatPaiseToINR } from "@/lib/currency";
 import { Clock, Minus, Plus, Utensils } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
-import type { GuestMenuItem, GuestModifier } from "@/server/queries/guest";
+import type { GuestMenuItem, GuestModifier } from "@/lib/api/types";
 
 export interface ItemDetailSheetProps {
   item: GuestMenuItem | null;

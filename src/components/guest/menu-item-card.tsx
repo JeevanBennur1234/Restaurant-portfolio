@@ -7,7 +7,7 @@ import { VegIndicator } from "./veg-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Plus, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { GuestMenuItem } from "@/server/queries/guest";
+import type { GuestMenuItem } from "@/lib/api/types";
 
 export interface MenuItemCardProps {
   item: GuestMenuItem;

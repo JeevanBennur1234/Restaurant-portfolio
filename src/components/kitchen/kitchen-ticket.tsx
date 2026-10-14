@@ -10,13 +10,13 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KitchenTicket } from "@/server/actions/kitchen";
-import type { OrderStatus } from "@/server/db/schema";
+import { kitchenApi } from "@/lib/api/kitchen";
+import type { KitchenTicket, OrderStatus } from "@/lib/api/types";
 
 export interface KitchenTicketProps {
   ticket: KitchenTicket;
   isHighlighted?: boolean;
-  onTransition: (orderId: string, toStatus: OrderStatus) => Promise<void>;
+  onTransition?: (orderId: string, toStatus: OrderStatus) => Promise<void>;
 }
 
 export function KitchenTicketCard({
@@ -70,7 +70,11 @@ export function KitchenTicketCard({
     if (isPending) return;
     setIsPending(true);
     try {
-      await onTransition(ticket.id, toStatus);
+      if (onTransition) {
+        await onTransition(ticket.id, toStatus);
+      } else {
+        await kitchenApi.transition(ticket.id, toStatus);
+      }
     } finally {
       setIsPending(false);
     }

@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ChefHat, AlertCircle, ArrowRight, Sparkles } from "lucide-react";
-import { loginStaffAction } from "@/server/actions/kitchen";
+import { authApi } from "@/lib/api/auth";
+// TODO(P5): replace with demo API
 import { demoLoginAction } from "@/server/actions/demo";
 
 export interface KitchenLoginProps {
@@ -12,6 +14,7 @@ export interface KitchenLoginProps {
 }
 
 export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
+  const router = useRouter();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -26,11 +29,11 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
     setError(null);
 
     try {
-      const res = await loginStaffAction({ username, password });
-      if (res.success) {
-        window.location.reload();
+      const res = await authApi.login(username, password);
+      if (res.ok) {
+        router.refresh();
       } else {
-        setError(res.error ?? "Invalid staff credentials");
+        setError(res.message);
       }
     } catch (err) {
       setError((err as Error).message ?? "Authentication failed");
@@ -44,6 +47,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
     setIsDemoLoading(true);
     setError(null);
     try {
+      // TODO(P5): replace with demo API
       const res = await demoLoginAction("kitchen");
       if (res.success) {
         window.location.reload();
