@@ -1,9 +1,108 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { env } from "@/server/env";
+import { env, validateFrameAncestors } from "@/server/env";
+import { getSite, type Site } from "@/server/site";
+
+export function isAlwaysAllowed(pathname: string): boolean {
+  if (
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icon") ||
+    pathname.startsWith("/opengraph-image") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/media/") ||
+    pathname.startsWith("/images/") ||
+    pathname === "/api/v1/health"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function routeDecisionForSite(
+  site: Site,
+  pathname: string
+): { allowed: boolean; rewriteTo?: string } {
+  if (isAlwaysAllowed(pathname)) {
+    return { allowed: true };
+  }
+
+  if (site === "all") {
+    return { allowed: true };
+  }
+
+  if (site === "customer") {
+    const isCustomerPath =
+      pathname === "/" ||
+      pathname === "/demo" ||
+      pathname.startsWith("/demo/") ||
+      pathname === "/t" ||
+      pathname.startsWith("/t/") ||
+      pathname === "/api/v1/customer" ||
+      pathname.startsWith("/api/v1/customer/") ||
+      pathname === "/api/v1/openapi.json" ||
+      pathname === "/api/webhooks/razorpay" ||
+      pathname === "/api/demo/reset";
+
+    return { allowed: isCustomerPath };
+  }
+
+  if (site === "kitchen") {
+    if (pathname === "/") {
+      return { allowed: true, rewriteTo: "/kitchen" };
+    }
+    const isKitchenPath =
+      pathname === "/kitchen" ||
+      pathname.startsWith("/kitchen/") ||
+      pathname === "/api/v1/kitchen" ||
+      pathname.startsWith("/api/v1/kitchen/") ||
+      pathname === "/api/v1/auth" ||
+      pathname.startsWith("/api/v1/auth/");
+
+    return { allowed: isKitchenPath };
+  }
+
+  if (site === "manager") {
+    if (pathname === "/") {
+      return { allowed: true, rewriteTo: "/admin" };
+    }
+    const isManagerPath =
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/") ||
+      pathname === "/api/v1/admin" ||
+      pathname.startsWith("/api/v1/admin/") ||
+      pathname === "/api/admin" ||
+      pathname.startsWith("/api/admin/") ||
+      pathname === "/api/v1/auth" ||
+      pathname.startsWith("/api/v1/auth/");
+
+    return { allowed: isManagerPath };
+  }
+
+  return { allowed: false };
+}
 
 export function proxy(request?: NextRequest) {
-  void request;
-  const response = NextResponse.next();
+  if (!request) {
+    return NextResponse.next();
+  }
+
+  const site = getSite();
+  const pathname = request.nextUrl.pathname;
+  const decision = routeDecisionForSite(site, pathname);
+
+  let response: NextResponse;
+  if (!decision.allowed) {
+    const notFoundUrl = new URL("/_not-found", request.url);
+    response = NextResponse.rewrite(notFoundUrl);
+  } else if (decision.rewriteTo) {
+    const rewriteUrl = new URL(decision.rewriteTo, request.url);
+    response = NextResponse.rewrite(rewriteUrl);
+  } else {
+    response = NextResponse.next();
+  }
 
   // Supabase URL for connect-src (HTTPS and WSS)
   let supabaseOrigins = "https://*.supabase.co wss://*.supabase.co";
@@ -19,6 +118,26 @@ export function proxy(request?: NextRequest) {
       // Keep wildcard default if unparseable
     }
   }
+
+  // Frame ancestors parsing
+  const rawFrameAncestors = process.env.FRAME_ANCESTORS || env.FRAME_ANCESTORS;
+  let frameAncestorsOrigins: string[] = [];
+  let hasValidFrameAncestors = false;
+  if (rawFrameAncestors && rawFrameAncestors.trim().length > 0) {
+    const parsed = validateFrameAncestors(
+      rawFrameAncestors,
+      env.NODE_ENV === "production"
+    );
+    if (parsed.valid && parsed.origins.length > 0) {
+      frameAncestorsOrigins = parsed.origins;
+      hasValidFrameAncestors = true;
+    }
+  }
+
+  const frameAncestorsDirective =
+    frameAncestorsOrigins.length > 0
+      ? `frame-ancestors 'self' ${frameAncestorsOrigins.join(" ")}`
+      : "frame-ancestors 'self'";
 
   // Content-Security-Policy
   const scriptSrcDirectives = [
@@ -38,7 +157,7 @@ export function proxy(request?: NextRequest) {
     "media-src 'self'",
     "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com",
     `connect-src 'self' https://checkout.razorpay.com https://api.razorpay.com ${supabaseOrigins}`,
-    "frame-ancestors 'self'",
+    frameAncestorsDirective,
     "base-uri 'self'",
     "form-action 'self'",
   ];
@@ -59,11 +178,24 @@ export function proxy(request?: NextRequest) {
     );
   }
 
-  // Frame protection allowing same-origin embedding (/demo embedding /t/* or /kitchen)
-  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  // Frame protection:
+  // When FRAME_ANCESTORS is set, do NOT send X-Frame-Options (the CSP covers it);
+  // when unset keep X-Frame-Options: SAMEORIGIN.
+  if (hasValidFrameAncestors) {
+    response.headers.delete("X-Frame-Options");
+  } else {
+    response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  }
+
+  // Kitchen and manager sites: add X-Robots-Tag: noindex, nofollow, noarchive
+  if (site === "kitchen" || site === "manager") {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
 
   return response;
 }
+
+export const middleware = proxy;
 
 export const config = {
   matcher: [

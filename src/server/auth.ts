@@ -6,6 +6,11 @@ import { cache } from "react";
 import { db } from "@/server/db";
 import { staffUsers, loginAttempts, type StaffRole } from "@/server/db/schema";
 import { env } from "@/server/env";
+import {
+  getSite,
+  allowedRolesForSite,
+  sessionCookieNameForSite,
+} from "@/server/site";
 
 export interface StaffSession {
   userId: string;
@@ -21,9 +26,10 @@ export interface SessionPayload {
   sessionVersion: number;
   iat: number;
   exp: number;
+  aud?: string;
 }
 
-const SESSION_COOKIE_NAME = "dinepulse_staff_session";
+export const SESSION_COOKIE_NAME = "dinepulse_staff_session";
 
 // Pre-computed bcrypt hash (10 rounds) to equalize response time when username does not exist
 const DUMMY_HASH =
@@ -60,7 +66,11 @@ export async function getClientIp(): Promise<string> {
  * Encodes and signs a session payload
  */
 export function signSessionPayload(payload: SessionPayload): string {
-  const json = JSON.stringify(payload);
+  const fullPayload: SessionPayload = {
+    ...payload,
+    aud: payload.aud ?? getSite(),
+  };
+  const json = JSON.stringify(fullPayload);
   const base64 = Buffer.from(json).toString("base64url");
   const signature = crypto
     .createHmac("sha256", env.SESSION_SECRET)
@@ -72,8 +82,12 @@ export function signSessionPayload(payload: SessionPayload): string {
 /**
  * Verifies and decodes a session token.
  * Uses crypto.timingSafeEqual and rejects expired tokens (exp 12h).
+ * Rejects tokens whose aud differs from the expected/current site.
  */
-export function verifySessionToken(token: string): SessionPayload | null {
+export function verifySessionToken(
+  token: string,
+  expectedAud?: string
+): SessionPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 2) return null;
@@ -93,13 +107,22 @@ export function verifySessionToken(token: string): SessionPayload | null {
     const json = Buffer.from(base64, "base64url").toString("utf-8");
     const payload = JSON.parse(json) as SessionPayload;
 
-    if (!payload.userId || typeof payload.iat !== "number" || typeof payload.exp !== "number") {
+    if (
+      !payload.userId ||
+      typeof payload.iat !== "number" ||
+      typeof payload.exp !== "number"
+    ) {
       return null;
     }
 
     const now = Math.floor(Date.now() / 1000);
     if (now >= payload.exp) {
       return null; // Expired token
+    }
+
+    const currentAud = expectedAud ?? getSite();
+    if (!payload.aud || payload.aud !== currentAud) {
+      return null;
     }
 
     return payload;
@@ -126,7 +149,8 @@ const getCachedStaffUserById = cache(async (userId: string) => {
 export async function getStaffSession(): Promise<StaffSession | null> {
   try {
     const cookieJar = await cookies();
-    const sessionCookie = cookieJar.get(SESSION_COOKIE_NAME);
+    const cookieName = sessionCookieNameForSite(getSite());
+    const sessionCookie = cookieJar.get(cookieName);
     if (!sessionCookie) return null;
 
     const payload = verifySessionToken(sessionCookie.value);
@@ -134,6 +158,12 @@ export async function getStaffSession(): Promise<StaffSession | null> {
 
     const user = await getCachedStaffUserById(payload.userId);
     if (!user || !user.isActive) return null;
+
+    // Role check: ensure user's role is allowed on this site
+    const allowed = allowedRolesForSite(getSite());
+    if (!allowed.includes(user.role)) {
+      return null;
+    }
 
     // Invalidate old sessions when sessionVersion has changed
     if (
@@ -175,14 +205,17 @@ export async function setStaffSessionCookie(
 ): Promise<void> {
   const cookieJar = await cookies();
   const now = Math.floor(Date.now() / 1000);
+  const currentSite = getSite();
   const payload: SessionPayload = {
     userId,
     sessionVersion,
     iat: now,
     exp: now + 12 * 60 * 60, // 12 hours
+    aud: currentSite,
   };
   const token = signSessionPayload(payload);
-  cookieJar.set(SESSION_COOKIE_NAME, token, {
+  const cookieName = sessionCookieNameForSite(currentSite);
+  cookieJar.set(cookieName, token, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
     sameSite: "lax",
@@ -192,11 +225,12 @@ export async function setStaffSessionCookie(
 }
 
 /**
- * Clears staff session cookie
+ * Clears staff session cookie for the current site
  */
 export async function clearStaffSessionCookie(): Promise<void> {
   const cookieJar = await cookies();
-  cookieJar.delete(SESSION_COOKIE_NAME);
+  const cookieName = sessionCookieNameForSite(getSite());
+  cookieJar.delete(cookieName);
 }
 
 /**
@@ -258,6 +292,7 @@ async function clearFailedAttempts(key: string): Promise<void> {
  * - Anti-timing attack dummy hash comparison
  * - Database-backed rate limiting (5 failed attempts per username+IP per 15 min)
  * - Strict rejection of fallback credentials and database failures
+ * - Role authorization check for the current site
  */
 export async function authenticateStaff(
   username: string,
@@ -294,6 +329,15 @@ export async function authenticateStaff(
 
     if (!isMatch || !user || !user.isActive) {
       return { success: false, error: "Invalid username or password" };
+    }
+
+    // Check role authorization only AFTER password is confirmed
+    const allowedRoles = allowedRolesForSite(getSite());
+    if (!allowedRoles.includes(user.role)) {
+      return {
+        success: false,
+        error: "This account can't sign in on this site.",
+      };
     }
 
     // 4. Successful login: clear rate limit counter

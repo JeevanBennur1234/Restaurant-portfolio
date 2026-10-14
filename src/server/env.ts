@@ -13,10 +13,106 @@ function containsPlaceholder(val: string | undefined): boolean {
   return val.toLowerCase().includes("placeholder");
 }
 
+export function validateFrameAncestors(
+  val: string | undefined,
+  isProduction: boolean
+): { valid: boolean; error?: string; origins: string[] } {
+  if (!val || val.trim() === "") {
+    return { valid: true, origins: [] };
+  }
+
+  const entries = val
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (entries.length === 0) {
+    return { valid: true, origins: [] };
+  }
+
+  const origins: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.includes("*")) {
+      return {
+        valid: false,
+        error: `Wildcards are not allowed in FRAME_ANCESTORS: "${entry}". Specify exact origins.`,
+        origins: [],
+      };
+    }
+
+    if (!entry.startsWith("https://") && !entry.startsWith("http://")) {
+      return {
+        valid: false,
+        error: `FRAME_ANCESTORS entries must start with https:// (or http:// for localhost outside production): "${entry}"`,
+        origins: [],
+      };
+    }
+
+    let url: URL;
+    try {
+      url = new URL(entry);
+    } catch {
+      return {
+        valid: false,
+        error: `Invalid URL origin in FRAME_ANCESTORS: "${entry}"`,
+        origins: [],
+      };
+    }
+
+    if (url.search || url.hash || url.username || url.password) {
+      return {
+        valid: false,
+        error: `Query parameters, hashes, or credentials are not allowed in FRAME_ANCESTORS: "${entry}"`,
+        origins: [],
+      };
+    }
+
+    const afterScheme = entry.replace(/^https?:\/\//, "");
+    if (afterScheme.includes("/")) {
+      return {
+        valid: false,
+        error: `Paths are not allowed in FRAME_ANCESTORS: "${entry}". Use exact origin format (e.g. https://example.com).`,
+        origins: [],
+      };
+    }
+
+    if (url.protocol === "http:") {
+      if (isProduction) {
+        return {
+          valid: false,
+          error: `http:// origins are not allowed in production in FRAME_ANCESTORS: "${entry}". Use https://.`,
+          origins: [],
+        };
+      }
+      if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+        return {
+          valid: false,
+          error: `Non-production http:// origins in FRAME_ANCESTORS must be localhost or 127.0.0.1: "${entry}"`,
+          origins: [],
+        };
+      }
+    } else if (url.protocol !== "https:") {
+      return {
+        valid: false,
+        error: `Invalid protocol in FRAME_ANCESTORS: "${entry}". Must be https:// or http://.`,
+        origins: [],
+      };
+    }
+
+    origins.push(url.origin);
+  }
+
+  return { valid: true, origins };
+}
+
 const rawEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  SITE: z.enum(["customer", "kitchen", "manager", "all"]).default("all"),
+  FRAME_ANCESTORS: z.string().optional(),
+  NEXT_PUBLIC_SITE_NAME: z.string().optional(),
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required"),
@@ -45,6 +141,17 @@ const rawEnvSchema = z.object({
 const envSchema = rawEnvSchema.superRefine((data, ctx) => {
   const isProduction = data.NODE_ENV === "production";
   const isDemo = data.DEMO_MODE === "true";
+
+  if (data.FRAME_ANCESTORS) {
+    const result = validateFrameAncestors(data.FRAME_ANCESTORS, isProduction);
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["FRAME_ANCESTORS"],
+        message: result.error ?? "Invalid FRAME_ANCESTORS configuration.",
+      });
+    }
+  }
 
   if (isProduction) {
     // 1. SESSION_SECRET checks

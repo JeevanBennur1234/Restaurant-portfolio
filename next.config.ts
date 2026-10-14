@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
+const site = process.env.SITE || "all";
+const isDev = process.env.NODE_ENV === "development";
+const distDir = isDev && site !== "all" ? `.next-${site}` : ".next";
+
 const nextConfig: NextConfig = {
+  distDir,
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,

@@ -19,11 +19,14 @@ const plusJakarta = Plus_Jakarta_Sans({
 
 import { env } from "@/server/env";
 
+const siteName =
+  process.env.NEXT_PUBLIC_SITE_NAME || env.NEXT_PUBLIC_SITE_NAME || "DinePulse";
+
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   title: {
-    default: "DinePulse by Intallo | Smart QR Dining & Real-Time KDS",
-    template: "%s | DinePulse",
+    default: `${siteName} by Intallo | Smart QR Dining & Real-Time KDS`,
+    template: `%s | ${siteName}`,
   },
   description:
     "Demo restaurant ordering system by Intallo. Premium casual dining, instant table ordering, and real-time kitchen operations.",
