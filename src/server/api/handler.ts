@@ -10,6 +10,7 @@ import {
   requireStaff,
   requireTableToken,
   validateOrigin,
+  getClientIpFromRequest,
   type TableWithRestaurant,
 } from "./guards";
 
@@ -195,11 +196,7 @@ export function withApi<
 
       // 7. Rate limiting
       if (options.rateLimit === "customer") {
-        const forwarded = req.headers.get("x-forwarded-for");
-        const ip =
-          (forwarded
-            ? forwarded.split(",")[0].trim()
-            : req.headers.get("x-real-ip")) || "127.0.0.1";
+        const ip = getClientIpFromRequest(req);
 
         const ipLimit = await checkRateLimit({
           key: `api:customer:ip:${ip}`,

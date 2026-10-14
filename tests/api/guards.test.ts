@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { validateOrigin, requireStaff, requireTableToken } from "@/server/api/guards";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  validateOrigin,
+  requireStaff,
+  requireTableToken,
+  getClientIpFromRequest,
+} from "@/server/api/guards";
 import * as authModule from "@/server/auth";
 import { db } from "@/server/db";
 
@@ -56,6 +61,55 @@ describe("API Guards", () => {
         },
       });
       expect(validateOrigin(req)).toBe(true);
+    });
+  });
+
+  describe("Client IP Extraction", () => {
+    const originalVercel = process.env.VERCEL;
+
+    afterEach(() => {
+      if (originalVercel === undefined) {
+        delete process.env.VERCEL;
+      } else {
+        process.env.VERCEL = originalVercel;
+      }
+    });
+
+    it("ignores spoofed x-forwarded-for and x-real-ip when VERCEL is unset", () => {
+      delete process.env.VERCEL;
+      const req = new Request("https://example.com/api/v1/auth/login", {
+        headers: {
+          "x-forwarded-for": "203.0.113.195, 70.41.3.18",
+          "x-real-ip": "198.51.100.17",
+        },
+      });
+      expect(getClientIpFromRequest(req)).toBe("127.0.0.1");
+    });
+
+    it("honors x-forwarded-for when VERCEL is set", () => {
+      process.env.VERCEL = "1";
+      const req = new Request("https://example.com/api/v1/auth/login", {
+        headers: {
+          "x-forwarded-for": "203.0.113.195, 70.41.3.18",
+        },
+      });
+      expect(getClientIpFromRequest(req)).toBe("203.0.113.195");
+    });
+
+    it("honors x-real-ip when VERCEL is set and x-forwarded-for is missing", () => {
+      process.env.VERCEL = "1";
+      const req = new Request("https://example.com/api/v1/auth/login", {
+        headers: {
+          "x-real-ip": "198.51.100.17",
+        },
+      });
+      expect(getClientIpFromRequest(req)).toBe("198.51.100.17");
+    });
+
+    it("falls back to 127.0.0.1 when VERCEL is set but no proxy headers present", () => {
+      process.env.VERCEL = "1";
+      const req = new Request("https://example.com/api/v1/auth/login");
+      expect(getClientIpFromRequest(req)).toBe("127.0.0.1");
     });
   });
 

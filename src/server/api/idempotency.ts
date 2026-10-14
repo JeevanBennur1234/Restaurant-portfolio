@@ -81,7 +81,7 @@ export async function executeIdempotentOrder(options: {
       });
 
       if (!existing) {
-        return apiError("CONFLICT", "Idempotency conflict detected", 409, {
+        return apiError("INTERNAL", "Failed to acquire idempotency key", 500, {
           "x-request-id": requestId,
         });
       }
@@ -96,31 +96,101 @@ export async function executeIdempotentOrder(options: {
         );
       }
 
-      // Concurrent request in flight with same key and same body
+      // Check if placeholder is still in flight (responseStatus === 0)
       if (existing.responseStatus === 0) {
-        return apiError(
-          "CONFLICT",
-          "Concurrent request in progress with this Idempotency-Key",
-          409,
-          { "x-request-id": requestId }
-        );
+        const isStale =
+          new Date(existing.createdAt).getTime() < Date.now() - 2 * 60 * 1000;
+
+        if (isStale) {
+          // Stale/abandoned placeholder older than 2 minutes: delete and proceed
+          await db
+            .delete(idempotencyKeys)
+            .where(
+              and(
+                eq(idempotencyKeys.restaurantId, restaurantId),
+                eq(idempotencyKeys.key, trimmedKey)
+              )
+            );
+
+          const [reclaimed] = await db
+            .insert(idempotencyKeys)
+            .values({
+              key: trimmedKey,
+              restaurantId,
+              requestHash,
+              responseStatus: 0,
+              responseBody: {},
+              createdAt: new Date(),
+            })
+            .onConflictDoNothing()
+            .returning();
+
+          if (!reclaimed) {
+            return apiError(
+              "CONFLICT",
+              "Concurrent request in progress with this Idempotency-Key",
+              409,
+              { "x-request-id": requestId }
+            );
+          }
+        } else {
+          return apiError(
+            "CONFLICT",
+            "Concurrent request in progress with this Idempotency-Key",
+            409,
+            { "x-request-id": requestId }
+          );
+        }
+      } else {
+        // Replay stored response
+        return NextResponse.json(existing.responseBody, {
+          status: existing.responseStatus,
+          headers: {
+            "Cache-Control": "no-store",
+            "Idempotency-Replayed": "true",
+            "x-request-id": requestId,
+          },
+        });
       }
-
-      // Replay stored response
-      return NextResponse.json(existing.responseBody, {
-        status: existing.responseStatus,
-        headers: {
-          "Cache-Control": "no-store",
-          "Idempotency-Replayed": "true",
-          "x-request-id": requestId,
-        },
-      });
     }
+  } catch (dbErr) {
+    console.error("Database error before order execution:", dbErr);
+    return apiError(
+      "INTERNAL",
+      "Database error processing idempotency key",
+      500,
+      { "x-request-id": requestId }
+    );
+  }
 
-    // 5. This is the first request: execute order handler
-    const response = await handler();
+  // 5. Execute handler (guaranteed to be called at most once)
+  let response: NextResponse;
+  try {
+    response = await handler();
+  } catch (handlerErr) {
+    // If the handler throws, delete the placeholder row, then rethrow
+    try {
+      await db
+        .delete(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.restaurantId, restaurantId),
+            eq(idempotencyKeys.key, trimmedKey)
+          )
+        );
+    } catch (delErr) {
+      console.error("Failed to delete placeholder after handler error:", delErr);
+    }
+    throw handlerErr;
+  }
 
-    // 6. Update idempotency key with response status and body
+  // 6. Only store the response when status is 2xx or 4xx VALIDATION/NOT_FOUND
+  const is2xx = response.status >= 200 && response.status < 300;
+  const isValidationOrNotFound =
+    response.status === 400 || response.status === 404;
+  const shouldStore = is2xx || isValidationOrNotFound;
+
+  if (shouldStore) {
     try {
       const cloned = response.clone();
       const responseData = await cloned.json();
@@ -140,10 +210,21 @@ export async function executeIdempotentOrder(options: {
     } catch (storeErr) {
       console.error("Failed to store idempotency response body:", storeErr);
     }
-
-    return response;
-  } catch (err) {
-    console.error("Database error in idempotency handling:", err);
-    return await handler();
+  } else {
+    // For 429 and 5xx (or any non-storable status): delete the placeholder so the client can retry with the same key
+    try {
+      await db
+        .delete(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.restaurantId, restaurantId),
+            eq(idempotencyKeys.key, trimmedKey)
+          )
+        );
+    } catch (delErr) {
+      console.error("Failed to delete placeholder for retryable status:", delErr);
+    }
   }
+
+  return response;
 }

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { authenticateStaff } from "@/server/auth";
 import { withApi } from "@/server/api/handler";
 import { apiOk, apiError } from "@/server/api/envelope";
-
+import { getClientIpFromRequest } from "@/server/api/guards";
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Username is required"),
@@ -11,11 +11,7 @@ const loginSchema = z.object({
 
 export const POST = withApi(
   async ({ req, body }) => {
-    const forwarded = req.headers.get("x-forwarded-for");
-    const clientIp =
-      (forwarded
-        ? forwarded.split(",")[0].trim()
-        : req.headers.get("x-real-ip")) || "127.0.0.1";
+    const clientIp = getClientIpFromRequest(req);
 
     const authResult = await authenticateStaff(
       body.username,

@@ -177,3 +177,23 @@ export async function requireTableToken(
     };
   }
 }
+
+/**
+ * Extracts client IP from incoming request.
+ * Only trusts x-forwarded-for and x-real-ip when running on Vercel (process.env.VERCEL),
+ * otherwise returns "127.0.0.1" to prevent IP spoofing in self-hosted environments.
+ */
+export function getClientIpFromRequest(req: Request): string {
+  if (process.env.VERCEL) {
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    if (forwardedFor) {
+      return forwardedFor.split(",")[0].trim();
+    }
+    const realIp = req.headers.get("x-real-ip");
+    if (realIp) {
+      return realIp.trim();
+    }
+  }
+  return "127.0.0.1";
+}
+
