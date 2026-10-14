@@ -17,6 +17,19 @@ import type {
   KitchenTicketItem,
   TransitionOrderInput,
 } from "@/server/services/kitchen";
+import type {
+  AdminOrderRow,
+  AdminOrderItemSummary,
+  GetAdminOrdersData,
+  AdminCategoryData,
+  AdminModifierData,
+  AdminMenuItemData,
+  GetAdminMenuData,
+  AdminTableData,
+  TopSellingItem,
+  DayMetric,
+  AdminReportsData,
+} from "@/server/services/manager";
 import type { StaffSession } from "@/server/auth";
 import type { OrderStatus } from "@/server/db/schema";
 import type {
@@ -25,6 +38,23 @@ import type {
   VerifyPaymentInput,
   SwitchPaymentMethodInput,
 } from "@/lib/validations/order";
+import type {
+  AdminOrdersQueryInput,
+  CancelOrderInput,
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  DeleteCategoryInput,
+  CreateMenuItemInput,
+  UpdateMenuItemInput,
+  ToggleMenuItemAvailabilityInput,
+  DeleteMenuItemInput,
+  CreateModifierInput,
+  UpdateModifierInput,
+  DeleteModifierInput,
+  CreateTableInput,
+  UpdateTableInput,
+  DeleteTableInput,
+} from "@/lib/validations/admin";
 import type { ErrorCode as ApiErrorCode } from "@/server/services/result";
 
 export type {
@@ -46,8 +76,34 @@ export type {
   KitchenTicket,
   KitchenTicketItem,
   TransitionOrderInput,
+  AdminOrderRow,
+  AdminOrderItemSummary,
+  GetAdminOrdersData,
+  AdminCategoryData,
+  AdminModifierData,
+  AdminMenuItemData,
+  GetAdminMenuData,
+  AdminTableData,
+  TopSellingItem,
+  DayMetric,
+  AdminReportsData,
   PlaceOrderInput,
   CreateRazorpayOrderInput,
   VerifyPaymentInput,
   SwitchPaymentMethodInput,
+  AdminOrdersQueryInput,
+  CancelOrderInput,
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  DeleteCategoryInput,
+  CreateMenuItemInput,
+  UpdateMenuItemInput,
+  ToggleMenuItemAvailabilityInput,
+  DeleteMenuItemInput,
+  CreateModifierInput,
+  UpdateModifierInput,
+  DeleteModifierInput,
+  CreateTableInput,
+  UpdateTableInput,
+  DeleteTableInput,
 };

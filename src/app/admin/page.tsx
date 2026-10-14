@@ -1,6 +1,8 @@
 import { getStaffSession } from "@/server/auth";
 import { getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
+import { db } from "@/server/db";
+import { getAdminOrders } from "@/server/services/manager";
 import { AdminDashboard, AdminLogin } from "@/components/admin";
 
 export const metadata = {
@@ -16,7 +18,21 @@ export default async function AdminPage() {
     return <AdminLogin isDemoMode={env.DEMO_MODE === "true"} />;
   }
 
+  // Server components call manager services directly with actor
+  const initialOrdersRes = await getAdminOrders({ db, actor: session });
+  const initialOrders = initialOrdersRes.ok ? initialOrdersRes.data.orders : [];
+  const initialPagination = initialOrdersRes.ok
+    ? initialOrdersRes.data.pagination
+    : undefined;
+
   const realtimeChannel = getRestaurantChannel(session.restaurantId);
 
-  return <AdminDashboard session={session} realtimeChannel={realtimeChannel} />;
+  return (
+    <AdminDashboard
+      session={session}
+      realtimeChannel={realtimeChannel}
+      initialOrders={initialOrders}
+      initialPagination={initialPagination}
+    />
+  );
 }

@@ -20,6 +20,11 @@ import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/api/customer";
 import { userMessageFor } from "@/lib/api/errors";
+import {
+  generateIdempotencyKey,
+  createCartSignature,
+  shouldRegenerateKeyOnResult,
+} from "./idempotency-key";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 
@@ -44,11 +49,9 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
   // Idempotency: generate one key per checkout attempt.
-  // Reused when retrying after network error or 5xx; replaced when cart contents change or on success.
+  // Reused when retrying after network error or 5xx; replaced when cart body changes, on 4xx, or on success.
   const [idempotencyKey, setIdempotencyKey] = React.useState<string>(() =>
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Math.random().toString(36).substring(2) + Date.now().toString(36)
+    generateIdempotencyKey()
   );
 
   const {
@@ -62,21 +65,18 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
     setIsCartOpen,
   } = useCart();
 
-  // Regenerate idempotency key when cart contents change
-  const itemsSignature = React.useMemo(
-    () =>
-      JSON.stringify(
-        items.map((i) => [i.menuItemId, i.quantity, i.selectedModifierIds])
-      ),
-    [items]
+  // Regenerate idempotency key when full request body changes (items, paymentMethod, trimmed notes)
+  const cartBodySignature = React.useMemo(
+    () => createCartSignature(items, paymentMethod, notes),
+    [items, paymentMethod, notes]
   );
-  const prevItemsSigRef = React.useRef(itemsSignature);
+  const prevBodySigRef = React.useRef(cartBodySignature);
   React.useEffect(() => {
-    if (prevItemsSigRef.current !== itemsSignature) {
-      prevItemsSigRef.current = itemsSignature;
-      setIdempotencyKey(crypto.randomUUID());
+    if (prevBodySigRef.current !== cartBodySignature) {
+      prevBodySigRef.current = cartBodySignature;
+      setIdempotencyKey(generateIdempotencyKey());
     }
-  }, [itemsSignature]);
+  }, [cartBodySignature]);
 
   // Compute 5% GST preview for guest transparency
   const taxPreviewPaise = Math.round(totalPaise * 0.05);
@@ -230,7 +230,9 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       });
 
       if (!result.ok) {
-        // On failure (network failure or 5xx), the SAME idempotencyKey is preserved for retries
+        if (shouldRegenerateKeyOnResult(result)) {
+          setIdempotencyKey(generateIdempotencyKey());
+        }
         setPaymentError(
           userMessageFor(
             result.code,
@@ -243,7 +245,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       }
 
       // Successful order placement: reset idempotency key for next order
-      setIdempotencyKey(crypto.randomUUID());
+      setIdempotencyKey(generateIdempotencyKey());
 
       setPendingOrderId(result.data.orderId);
       setPendingOrderNumber(result.data.orderNumber);

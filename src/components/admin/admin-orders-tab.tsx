@@ -19,31 +19,43 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { formatPaiseToINR } from "@/lib/currency";
-import {
-  getAdminOrdersAction,
-  cancelOrderAction,
-  type AdminOrderRow,
-} from "@/server/actions/admin";
+import { adminApi } from "@/lib/api/admin";
+import { userMessageFor } from "@/lib/api/errors";
+import type { AdminOrderRow } from "@/lib/api/types";
 import type { OrderStatus } from "@/server/db/schema";
 
-interface AdminOrdersTabProps {
+export interface AdminOrdersTabProps {
   onOrderUpdate?: () => void;
   refreshKey?: number;
+  initialOrders?: AdminOrderRow[];
+  initialPagination?: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
-export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProps) {
+export function AdminOrdersTab({
+  onOrderUpdate,
+  refreshKey,
+  initialOrders,
+  initialPagination,
+}: AdminOrdersTabProps) {
   // Filters & Pagination State
-  const [page, setPage] = React.useState(1);
+  const [page, setPage] = React.useState(initialPagination?.page ?? 1);
   const pageSize = 10;
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [paymentFilter, setPaymentFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
 
   // Data State
-  const [orders, setOrders] = React.useState<AdminOrderRow[]>([]);
-  const [totalPages, setTotalPages] = React.useState(1);
-  const [totalCount, setTotalCount] = React.useState(0);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [orders, setOrders] = React.useState<AdminOrderRow[]>(initialOrders ?? []);
+  const [totalPages, setTotalPages] = React.useState(initialPagination?.totalPages ?? 1);
+  const [totalCount, setTotalCount] = React.useState(
+    initialPagination?.totalCount ?? (initialOrders?.length ?? 0)
+  );
+  const [isLoading, setIsLoading] = React.useState(initialOrders ? false : true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Detail & Cancel Modal States
@@ -58,7 +70,7 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
       if (showLoading) setIsLoading(true);
       setError(null);
       try {
-        const res = await getAdminOrdersAction({
+        const res = await adminApi.listOrders({
           page,
           pageSize,
           status: statusFilter as "all" | OrderStatus,
@@ -66,14 +78,22 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
           search: searchQuery.trim() || undefined,
         });
 
-        if (res.success && res.orders) {
-          setOrders(res.orders);
-          if (res.pagination) {
-            setTotalPages(res.pagination.totalPages);
-            setTotalCount(res.pagination.totalCount);
-          }
+        if (res.ok) {
+          setOrders(res.data.orders);
+          setTotalPages(res.data.pagination.totalPages);
+          setTotalCount(res.data.pagination.totalCount);
         } else {
-          setError(res.error || "Failed to load orders");
+          if (res.status === 401) {
+            window.location.reload();
+            return;
+          }
+          const msg =
+            res.status === 403
+              ? res.message
+              : res.status === 429 && res.retryAfter
+              ? `Too many requests. Please retry in ${res.retryAfter}s.`
+              : userMessageFor(res.code, res.message || "Failed to load orders");
+          setError(msg);
         }
       } catch (err) {
         setError((err as Error).message || "Error fetching orders");
@@ -86,25 +106,35 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
 
   React.useEffect(() => {
     let isMounted = true;
-    getAdminOrdersAction({
-      page,
-      pageSize,
-      status: statusFilter as "all" | OrderStatus,
-      paymentStatus: paymentFilter as "all" | "pending" | "paid" | "counter" | "failed",
-      search: searchQuery.trim() || undefined,
-    }).then((res) => {
-      if (!isMounted) return;
-      setIsLoading(false);
-      if (res.success && res.orders) {
-        setOrders(res.orders);
-        if (res.pagination) {
-          setTotalPages(res.pagination.totalPages);
-          setTotalCount(res.pagination.totalCount);
+    adminApi
+      .listOrders({
+        page,
+        pageSize,
+        status: statusFilter as "all" | OrderStatus,
+        paymentStatus: paymentFilter as "all" | "pending" | "paid" | "counter" | "failed",
+        search: searchQuery.trim() || undefined,
+      })
+      .then((res) => {
+        if (!isMounted) return;
+        setIsLoading(false);
+        if (res.ok) {
+          setOrders(res.data.orders);
+          setTotalPages(res.data.pagination.totalPages);
+          setTotalCount(res.data.pagination.totalCount);
+        } else {
+          if (res.status === 401) {
+            window.location.reload();
+            return;
+          }
+          const msg =
+            res.status === 403
+              ? res.message
+              : res.status === 429 && res.retryAfter
+              ? `Too many requests. Please retry in ${res.retryAfter}s.`
+              : userMessageFor(res.code, res.message || "Failed to load orders");
+          setError(msg);
         }
-      } else {
-        setError(res.error || "Failed to load orders");
-      }
-    });
+      });
 
     return () => {
       isMounted = false;
@@ -114,21 +144,21 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
   // 5-Second Polling Fallback
   React.useEffect(() => {
     const interval = setInterval(() => {
-      getAdminOrdersAction({
-        page,
-        pageSize,
-        status: statusFilter as "all" | OrderStatus,
-        paymentStatus: paymentFilter as "all" | "pending" | "paid" | "counter" | "failed",
-        search: searchQuery.trim() || undefined,
-      }).then((res) => {
-        if (res.success && res.orders) {
-          setOrders(res.orders);
-          if (res.pagination) {
-            setTotalPages(res.pagination.totalPages);
-            setTotalCount(res.pagination.totalCount);
+      adminApi
+        .listOrders({
+          page,
+          pageSize,
+          status: statusFilter as "all" | OrderStatus,
+          paymentStatus: paymentFilter as "all" | "pending" | "paid" | "counter" | "failed",
+          search: searchQuery.trim() || undefined,
+        })
+        .then((res) => {
+          if (res.ok) {
+            setOrders(res.data.orders);
+            setTotalPages(res.data.pagination.totalPages);
+            setTotalCount(res.data.pagination.totalCount);
           }
-        }
-      });
+        });
     }, 5000);
     return () => clearInterval(interval);
   }, [page, pageSize, statusFilter, paymentFilter, searchQuery]);
@@ -141,18 +171,28 @@ export function AdminOrdersTab({ onOrderUpdate, refreshKey }: AdminOrdersTabProp
     setCancelError(null);
 
     try {
-      const res = await cancelOrderAction({
-        orderId: cancelModalOrder.id,
-        reason: cancelReason.trim(),
-      });
+      const res = await adminApi.cancelOrder(
+        cancelModalOrder.id,
+        cancelReason.trim()
+      );
 
-      if (res.success) {
+      if (res.ok) {
         setCancelModalOrder(null);
         setCancelReason("");
         await fetchOrders();
         onOrderUpdate?.();
       } else {
-        setCancelError(res.error || "Failed to cancel order");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to cancel order");
+        setCancelError(msg);
       }
     } catch (err) {
       setCancelError((err as Error).message || "Error canceling order");

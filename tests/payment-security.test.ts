@@ -68,9 +68,9 @@ import {
   verifyRazorpayWebhookSignature,
 } from "@/server/razorpay";
 import {
-  verifyRazorpayPaymentAction,
-  confirmSimulatedPaymentAction,
-} from "@/server/actions/order";
+  verifyRazorpayPayment,
+  confirmSimulatedPayment,
+} from "@/server/services/customer";
 import { POST as razorpayWebhookPost } from "@/app/api/webhooks/razorpay/route";
 import { NextRequest } from "next/server";
 
@@ -100,16 +100,21 @@ describe("Payment Security & Integrity", () => {
       // No payment record matching orderId AND razorpayOrderId
       vi.mocked(db.query.payments.findFirst).mockResolvedValue(null as never);
 
-      const result = await verifyRazorpayPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-        razorpayOrderId: "order_rzp_wrong_pairing",
-        razorpayPaymentId: "pay_test_123",
-        razorpaySignature: "valid_hmac_signature",
-      });
+      const result = await verifyRazorpayPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+          razorpayOrderId: "order_rzp_wrong_pairing",
+          razorpayPaymentId: "pay_test_123",
+          razorpaySignature: "valid_hmac_signature",
+        }
+      );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Payment record not found for this order");
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe("Payment record not found for this order");
+      }
     });
 
     it("rejects when payment amount does not equal order total paise", async () => {
@@ -135,16 +140,21 @@ describe("Payment Security & Integrity", () => {
         status: "pending",
       } as never);
 
-      const result = await verifyRazorpayPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-        razorpayOrderId: "order_rzp_123",
-        razorpayPaymentId: "pay_test_123",
-        razorpaySignature: "valid_hmac_signature",
-      });
+      const result = await verifyRazorpayPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+          razorpayOrderId: "order_rzp_123",
+          razorpayPaymentId: "pay_test_123",
+          razorpaySignature: "valid_hmac_signature",
+        }
+      );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Payment amount mismatch");
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe("Payment amount mismatch");
+      }
     });
 
     it("succeeds and performs idempotent update when valid", async () => {
@@ -169,16 +179,21 @@ describe("Payment Security & Integrity", () => {
         status: "pending",
       } as never);
 
-      const result = await verifyRazorpayPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-        razorpayOrderId: "order_rzp_123",
-        razorpayPaymentId: "pay_test_123",
-        razorpaySignature: "valid_hmac_signature",
-      });
+      const result = await verifyRazorpayPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+          razorpayOrderId: "order_rzp_123",
+          razorpayPaymentId: "pay_test_123",
+          razorpaySignature: "valid_hmac_signature",
+        }
+      );
 
-      expect(result.success).toBe(true);
-      expect(result.paymentStatus).toBe("paid");
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.paymentStatus).toBe("paid");
+      }
       expect(db.transaction).toHaveBeenCalled();
     });
   });
@@ -187,15 +202,20 @@ describe("Payment Security & Integrity", () => {
     it("rejects simulated confirm when DEMO_MODE is false", async () => {
       env.DEMO_MODE = "false";
 
-      const result = await confirmSimulatedPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe(
-        "Simulated payments are only allowed in demo mode"
+      const result = await confirmSimulatedPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+        }
       );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe(
+          "Simulated payments are only allowed in demo mode"
+        );
+      }
     });
 
     it("rejects when no pending simulated payment exists for the order", async () => {
@@ -214,15 +234,20 @@ describe("Payment Security & Integrity", () => {
 
       vi.mocked(db.query.payments.findFirst).mockResolvedValue(null as never);
 
-      const result = await confirmSimulatedPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe(
-        "No pending simulated payment found for this order"
+      const result = await confirmSimulatedPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+        }
       );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe(
+          "No pending simulated payment found for this order"
+        );
+      }
     });
 
     it("rejects simulated confirm on amount mismatch", async () => {
@@ -247,13 +272,18 @@ describe("Payment Security & Integrity", () => {
         status: "pending",
       } as never);
 
-      const result = await confirmSimulatedPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-      });
+      const result = await confirmSimulatedPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+        }
+      );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Payment amount mismatch");
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe("Payment amount mismatch");
+      }
     });
 
     it("succeeds when DEMO_MODE is true and simulated payment is valid", async () => {
@@ -278,13 +308,18 @@ describe("Payment Security & Integrity", () => {
         status: "pending",
       } as never);
 
-      const result = await confirmSimulatedPaymentAction({
-        orderId: "order_123",
-        token: "valid_token",
-      });
+      const result = await confirmSimulatedPayment(
+        { db },
+        {
+          orderId: "order_123",
+          token: "valid_token",
+        }
+      );
 
-      expect(result.success).toBe(true);
-      expect(result.paymentStatus).toBe("paid");
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.paymentStatus).toBe("paid");
+      }
       expect(db.transaction).toHaveBeenCalled();
     });
   });

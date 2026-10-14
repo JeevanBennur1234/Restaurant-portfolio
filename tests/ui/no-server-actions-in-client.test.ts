@@ -35,8 +35,7 @@ describe("Architecture Guardrail: No server actions in client components", () =>
   const filesToCheck = [
     ...getFiles("src/components/guest"),
     ...getFiles("src/components/kitchen"),
-    path.normalize("src/components/admin/admin-login.tsx"),
-    path.normalize("src/components/admin/admin-navbar.tsx"),
+    ...getFiles("src/components/admin"),
   ];
 
   it("ensures client components do not import from server actions or queries except allow-listed demo helpers", () => {

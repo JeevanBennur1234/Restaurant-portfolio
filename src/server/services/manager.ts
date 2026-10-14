@@ -181,7 +181,7 @@ export interface AdminReportsData {
 
 export async function getAdminOrders(
   ctx: Ctx,
-  rawInput: AdminOrdersQueryInput
+  rawInput: AdminOrdersQueryInput = {}
 ): Promise<ServiceResult<GetAdminOrdersData>> {
   const authErr = checkManagerActor(ctx);
   if (authErr) return authErr;

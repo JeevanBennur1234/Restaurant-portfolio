@@ -91,17 +91,6 @@ vi.mock("@/server/db", () => ({
   },
 }));
 
-vi.mock("@/server/queries/guest", () => ({
-  getGuestTableAndMenu: vi.fn(async (token: string) => ({
-    success: true,
-    data: {
-      restaurant: { id: "rest_1", name: "Masala Lane" },
-      table: { id: "tbl_1", tableNumber: "T-01", qrToken: token },
-      categories: [],
-    },
-  })),
-}));
-
 vi.mock("@/server/realtime", () => ({
   publishRealtimeEvent: vi.fn().mockResolvedValue(undefined),
   getRestaurantChannel: vi.fn((id: string) => `restaurant:${id}`),
@@ -123,7 +112,7 @@ vi.mock("@/server/auth", () => ({
 
 import { env } from "@/server/env";
 import { checkRateLimit } from "@/server/rate-limit";
-import { placeOrderAction, createRazorpayOrderAction } from "@/server/actions/order";
+import { placeOrder, createRazorpayOrder } from "@/server/services/customer";
 import { GET as getQrPdf } from "@/app/api/admin/tables/qr-pdf/route";
 import { proxy } from "@/proxy";
 import { db } from "@/server/db";
@@ -245,29 +234,39 @@ describe("Order Spam Protections (placeOrderAction)", () => {
   });
 
   it("Requirement 1: rejects order if total item quantity exceeds 30", async () => {
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [
-        { menuItemId: "menu_1", quantity: 20, selectedModifierIds: [] },
-        { menuItemId: "menu_2", quantity: 15, selectedModifierIds: [] },
-      ],
-      paymentMethod: "pay_now",
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [
+          { menuItemId: "menu_1", quantity: 20, selectedModifierIds: [] },
+          { menuItemId: "menu_2", quantity: 15, selectedModifierIds: [] },
+        ],
+        paymentMethod: "pay_now",
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/30 total items/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/30 total items/i);
+    }
   });
 
   it("Requirement 1: rejects order if invalid customer phone number provided", async () => {
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [{ menuItemId: "menu_1", quantity: 2, selectedModifierIds: [] }],
-      paymentMethod: "pay_now",
-      customerPhone: "1234567890", // Invalid: does not start with 6-9
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [{ menuItemId: "menu_1", quantity: 2, selectedModifierIds: [] }],
+        paymentMethod: "pay_now",
+        customerPhone: "1234567890", // Invalid: does not start with 6-9
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/valid 10-digit Indian phone number/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/valid 10-digit Indian phone number/i);
+    }
   });
 
   it("Requirement 1: allows order with valid formatted Indian customer phone", async () => {
@@ -275,14 +274,17 @@ describe("Order Spam Protections (placeOrderAction)", () => {
       .mockResolvedValueOnce([]) // unpaid orders check
       .mockResolvedValueOnce([]); // 10 min orders check
 
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [{ menuItemId: "menu_1", quantity: 2, selectedModifierIds: [] }],
-      paymentMethod: "pay_now",
-      customerPhone: "+91 98765 43210",
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [{ menuItemId: "menu_1", quantity: 2, selectedModifierIds: [] }],
+        paymentMethod: "pay_now",
+        customerPhone: "+91 98765 43210",
+      }
+    );
 
-    expect(result.success).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it("Requirement 1: blocks order if table already has 3 unpaid pay_now orders in last 30 min", async () => {
@@ -293,14 +295,19 @@ describe("Order Spam Protections (placeOrderAction)", () => {
         { id: "o3" },
       ] as unknown as []); // 3 unpaid orders
 
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
-      paymentMethod: "pay_now",
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
+        paymentMethod: "pay_now",
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/3 unpaid orders/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/3 unpaid orders/i);
+    }
   });
 
   it("Requirement 1: blocks order if table already has 5 orders in last 10 minutes", async () => {
@@ -314,17 +321,22 @@ describe("Order Spam Protections (placeOrderAction)", () => {
         { id: "o5" },
       ] as unknown as []); // 5 orders in last 10 min
 
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
-      paymentMethod: "counter",
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
+        paymentMethod: "counter",
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/maximum 5 orders per 10 minutes/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/maximum 5 orders per 10 minutes/i);
+    }
   });
 
-  it("Requirement 2: rate limits placeOrderAction when token limit exceeded", async () => {
+  it("Requirement 2: rate limits placeOrder when token limit exceeded", async () => {
     vi.mocked(db.insert).mockReturnValueOnce({
       values: vi.fn().mockReturnValue({
         onConflictDoUpdate: vi.fn().mockReturnValue({
@@ -333,17 +345,22 @@ describe("Order Spam Protections (placeOrderAction)", () => {
       }),
     } as never);
 
-    const result = await placeOrderAction({
-      token: "tok_table1",
-      items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
-      paymentMethod: "pay_now",
-    });
+    const result = await placeOrder(
+      { db },
+      {
+        token: "tok_table1",
+        items: [{ menuItemId: "menu_1", quantity: 1, selectedModifierIds: [] }],
+        paymentMethod: "pay_now",
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/too many order requests/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/too many order requests/i);
+    }
   });
 
-  it("Requirement 2: rate limits createRazorpayOrderAction when token limit exceeded", async () => {
+  it("Requirement 2: rate limits createRazorpayOrder when token limit exceeded", async () => {
     vi.mocked(db.insert).mockReturnValueOnce({
       values: vi.fn().mockReturnValue({
         onConflictDoUpdate: vi.fn().mockReturnValue({
@@ -352,13 +369,18 @@ describe("Order Spam Protections (placeOrderAction)", () => {
       }),
     } as never);
 
-    const result = await createRazorpayOrderAction({
-      orderId: "ord_1",
-      token: "tok_table1",
-    });
+    const result = await createRazorpayOrder(
+      { db },
+      {
+        orderId: "ord_1",
+        token: "tok_table1",
+      }
+    );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/too many payment requests/i);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toMatch(/too many payment requests/i);
+    }
   });
 });
 

@@ -82,11 +82,15 @@ vi.mock("@/server/db", () => ({
 }));
 
 import {
-  deleteTableAction,
-  deleteCategoryAction,
-  deleteMenuItemAction,
-  cancelOrderAction,
-} from "@/server/actions/admin";
+  deleteTable,
+  deleteCategory,
+  deleteMenuItem,
+  cancelOrder,
+} from "@/server/services/manager";
+import type { Database } from "@/server/db";
+import type { Ctx } from "@/server/services/result";
+
+const ctx: Ctx = { db: mockDb as unknown as Database, actor: mockStaffSession };
 
 describe("Data Model Integrity & Business Rules", () => {
   beforeEach(() => {
@@ -94,64 +98,81 @@ describe("Data Model Integrity & Business Rules", () => {
   });
 
   describe("Requirement 1: Table Soft-Delete", () => {
-    it("deleteTableAction performs soft-delete by setting isActive to false", async () => {
-      const result = await deleteTableAction({ id: "table_1" });
+    it("deleteTable performs soft-delete by setting isActive to false", async () => {
+      const result = await deleteTable(
+        ctx,
+        { id: "table_1" }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockDb.delete).not.toHaveBeenCalled();
     });
   });
 
   describe("Requirement 2: Category and Menu Item Deletion Constraints", () => {
-    it("deleteCategoryAction refuses deletion when category contains menu items", async () => {
+    it("deleteCategory refuses deletion when category contains menu items", async () => {
       mockDb.query.menuItems.findFirst.mockResolvedValueOnce({
         id: "item_1",
         name: "Butter Chicken",
         categoryId: "cat_1",
       });
 
-      const result = await deleteCategoryAction({ id: "cat_1" });
+      const result = await deleteCategory(
+        ctx,
+        { id: "cat_1" }
+      );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Cannot delete category containing menu items");
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toContain("Cannot delete category containing menu items");
+      }
       expect(mockDb.delete).not.toHaveBeenCalled();
     });
 
-    it("deleteCategoryAction deletes category when it has no menu items", async () => {
+    it("deleteCategory deletes category when it has no menu items", async () => {
       mockDb.query.menuItems.findFirst.mockResolvedValueOnce(null);
 
-      const result = await deleteCategoryAction({ id: "cat_empty" });
+      const result = await deleteCategory(
+        ctx,
+        { id: "cat_empty" }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.delete).toHaveBeenCalled();
     });
 
-    it("deleteMenuItemAction soft-deletes (sets isActive=false) when item appears in order_items", async () => {
+    it("deleteMenuItem soft-deletes (sets isActive=false) when item appears in order_items", async () => {
       mockDb.query.orderItems.findFirst.mockResolvedValueOnce({
         id: "order_item_1",
         orderId: "ord_1",
         menuItemId: "item_ordered",
       });
 
-      const result = await deleteMenuItemAction({ id: "item_ordered" });
+      const result = await deleteMenuItem(
+        ctx,
+        { id: "item_ordered" }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockDb.delete).not.toHaveBeenCalled();
     });
 
-    it("deleteMenuItemAction hard-deletes item when it does not appear in order_items", async () => {
+    it("deleteMenuItem hard-deletes item when it does not appear in order_items", async () => {
       mockDb.query.orderItems.findFirst.mockResolvedValueOnce(null);
 
-      const result = await deleteMenuItemAction({ id: "item_never_ordered" });
+      const result = await deleteMenuItem(
+        ctx,
+        { id: "item_never_ordered" }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.delete).toHaveBeenCalled();
     });
   });
 
-  describe("Requirement 4: cancelOrderAction Payment Refund Status", () => {
+  describe("Requirement 4: cancelOrder Payment Refund Status", () => {
     it("sets payment status to refund_pending when order payment is completed", async () => {
       mockDb.query.orders.findFirst.mockResolvedValueOnce({
         id: "order_paid_1",
@@ -162,12 +183,15 @@ describe("Data Model Integrity & Business Rules", () => {
         table: { tableNumber: "Table 1" },
       });
 
-      const result = await cancelOrderAction({
-        orderId: "order_paid_1",
-        reason: "Customer changed mind",
-      });
+      const result = await cancelOrder(
+        ctx,
+        {
+          orderId: "order_paid_1",
+          reason: "Customer changed mind",
+        }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.transaction).toHaveBeenCalled();
       // Updates order and payment rows with refund_pending
       expect(mockDb.update).toHaveBeenCalled();
@@ -183,12 +207,15 @@ describe("Data Model Integrity & Business Rules", () => {
         table: { tableNumber: "Table 2" },
       });
 
-      const result = await cancelOrderAction({
-        orderId: "order_unpaid_1",
-        reason: "Customer left",
-      });
+      const result = await cancelOrder(
+        ctx,
+        {
+          orderId: "order_unpaid_1",
+          reason: "Customer left",
+        }
+      );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
       expect(mockDb.transaction).toHaveBeenCalled();
     });
   });

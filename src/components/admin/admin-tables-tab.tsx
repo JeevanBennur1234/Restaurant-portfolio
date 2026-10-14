@@ -13,12 +13,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  getAdminTablesAction,
-  createTableAction,
-  deleteTableAction,
-  type AdminTableData,
-} from "@/server/actions/admin";
+import { adminApi } from "@/lib/api/admin";
+import { userMessageFor } from "@/lib/api/errors";
+import type { AdminTableData } from "@/lib/api/types";
 
 export function AdminTablesTab() {
   const [tables, setTables] = React.useState<AdminTableData[]>([]);
@@ -35,11 +32,21 @@ export function AdminTablesTab() {
     if (showLoading) setIsLoading(true);
     setError(null);
     try {
-      const res = await getAdminTablesAction();
-      if (res.success && res.tables) {
-        setTables(res.tables);
+      const res = await adminApi.listTables();
+      if (res.ok) {
+        setTables(res.data);
       } else {
-        setError(res.error || "Failed to load tables");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to load tables");
+        setError(msg);
       }
     } catch (err) {
       setError((err as Error).message || "Error loading tables");
@@ -50,13 +57,23 @@ export function AdminTablesTab() {
 
   React.useEffect(() => {
     let isMounted = true;
-    getAdminTablesAction().then((res) => {
+    adminApi.listTables().then((res) => {
       if (!isMounted) return;
       setIsLoading(false);
-      if (res.success && res.tables) {
-        setTables(res.tables);
+      if (res.ok) {
+        setTables(res.data);
       } else {
-        setError(res.error || "Failed to load tables");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to load tables");
+        setError(msg);
       }
     });
 
@@ -71,18 +88,28 @@ export function AdminTablesTab() {
 
     setIsCreating(true);
     try {
-      const res = await createTableAction({
+      const res = await adminApi.createTable({
         tableNumber: tableNumber.trim(),
         capacity: Number(capacity),
       });
 
-      if (res.success) {
+      if (res.ok) {
         setIsAddModalOpen(false);
         setTableNumber("");
         setCapacity(4);
         await fetchTables();
       } else {
-        alert(res.error || "Failed to create table");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to create table");
+        alert(msg);
       }
     } catch (err) {
       alert((err as Error).message || "Error creating table");
@@ -101,11 +128,21 @@ export function AdminTablesTab() {
     }
 
     try {
-      const res = await deleteTableAction({ id: table.id });
-      if (res.success) {
+      const res = await adminApi.deleteTable(table.id);
+      if (res.ok) {
         await fetchTables();
       } else {
-        alert(res.error || "Failed to delete table");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to delete table");
+        alert(msg);
       }
     } catch (err) {
       alert((err as Error).message || "Error deleting table");
@@ -133,7 +170,7 @@ export function AdminTablesTab() {
         <div className="flex items-center gap-2">
           {/* Print All Tables PDF Button */}
           <Link
-            href="/api/admin/tables/qr-pdf"
+            href={adminApi.qrPdfUrl()}
             target="_blank"
             className="inline-flex items-center justify-center font-medium transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] shadow-sm h-9 px-3.5 text-xs gap-2 rounded-[var(--radius-md)]"
           >

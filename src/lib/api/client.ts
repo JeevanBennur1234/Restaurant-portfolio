@@ -174,3 +174,135 @@ export async function apiFetch<T>(
     }
   }
 }
+
+export interface ApiUploadOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * Uploads FormData to the REST API.
+ * - Same-origin only (`credentials: "same-origin"`)
+ * - Multipart/form-data: does NOT set Content-Type header so browser sets boundary
+ * - Injects Accept: "application/json" header
+ * - 60s timeout via AbortController
+ * - Parses `{ success, data, error }` envelopes
+ * - Never throws on HTTP errors; network/JSON errors return code: "NETWORK"
+ */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  opts?: ApiUploadOptions
+): Promise<ApiResult<T>> {
+  const controller = new AbortController();
+  let timeoutTriggered = false;
+  const timeoutId = setTimeout(() => {
+    timeoutTriggered = true;
+    controller.abort(new Error("Upload timed out after 60s"));
+  }, 60000);
+
+  let onCallerAbort: (() => void) | undefined;
+  if (opts?.signal) {
+    if (opts.signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort(opts.signal.reason);
+    } else {
+      onCallerAbort = () => {
+        clearTimeout(timeoutId);
+        controller.abort(opts.signal?.reason);
+      };
+      opts.signal.addEventListener("abort", onCallerAbort, { once: true });
+    }
+  }
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      body: formData,
+      signal: controller.signal,
+    });
+
+    if (res.status === 204) {
+      return { ok: true, data: undefined as unknown as T };
+    }
+
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      return {
+        ok: false,
+        code: "NETWORK",
+        message: `Invalid JSON response from server (${res.status})`,
+        status: res.status || 0,
+      };
+    }
+
+    const envelope = json as {
+      success?: boolean;
+      data?: unknown;
+      error?: { code?: string; message?: string };
+    } | null;
+
+    if (envelope && typeof envelope === "object" && envelope.success === true) {
+      return {
+        ok: true,
+        data: envelope.data as T,
+      };
+    }
+
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const parsedRetryAfter = retryAfterHeader
+      ? parseInt(retryAfterHeader, 10)
+      : undefined;
+    const retryAfter =
+      parsedRetryAfter !== undefined && !isNaN(parsedRetryAfter)
+        ? parsedRetryAfter
+        : undefined;
+
+    if (
+      envelope &&
+      typeof envelope === "object" &&
+      envelope.success === false &&
+      envelope.error
+    ) {
+      return {
+        ok: false,
+        code: (envelope.error.code as ApiErrorCode) || "INTERNAL",
+        message: envelope.error.message || "An unexpected error occurred.",
+        status: res.status,
+        ...(retryAfter !== undefined ? { retryAfter } : {}),
+      };
+    }
+
+    return {
+      ok: false,
+      code: "NETWORK",
+      message: `Unexpected response format from server (${res.status})`,
+      status: res.status,
+      ...(retryAfter !== undefined ? { retryAfter } : {}),
+    };
+  } catch (err: unknown) {
+    const isTimeout = timeoutTriggered;
+    const message = isTimeout
+      ? "Upload timed out after 60s"
+      : (err as Error)?.message || "Network request failed.";
+    return {
+      ok: false,
+      code: "NETWORK",
+      message,
+      status: 0,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+    if (opts?.signal && onCallerAbort) {
+      opts.signal.removeEventListener("abort", onCallerAbort);
+    }
+  }
+}
+

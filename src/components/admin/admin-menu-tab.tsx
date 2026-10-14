@@ -17,20 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { formatPaiseToINR, paiseToRupees } from "@/lib/currency";
-import {
-  getAdminMenuAction,
-  createCategoryAction,
-  updateCategoryAction,
-  deleteCategoryAction,
-  createMenuItemAction,
-  updateMenuItemAction,
-  toggleMenuItemAvailabilityAction,
-  deleteMenuItemAction,
-  createModifierAction,
-  deleteModifierAction,
-  type AdminCategoryData,
-  type AdminMenuItemData,
-} from "@/server/actions/admin";
+import { adminApi } from "@/lib/api/admin";
+import { userMessageFor } from "@/lib/api/errors";
+import type { AdminCategoryData, AdminMenuItemData } from "@/lib/api/types";
 
 export function AdminMenuTab() {
   // Data state
@@ -79,12 +68,29 @@ export function AdminMenuTab() {
     if (showLoading) setIsLoading(true);
     setError(null);
     try {
-      const res = await getAdminMenuAction();
-      if (res.success && res.categories && res.items) {
-        setCategories(res.categories);
-        setItems(res.items);
+      const [catRes, itemRes] = await Promise.all([
+        adminApi.listCategories(),
+        adminApi.listItems(),
+      ]);
+
+      if (catRes.ok && itemRes.ok) {
+        setCategories(catRes.data);
+        setItems(itemRes.data);
       } else {
-        setError(res.error || "Failed to load menu data");
+        const failedRes = !catRes.ok ? catRes : !itemRes.ok ? itemRes : null;
+        if (failedRes && !failedRes.ok) {
+          if (failedRes.status === 401) {
+            window.location.reload();
+            return;
+          }
+          const msg =
+            failedRes.status === 403
+              ? failedRes.message
+              : failedRes.status === 429 && failedRes.retryAfter
+              ? `Too many requests. Please retry in ${failedRes.retryAfter}s.`
+              : userMessageFor(failedRes.code, failedRes.message || "Failed to load menu data");
+          setError(msg);
+        }
       }
     } catch (err) {
       setError((err as Error).message || "Error fetching menu");
@@ -95,16 +101,31 @@ export function AdminMenuTab() {
 
   React.useEffect(() => {
     let isMounted = true;
-    getAdminMenuAction().then((res) => {
-      if (!isMounted) return;
-      setIsLoading(false);
-      if (res.success && res.categories && res.items) {
-        setCategories(res.categories);
-        setItems(res.items);
-      } else {
-        setError(res.error || "Failed to load menu data");
+    Promise.all([adminApi.listCategories(), adminApi.listItems()]).then(
+      ([catRes, itemRes]) => {
+        if (!isMounted) return;
+        setIsLoading(false);
+        if (catRes.ok && itemRes.ok) {
+          setCategories(catRes.data);
+          setItems(itemRes.data);
+        } else {
+          const failedRes = !catRes.ok ? catRes : !itemRes.ok ? itemRes : null;
+          if (failedRes && !failedRes.ok) {
+            if (failedRes.status === 401) {
+              window.location.reload();
+              return;
+            }
+            const msg =
+              failedRes.status === 403
+                ? failedRes.message
+                : failedRes.status === 429 && failedRes.retryAfter
+                ? `Too many requests. Please retry in ${failedRes.retryAfter}s.`
+                : userMessageFor(failedRes.code, failedRes.message || "Failed to load menu data");
+            setError(msg);
+          }
+        }
       }
-    });
+    );
 
     return () => {
       isMounted = false;
@@ -120,15 +141,16 @@ export function AdminMenuTab() {
     );
 
     try {
-      const res = await toggleMenuItemAvailabilityAction({
-        id: item.id,
-        isAvailable: nextVal,
-      });
-      if (!res.success) {
+      const res = await adminApi.setItemAvailability(item.id, nextVal);
+      if (!res.ok) {
         // Revert on error
         setItems((prev) =>
           prev.map((i) => (i.id === item.id ? { ...i, isAvailable: !nextVal } : i))
         );
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
       }
     } catch {
       setItems((prev) =>
@@ -144,19 +166,21 @@ export function AdminMenuTab() {
 
     setIsUploadingImage(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const json = await res.json();
-      if (json.success && json.url) {
-        setItemImageUrl(json.url);
+      const res = await adminApi.uploadImage(file);
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to upload image");
+        alert(msg);
       } else {
-        alert(json.error || "Failed to upload image");
+        setItemImageUrl(res.data.url);
       }
     } catch (err) {
       alert((err as Error).message || "Image upload failed");
@@ -187,23 +211,40 @@ export function AdminMenuTab() {
     e.preventDefault();
     setIsSavingCategory(true);
     try {
+      let res;
+      const slug =
+        categorySlug.trim() ||
+        categoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
       if (editingCategory) {
-        await updateCategoryAction({
-          id: editingCategory.id,
-          name: categoryName,
-          slug: categorySlug,
-          sortOrder: categorySortOrder,
+        res = await adminApi.updateCategory(editingCategory.id, {
+          name: categoryName.trim(),
+          slug,
+          sortOrder: Number(categorySortOrder),
           isActive: categoryIsActive,
         });
       } else {
-        await createCategoryAction({
-          name: categoryName,
-          slug: categorySlug,
-          sortOrder: categorySortOrder,
+        res = await adminApi.createCategory({
+          name: categoryName.trim(),
+          slug,
+          sortOrder: Number(categorySortOrder),
         });
       }
-      setIsCategoryModalOpen(false);
-      await fetchMenu();
+      if (res.ok) {
+        setIsCategoryModalOpen(false);
+        await fetchMenu();
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to save category");
+        alert(msg);
+      }
     } catch (err) {
       alert((err as Error).message || "Failed to save category");
     } finally {
@@ -221,8 +262,22 @@ export function AdminMenuTab() {
     }
 
     try {
-      await deleteCategoryAction({ id: cat.id });
-      await fetchMenu();
+      const res = await adminApi.deleteCategory(cat.id);
+      if (res.ok) {
+        await fetchMenu();
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to delete category");
+        alert(msg);
+      }
     } catch (err) {
       alert((err as Error).message || "Failed to delete category");
     }
@@ -260,34 +315,48 @@ export function AdminMenuTab() {
 
     setIsSavingItem(true);
     try {
+      let res;
       if (editingItem) {
-        await updateMenuItemAction({
-          id: editingItem.id,
+        res = await adminApi.updateItem(editingItem.id, {
           name: itemName.trim(),
           categoryId: itemCategoryId,
           priceRupees: Number(itemPriceRupees),
           isVeg: itemIsVeg,
           prepTimeMinutes: Number(itemPrepMinutes),
-          description: itemDescription.trim() || null,
-          imageUrl: itemImageUrl.trim() || null,
+          description: itemDescription.trim() || undefined,
+          imageUrl: itemImageUrl.trim() || undefined,
           isAvailable: editingItem.isAvailable,
           sortOrder: editingItem.sortOrder,
         });
       } else {
-        await createMenuItemAction({
+        res = await adminApi.createItem({
           name: itemName.trim(),
           categoryId: itemCategoryId,
           priceRupees: Number(itemPriceRupees),
           isVeg: itemIsVeg,
           prepTimeMinutes: Number(itemPrepMinutes),
-          description: itemDescription.trim() || null,
-          imageUrl: itemImageUrl.trim() || null,
+          description: itemDescription.trim() || undefined,
+          imageUrl: itemImageUrl.trim() || undefined,
           isAvailable: true,
           sortOrder: items.length + 1,
         });
       }
-      setIsItemModalOpen(false);
-      await fetchMenu();
+      if (res.ok) {
+        setIsItemModalOpen(false);
+        await fetchMenu();
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to save item");
+        alert(msg);
+      }
     } catch (err) {
       alert((err as Error).message || "Failed to save item");
     } finally {
@@ -298,8 +367,22 @@ export function AdminMenuTab() {
   const handleDeleteItem = async (item: AdminMenuItemData) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
     try {
-      await deleteMenuItemAction({ id: item.id });
-      await fetchMenu();
+      const res = await adminApi.deleteItem(item.id);
+      if (res.ok) {
+        await fetchMenu();
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to delete item");
+        alert(msg);
+      }
     } catch (err) {
       alert((err as Error).message || "Failed to delete item");
     }
@@ -312,15 +395,14 @@ export function AdminMenuTab() {
 
     setIsAddingModifier(true);
     try {
-      const res = await createModifierAction({
-        menuItemId: managingModifiersItem.id,
+      const res = await adminApi.createModifier(managingModifiersItem.id, {
         groupName: modGroupName.trim(),
         name: modName.trim(),
         priceRupees: Number(modPriceRupees),
         isRequired: modIsRequired,
       });
 
-      if (res.success) {
+      if (res.ok) {
         setModName("");
         setModPriceRupees(0);
         await fetchMenu();
@@ -332,7 +414,7 @@ export function AdminMenuTab() {
                 modifiers: [
                   ...prev.modifiers,
                   {
-                    id: res.modifierId || `mod-${Date.now()}`,
+                    id: res.data?.id || `mod-${Date.now()}`,
                     menuItemId: prev.id,
                     groupName: modGroupName.trim(),
                     name: modName.trim(),
@@ -343,24 +425,53 @@ export function AdminMenuTab() {
               }
             : null
         );
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to add modifier");
+        alert(msg);
       }
+    } catch (err) {
+      alert((err as Error).message || "Failed to add modifier");
     } finally {
       setIsAddingModifier(false);
     }
   };
 
   const handleDeleteModifier = async (modId: string) => {
+    if (!managingModifiersItem) return;
     try {
-      await deleteModifierAction({ id: modId });
-      await fetchMenu();
-      setManagingModifiersItem((prev) =>
-        prev
-          ? {
-              ...prev,
-              modifiers: prev.modifiers.filter((m) => m.id !== modId),
-            }
-          : null
-      );
+      const res = await adminApi.deleteModifier(managingModifiersItem.id, modId);
+      if (res.ok) {
+        await fetchMenu();
+        setManagingModifiersItem((prev) =>
+          prev
+            ? {
+                ...prev,
+                modifiers: prev.modifiers.filter((m) => m.id !== modId),
+              }
+            : null
+        );
+      } else {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to delete modifier");
+        alert(msg);
+      }
     } catch (err) {
       alert((err as Error).message || "Failed to delete modifier");
     }

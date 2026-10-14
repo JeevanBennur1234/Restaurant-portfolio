@@ -122,11 +122,11 @@ import { env } from "@/server/env";
 import { db } from "@/server/db";
 import { demoLoginAction } from "@/server/actions/demo";
 import {
-  deleteTableAction,
-  deleteCategoryAction,
-  deleteMenuItemAction,
-  cancelOrderAction,
-} from "@/server/actions/admin";
+  deleteTable,
+  deleteCategory,
+  deleteMenuItem,
+  cancelOrder,
+} from "@/server/services/manager";
 import { POST as handleUpload } from "@/app/api/admin/upload/route";
 import { POST as handleDemoReset, GET as handleDemoResetGet } from "@/app/api/demo/reset/route";
 import robots from "@/app/robots";
@@ -182,21 +182,27 @@ describe("Demo Manager Restrictions", () => {
   });
 
   it("blocks demo manager from deleting tables", async () => {
-    const res = await deleteTableAction({ id: "tbl_1" });
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/cannot delete tables/i);
+    const res = await deleteTable({ db, actor: mockCurrentSession.value }, { id: "tbl_1" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toMatch(/cannot delete tables/i);
+    }
   });
 
   it("blocks demo manager from deleting categories", async () => {
-    const res = await deleteCategoryAction({ id: "cat_1" });
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/cannot delete categories/i);
+    const res = await deleteCategory({ db, actor: mockCurrentSession.value }, { id: "cat_1" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toMatch(/cannot delete categories/i);
+    }
   });
 
   it("blocks demo manager from deleting menu items", async () => {
-    const res = await deleteMenuItemAction({ id: "item_1" });
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/cannot delete menu items/i);
+    const res = await deleteMenuItem({ db, actor: mockCurrentSession.value }, { id: "item_1" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toMatch(/cannot delete menu items/i);
+    }
   });
 
   it("blocks demo manager from uploading images", async () => {
@@ -219,13 +225,18 @@ describe("Demo Manager Restrictions", () => {
       payments: [{ status: "completed" }],
     } as never);
 
-    const res = await cancelOrderAction({
-      orderId: "ord_paid_1",
-      reason: "Customer changed mind",
-    });
+    const res = await cancelOrder(
+      { db, actor: mockCurrentSession.value },
+      {
+        orderId: "ord_paid_1",
+        reason: "Customer changed mind",
+      }
+    );
 
-    expect(res.success).toBe(false);
-    expect(res.error).toMatch(/cannot cancel paid orders/i);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toMatch(/cannot cancel paid orders/i);
+    }
   });
 });
 

@@ -32,7 +32,8 @@ export const adminOrdersQuerySchema = z.object({
   search: z.string().trim().optional(),
 });
 
-export type AdminOrdersQueryInput = z.infer<typeof adminOrdersQuerySchema>;
+export type AdminOrdersQueryInput = z.input<typeof adminOrdersQuerySchema>;
+export type AdminOrdersQueryOutput = z.infer<typeof adminOrdersQuerySchema>;
 
 /**
  * Order cancellation schema

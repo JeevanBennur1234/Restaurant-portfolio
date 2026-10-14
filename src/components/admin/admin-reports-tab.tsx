@@ -13,10 +13,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPaiseToINR } from "@/lib/currency";
-import {
-  getAdminReportsAction,
-  type AdminReportsData,
-} from "@/server/actions/admin";
+import { adminApi } from "@/lib/api/admin";
+import { userMessageFor } from "@/lib/api/errors";
+import type { AdminReportsData } from "@/lib/api/types";
 
 export function AdminReportsTab() {
   const [data, setData] = React.useState<AdminReportsData | null>(null);
@@ -27,11 +26,21 @@ export function AdminReportsTab() {
     if (showLoading) setIsLoading(true);
     setError(null);
     try {
-      const res = await getAdminReportsAction();
-      if (res.success && res.reports) {
-        setData(res.reports);
+      const res = await adminApi.getReports();
+      if (res.ok) {
+        setData(res.data);
       } else {
-        setError(res.error || "Failed to load reports");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to load reports");
+        setError(msg);
       }
     } catch (err) {
       setError((err as Error).message || "Error loading reports");
@@ -42,13 +51,23 @@ export function AdminReportsTab() {
 
   React.useEffect(() => {
     let isMounted = true;
-    getAdminReportsAction().then((res) => {
+    adminApi.getReports().then((res) => {
       if (!isMounted) return;
       setIsLoading(false);
-      if (res.success && res.reports) {
-        setData(res.reports);
+      if (res.ok) {
+        setData(res.data);
       } else {
-        setError(res.error || "Failed to load reports");
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        const msg =
+          res.status === 403
+            ? res.message
+            : res.status === 429 && res.retryAfter
+            ? `Too many requests. Please retry in ${res.retryAfter}s.`
+            : userMessageFor(res.code, res.message || "Failed to load reports");
+        setError(msg);
       }
     });
 

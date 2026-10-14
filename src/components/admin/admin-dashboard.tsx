@@ -10,13 +10,26 @@ import { AdminReportsTab } from "./admin-reports-tab";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import type { StaffSession } from "@/server/auth";
+import type { AdminOrderRow } from "@/lib/api/types";
 
 export interface AdminDashboardProps {
   session: StaffSession;
   realtimeChannel: string;
+  initialOrders?: AdminOrderRow[];
+  initialPagination?: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
-function AdminDashboardContent({ session, realtimeChannel }: AdminDashboardProps) {
+function AdminDashboardContent({
+  session,
+  realtimeChannel,
+  initialOrders,
+  initialPagination,
+}: AdminDashboardProps) {
   const [activeTab, setActiveTab] = React.useState<AdminTab>("orders");
   const [activeOrdersCount, setActiveOrdersCount] = React.useState(0);
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -111,6 +124,8 @@ function AdminDashboardContent({ session, realtimeChannel }: AdminDashboardProps
           <AdminOrdersTab
             onOrderUpdate={() => setRefreshKey((prev) => prev + 1)}
             refreshKey={refreshKey}
+            initialOrders={initialOrders}
+            initialPagination={initialPagination}
           />
         )}
 
@@ -144,10 +159,10 @@ function AdminDashboardContent({ session, realtimeChannel }: AdminDashboardProps
   );
 }
 
-export function AdminDashboard({ session, realtimeChannel }: AdminDashboardProps) {
+export function AdminDashboard(props: AdminDashboardProps) {
   return (
     <ToastProvider>
-      <AdminDashboardContent session={session} realtimeChannel={realtimeChannel} />
+      <AdminDashboardContent {...props} />
     </ToastProvider>
   );
 }

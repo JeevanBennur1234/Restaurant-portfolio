@@ -54,7 +54,7 @@ import { env } from "@/server/env";
 import { db } from "@/server/db";
 import { publishRealtimeEvent } from "@/server/realtime";
 import { simulateKitchenStepAction } from "@/server/actions/demo";
-import * as orderActions from "@/server/actions/order";
+import * as customerServices from "@/server/services/customer";
 
 describe("Demo Simulation Action (simulateKitchenStepAction)", () => {
   beforeEach(() => {
@@ -62,8 +62,8 @@ describe("Demo Simulation Action (simulateKitchenStepAction)", () => {
     env.DEMO_MODE = "true";
   });
 
-  it("verifies advanceOrderStatusAction has been removed from order.ts", () => {
-    expect("advanceOrderStatusAction" in orderActions).toBe(false);
+  it("verifies advanceOrderStatusAction does not exist in customer services", () => {
+    expect("advanceOrderStatusAction" in customerServices).toBe(false);
   });
 
   it("rejects simulation when DEMO_MODE is not 'true'", async () => {

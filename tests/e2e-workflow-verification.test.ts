@@ -35,9 +35,9 @@ vi.mock("@/server/auth", () => ({
   createSessionToken: vi.fn(),
 }));
 
-import { confirmSimulatedPaymentAction } from "@/server/actions/order";
-import { transitionOrderStatusAction } from "@/server/actions/kitchen";
-import { cancelOrderAction } from "@/server/actions/admin";
+import { confirmSimulatedPayment } from "@/server/services/customer";
+import { transitionOrderStatus } from "@/server/services/kitchen";
+import { cancelOrder } from "@/server/services/manager";
 import { GET as qrPdfGet } from "@/app/api/admin/tables/qr-pdf/route";
 import { NextRequest } from "next/server";
 import { payments } from "@/server/db/schema";
@@ -244,12 +244,15 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
     } as never);
     vi.mocked(db.query.payments.findFirst).mockResolvedValueOnce(pendingPayment as never);
 
-    const paymentResult = await confirmSimulatedPaymentAction({
-      orderId: payNowOrder.id,
-      token: payNowOrder.table.qrToken,
-    });
+    const paymentResult = await confirmSimulatedPayment(
+      { db },
+      {
+        orderId: payNowOrder.id,
+        token: payNowOrder.table.qrToken,
+      }
+    );
 
-    expect(paymentResult.success).toBe(true);
+    expect(paymentResult.ok).toBe(true);
     expect(payNowOrder.paymentStatus).toBe("paid");
 
     // 4. Kitchen checks tickets again: order IS NOW visible
@@ -286,12 +289,15 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
       } as never);
 
       // Kitchen updates status
-      const res = await transitionOrderStatusAction({
-        orderId: order.id,
-        toStatus: nextStatus,
-      });
+      const res = await transitionOrderStatus(
+        { db, actor: mockSession },
+        {
+          orderId: order.id,
+          toStatus: nextStatus,
+        }
+      );
 
-      expect(res.success).toBe(true);
+      expect(res.ok).toBe(true);
       expect(order.status).toBe(nextStatus);
 
       // Verify guest tracker sees the updated status
@@ -304,12 +310,17 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
       table: order.table,
       payments: order.payments,
     } as never);
-    const invalidRes = await transitionOrderStatusAction({
-      orderId: order.id,
-      toStatus: "preparing",
-    });
-    expect(invalidRes.success).toBe(false);
-    expect(invalidRes.error).toContain("Invalid status transition");
+    const invalidRes = await transitionOrderStatus(
+      { db, actor: mockSession },
+      {
+        orderId: order.id,
+        toStatus: "preparing",
+      }
+    );
+    expect(invalidRes.ok).toBe(false);
+    if (!invalidRes.ok) {
+      expect(invalidRes.message).toContain("Invalid status transition");
+    }
   });
 
   it("Step 6: Manager cancels order -> updates status to cancelled and payment to refund_pending", async () => {
@@ -333,12 +344,15 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
       payments: paidOrder.payments,
     } as never);
 
-    const cancelResult = await cancelOrderAction({
-      orderId: paidOrder.id,
-      reason: "Customer requested cancellation due to urgent departure",
-    });
+    const cancelResult = await cancelOrder(
+      { db, actor: mockSession },
+      {
+        orderId: paidOrder.id,
+        reason: "Customer requested cancellation due to urgent departure",
+      }
+    );
 
-    expect(cancelResult.success).toBe(true);
+    expect(cancelResult.ok).toBe(true);
     expect(paidOrder.status).toBe("cancelled");
     expect(paidOrder.paymentStatus).toBe("refund_pending");
 
