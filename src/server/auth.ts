@@ -181,8 +181,9 @@ export async function getStaffSession(): Promise<StaffSession | null> {
     }
 
     // Invalidate old sessions when password/profile updatedAt timestamp is newer than session iat
+    // A 10-second tolerance accounts for clock drift between cloud database (e.g. Supabase) and app server
     const userUpdatedAtSec = Math.floor(user.updatedAt.getTime() / 1000);
-    if (userUpdatedAtSec > payload.iat) {
+    if (userUpdatedAtSec > payload.iat + 10) {
       return null;
     }
 

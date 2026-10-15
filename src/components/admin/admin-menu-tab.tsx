@@ -13,12 +13,14 @@ import {
   FolderPlus,
   Leaf,
   Beef,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { formatPaiseToINR, paiseToRupees } from "@/lib/currency";
 import { adminApi } from "@/lib/api/admin";
 import { userMessageFor } from "@/lib/api/errors";
+import { isValidImageUrl } from "@/lib/validations/admin";
 import type { AdminCategoryData, AdminMenuItemData } from "@/lib/api/types";
 
 export function AdminMenuTab() {
@@ -40,6 +42,7 @@ export function AdminMenuTab() {
   const [categorySlug, setCategorySlug] = React.useState("");
   const [categorySortOrder, setCategorySortOrder] = React.useState(0);
   const [categoryIsActive, setCategoryIsActive] = React.useState(true);
+  const [categoryFormError, setCategoryFormError] = React.useState<string | null>(null);
   const [isSavingCategory, setIsSavingCategory] = React.useState(false);
 
   // Item Modal state
@@ -52,8 +55,16 @@ export function AdminMenuTab() {
   const [itemPrepMinutes, setItemPrepMinutes] = React.useState(15);
   const [itemDescription, setItemDescription] = React.useState("");
   const [itemImageUrl, setItemImageUrl] = React.useState("");
+  const [imagePreviewError, setImagePreviewError] = React.useState(false);
+  const [itemFormError, setItemFormError] = React.useState<string | null>(null);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   const [isSavingItem, setIsSavingItem] = React.useState(false);
+
+  const urlValidation = React.useMemo(() => {
+    if (!itemImageUrl.trim()) return { valid: true };
+    return isValidImageUrl(itemImageUrl.trim());
+  }, [itemImageUrl]);
 
   // Modifiers Management state
   const [managingModifiersItem, setManagingModifiersItem] =
@@ -165,6 +176,8 @@ export function AdminMenuTab() {
     if (!file) return;
 
     setIsUploadingImage(true);
+    setImagePreviewError(false);
+    setUploadError(null);
     try {
       const res = await adminApi.uploadImage(file);
       if (!res.ok) {
@@ -174,23 +187,27 @@ export function AdminMenuTab() {
         }
         const msg =
           res.status === 403
-            ? res.message
+            ? (res.message || "Forbidden: You do not have permission to upload images.")
             : res.status === 429 && res.retryAfter
             ? `Too many requests. Please retry in ${res.retryAfter}s.`
-            : userMessageFor(res.code, res.message || "Failed to upload image");
-        alert(msg);
+            : (res.message || "Failed to upload image. Please try again.");
+        setUploadError(`Upload failed: ${msg}`);
       } else {
         setItemImageUrl(res.data.url);
+        setImagePreviewError(false);
+        setUploadError(null);
       }
     } catch (err) {
-      alert((err as Error).message || "Image upload failed");
+      setUploadError(`Upload failed: ${(err as Error).message || "An unexpected error occurred."}`);
     } finally {
       setIsUploadingImage(false);
+      e.target.value = "";
     }
   };
 
   // Open Category Create/Edit
   const openCategoryModal = (cat?: AdminCategoryData) => {
+    setCategoryFormError(null);
     if (cat) {
       setEditingCategory(cat);
       setCategoryName(cat.name);
@@ -209,22 +226,30 @@ export function AdminMenuTab() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCategoryFormError(null);
+
+    const trimmedName = categoryName.trim();
+    if (!trimmedName) {
+      setCategoryFormError("Category name is required.");
+      return;
+    }
+
     setIsSavingCategory(true);
     try {
       let res;
       const slug =
         categorySlug.trim() ||
-        categoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       if (editingCategory) {
         res = await adminApi.updateCategory(editingCategory.id, {
-          name: categoryName.trim(),
+          name: trimmedName,
           slug,
           sortOrder: Number(categorySortOrder),
           isActive: categoryIsActive,
         });
       } else {
         res = await adminApi.createCategory({
-          name: categoryName.trim(),
+          name: trimmedName,
           slug,
           sortOrder: Number(categorySortOrder),
         });
@@ -239,14 +264,14 @@ export function AdminMenuTab() {
         }
         const msg =
           res.status === 403
-            ? res.message
+            ? (res.message || "Forbidden: You do not have permission to modify categories.")
             : res.status === 429 && res.retryAfter
             ? `Too many requests. Please retry in ${res.retryAfter}s.`
-            : userMessageFor(res.code, res.message || "Failed to save category");
-        alert(msg);
+            : (res.message || "Failed to save category.");
+        setCategoryFormError(msg);
       }
     } catch (err) {
-      alert((err as Error).message || "Failed to save category");
+      setCategoryFormError((err as Error).message || "Failed to save category");
     } finally {
       setIsSavingCategory(false);
     }
@@ -275,7 +300,7 @@ export function AdminMenuTab() {
             ? res.message
             : res.status === 429 && res.retryAfter
             ? `Too many requests. Please retry in ${res.retryAfter}s.`
-            : userMessageFor(res.code, res.message || "Failed to delete category");
+            : (res.message || "Failed to delete category");
         alert(msg);
       }
     } catch (err) {
@@ -285,6 +310,9 @@ export function AdminMenuTab() {
 
   // Open Item Create/Edit
   const openItemModal = (item?: AdminMenuItemData) => {
+    setImagePreviewError(false);
+    setItemFormError(null);
+    setUploadError(null);
     if (item) {
       setEditingItem(item);
       setItemName(item.name);
@@ -297,9 +325,9 @@ export function AdminMenuTab() {
     } else {
       setEditingItem(null);
       setItemName("");
-      setItemCategoryId(
-        selectedCategoryId !== "all" ? selectedCategoryId : (categories[0]?.id ?? "")
-      );
+      const defaultCatId =
+        (selectedCategoryId !== "all" ? selectedCategoryId : categories[0]?.id) ?? "";
+      setItemCategoryId(defaultCatId);
       setItemPriceRupees(295);
       setItemIsVeg(true);
       setItemPrepMinutes(15);
@@ -311,38 +339,76 @@ export function AdminMenuTab() {
 
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!itemName.trim() || !itemCategoryId) return;
+    setItemFormError(null);
+
+    const trimmedName = itemName.trim();
+    if (!trimmedName) {
+      setItemFormError("Dish name is required.");
+      return;
+    }
+
+    if (!itemCategoryId) {
+      setItemFormError("Please select a category.");
+      return;
+    }
+
+    const priceNum = Number(itemPriceRupees);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      setItemFormError("Please enter a valid price in rupees greater than 0.");
+      return;
+    }
+
+    const prepNum = Number(itemPrepMinutes);
+    if (!Number.isFinite(prepNum) || prepNum < 1 || prepNum > 120) {
+      setItemFormError("Preparation time must be between 1 and 120 minutes.");
+      return;
+    }
+
+    const trimmedImageUrl = itemImageUrl.trim();
+    if (trimmedImageUrl) {
+      const urlCheck = isValidImageUrl(trimmedImageUrl);
+      if (!urlCheck.valid) {
+        setItemFormError(urlCheck.error || "Please enter a valid image URL (e.g. https://... or /images/...).");
+        return;
+      }
+    }
 
     setIsSavingItem(true);
     try {
       let res;
       if (editingItem) {
         res = await adminApi.updateItem(editingItem.id, {
-          name: itemName.trim(),
+          name: trimmedName,
           categoryId: itemCategoryId,
-          priceRupees: Number(itemPriceRupees),
+          priceRupees: priceNum,
           isVeg: itemIsVeg,
-          prepTimeMinutes: Number(itemPrepMinutes),
+          prepTimeMinutes: prepNum,
           description: itemDescription.trim() || undefined,
-          imageUrl: itemImageUrl.trim() || undefined,
+          imageUrl: trimmedImageUrl || undefined,
           isAvailable: editingItem.isAvailable,
           sortOrder: editingItem.sortOrder,
         });
       } else {
         res = await adminApi.createItem({
-          name: itemName.trim(),
+          name: trimmedName,
           categoryId: itemCategoryId,
-          priceRupees: Number(itemPriceRupees),
+          priceRupees: priceNum,
           isVeg: itemIsVeg,
-          prepTimeMinutes: Number(itemPrepMinutes),
+          prepTimeMinutes: prepNum,
           description: itemDescription.trim() || undefined,
-          imageUrl: itemImageUrl.trim() || undefined,
+          imageUrl: trimmedImageUrl || undefined,
           isAvailable: true,
           sortOrder: items.length + 1,
         });
       }
+
       if (res.ok) {
         setIsItemModalOpen(false);
+        // If the saved item belongs to a category other than the currently active one,
+        // switch to that category so the newly saved item is immediately visible!
+        if (selectedCategoryId !== "all" && selectedCategoryId !== itemCategoryId) {
+          setSelectedCategoryId(itemCategoryId);
+        }
         await fetchMenu();
       } else {
         if (res.status === 401) {
@@ -351,14 +417,14 @@ export function AdminMenuTab() {
         }
         const msg =
           res.status === 403
-            ? res.message
+            ? (res.message || "Forbidden: You do not have permission to modify items.")
             : res.status === 429 && res.retryAfter
             ? `Too many requests. Please retry in ${res.retryAfter}s.`
-            : userMessageFor(res.code, res.message || "Failed to save item");
-        alert(msg);
+            : (res.message || "Failed to save item. Please review the form inputs.");
+        setItemFormError(msg);
       }
     } catch (err) {
-      alert((err as Error).message || "Failed to save item");
+      setItemFormError((err as Error).message || "An unexpected error occurred while saving item.");
     } finally {
       setIsSavingItem(false);
     }
@@ -710,9 +776,13 @@ export function AdminMenuTab() {
                               alt={item.name}
                               width={32}
                               height={32}
+                              unoptimized
                               className="h-full w-full object-cover"
                               onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = "none";
+                                const target = e.currentTarget as HTMLImageElement;
+                                if (target.src !== "/images/dishes/placeholder.svg") {
+                                  target.src = "/images/dishes/placeholder.svg";
+                                }
                               }}
                             />
                           </div>
@@ -834,6 +904,12 @@ export function AdminMenuTab() {
               Categories group dishes into sticky tabs in the guest ordering menu.
             </p>
 
+            {categoryFormError && (
+              <div className="mb-3.5 p-3 rounded-lg bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300 font-medium">
+                {categoryFormError}
+              </div>
+            )}
+
             <form onSubmit={handleSaveCategory} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
@@ -923,6 +999,12 @@ export function AdminMenuTab() {
               Item details, dietary tags, kitchen prep duration, and image.
             </p>
 
+            {itemFormError && (
+              <div className="mb-3.5 p-3 rounded-lg bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300 font-medium">
+                {itemFormError}
+              </div>
+            )}
+
             <form onSubmit={handleSaveItem} className="space-y-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -933,7 +1015,10 @@ export function AdminMenuTab() {
                     type="text"
                     required
                     value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
+                    onChange={(e) => {
+                      setItemName(e.target.value);
+                      setItemFormError(null);
+                    }}
                     placeholder="e.g. Murgh Malai Tikka"
                     className="w-full h-9 px-3 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
                   />
@@ -946,9 +1031,13 @@ export function AdminMenuTab() {
                   <select
                     required
                     value={itemCategoryId}
-                    onChange={(e) => setItemCategoryId(e.target.value)}
+                    onChange={(e) => {
+                      setItemCategoryId(e.target.value);
+                      setItemFormError(null);
+                    }}
                     className="w-full h-9 px-2.5 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
                   >
+                    <option value="" disabled>Select category...</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -969,7 +1058,10 @@ export function AdminMenuTab() {
                     step="0.01"
                     required
                     value={itemPriceRupees}
-                    onChange={(e) => setItemPriceRupees(Number(e.target.value))}
+                    onChange={(e) => {
+                      setItemPriceRupees(Number(e.target.value));
+                      setItemFormError(null);
+                    }}
                     className="w-full h-9 px-3 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--primary)]"
                   />
                 </div>
@@ -984,7 +1076,10 @@ export function AdminMenuTab() {
                     max="120"
                     required
                     value={itemPrepMinutes}
-                    onChange={(e) => setItemPrepMinutes(Number(e.target.value))}
+                    onChange={(e) => {
+                      setItemPrepMinutes(Number(e.target.value));
+                      setItemFormError(null);
+                    }}
                     className="w-full h-9 px-3 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--primary)]"
                   />
                 </div>
@@ -1036,22 +1131,36 @@ export function AdminMenuTab() {
                 </label>
                 <div className="flex items-center gap-2">
                   {itemImageUrl && (
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
-                      <Image
-                        src={itemImageUrl}
-                        alt="Preview"
-                        width={36}
-                        height={36}
-                        className="h-full w-full object-cover"
-                      />
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] flex items-center justify-center">
+                      {urlValidation.valid && !imagePreviewError ? (
+                        <Image
+                          src={itemImageUrl}
+                          alt="Preview"
+                          width={36}
+                          height={36}
+                          unoptimized
+                          onError={() => setImagePreviewError(true)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="h-4 w-4 text-[var(--text-secondary)] opacity-50" />
+                      )}
                     </div>
                   )}
                   <input
                     type="text"
                     value={itemImageUrl}
-                    onChange={(e) => setItemImageUrl(e.target.value)}
+                    onChange={(e) => {
+                      setItemImageUrl(e.target.value);
+                      setImagePreviewError(false);
+                      setItemFormError(null);
+                    }}
                     placeholder="https://... or /uploads/..."
-                    className="flex-1 h-9 px-3 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                    className={`flex-1 h-9 px-3 text-xs rounded-lg bg-[var(--bg-subtle)] border text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] ${
+                      !urlValidation.valid
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-[var(--border-subtle)]"
+                    }`}
                   />
 
                   <label className="cursor-pointer inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg bg-[var(--bg-subtle)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] transition-colors">
@@ -1066,6 +1175,17 @@ export function AdminMenuTab() {
                     />
                   </label>
                 </div>
+                {uploadError && (
+                  <p className="mt-1 text-[11px] text-red-500 font-medium">{uploadError}</p>
+                )}
+                {!urlValidation.valid && (
+                  <p className="mt-1 text-[11px] text-red-500">{urlValidation.error}</p>
+                )}
+                {urlValidation.valid && imagePreviewError && (
+                  <p className="mt-1 text-[11px] text-amber-500">
+                    Preview failed to load. Ensure the URL points to a reachable image file.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">

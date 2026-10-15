@@ -40,7 +40,35 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "plus.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "images.pexels.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.freepik.com",
+      },
     ],
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        {
+          source: "/images/dishes/:path*",
+          destination: "/images/dishes/placeholder.svg",
+        },
+      ],
+      fallback: [],
+    };
   },
   turbopack: {
     rules: {

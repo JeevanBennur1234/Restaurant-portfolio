@@ -136,11 +136,26 @@ const rawEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  ALLOW_LOCAL_DEMO_UPLOADS: z
+    .preprocess((val) => {
+      if (val === undefined || val === "" || val === null) return "false";
+      return String(val);
+    }, z.enum(["true", "false"]))
+    .default("false"),
 });
 
 const envSchema = rawEnvSchema.superRefine((data, ctx) => {
   const isProduction = data.NODE_ENV === "production";
   const isDemo = data.DEMO_MODE === "true";
+
+  if (isProduction && data.ALLOW_LOCAL_DEMO_UPLOADS === "true") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ALLOW_LOCAL_DEMO_UPLOADS"],
+      message:
+        "ALLOW_LOCAL_DEMO_UPLOADS must not be 'true' in production. Production must always reject uploads from demo accounts.",
+    });
+  }
 
   if (data.FRAME_ANCESTORS) {
     const result = validateFrameAncestors(data.FRAME_ANCESTORS, isProduction);

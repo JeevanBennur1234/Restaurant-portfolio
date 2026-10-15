@@ -80,6 +80,91 @@ export const deleteCategorySchema = z.object({
 
 export type DeleteCategoryInput = z.infer<typeof deleteCategorySchema>;
 
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".svg", ".gif"];
+const KNOWN_IMAGE_HOSTS = [
+  "images.unsplash.com",
+  "plus.unsplash.com",
+  "res.cloudinary.com",
+  "images.pexels.com",
+  "img.freepik.com",
+];
+
+export function isValidImageUrl(urlStr: string): { valid: boolean; error?: string } {
+  if (!urlStr || urlStr.trim() === "") return { valid: true };
+  const trimmed = urlStr.trim();
+
+  // Local / relative paths starting with /
+  if (trimmed.startsWith("/")) {
+    const lower = trimmed.toLowerCase();
+    const hasExt = IMAGE_EXTENSIONS.some((ext) => lower.split("?")[0].endsWith(ext));
+    if (hasExt || lower.startsWith("/images/") || lower.startsWith("/uploads/") || lower.startsWith("/media/")) {
+      return { valid: true };
+    }
+    return {
+      valid: false,
+      error: "Local image path must start with /images/, /uploads/, or /media/, or end with a valid image extension.",
+    };
+  }
+
+  // Absolute URLs must be http:// or https://
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    return {
+      valid: false,
+      error: "Image URL must be a valid http(s) URL or a relative path starting with /.",
+    };
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+
+    // Reject common webpage extensions (HTML, PHP, etc.)
+    if (
+      pathname.endsWith(".html") ||
+      pathname.endsWith(".htm") ||
+      pathname.endsWith(".php") ||
+      pathname.endsWith(".asp") ||
+      pathname.endsWith(".aspx") ||
+      pathname.endsWith(".jsp")
+    ) {
+      return {
+        valid: false,
+        error: "The provided URL is a webpage, not an image file.",
+      };
+    }
+
+    // Check if hostname is an image provider or ends with .supabase.co
+    const isKnownHost =
+      KNOWN_IMAGE_HOSTS.includes(hostname) ||
+      hostname.endsWith(".supabase.co") ||
+      Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          (() => {
+            try {
+              return hostname === new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.toLowerCase();
+            } catch {
+              return false;
+            }
+          })()
+      );
+
+    const hasImageExtension = IMAGE_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+
+    if (isKnownHost || hasImageExtension) {
+      return { valid: true };
+    }
+
+    return {
+      valid: false,
+      error:
+        "Image URL must end in an image format (.jpg, .jpeg, .png, .webp, .avif, .svg) or be hosted on a supported image provider.",
+    };
+  } catch {
+    return { valid: false, error: "Invalid URL format." };
+  }
+}
+
 /**
  * Menu Item CRUD schemas
  */
@@ -98,7 +183,21 @@ export const createMenuItemSchema = z.object({
     .max(120, "Prep time cannot exceed 120 minutes")
     .default(15),
   description: z.string().trim().max(500).optional().nullable(),
-  imageUrl: z.string().trim().optional().nullable(),
+  imageUrl: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .superRefine((val, ctx) => {
+      if (!val) return;
+      const res = isValidImageUrl(val);
+      if (!res.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: res.error ?? "Invalid image URL",
+        });
+      }
+    }),
   isAvailable: z.boolean().default(true),
   sortOrder: z.coerce.number().int().default(0),
 });
@@ -121,7 +220,21 @@ export const updateMenuItemSchema = z.object({
     .max(120, "Prep time cannot exceed 120 minutes")
     .default(15),
   description: z.string().trim().max(500).optional().nullable(),
-  imageUrl: z.string().trim().optional().nullable(),
+  imageUrl: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .superRefine((val, ctx) => {
+      if (!val) return;
+      const res = isValidImageUrl(val);
+      if (!res.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: res.error ?? "Invalid image URL",
+        });
+      }
+    }),
   isAvailable: z.boolean().default(true),
   sortOrder: z.coerce.number().int().default(0),
 });

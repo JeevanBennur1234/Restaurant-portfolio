@@ -621,6 +621,18 @@ export async function createMenuItem(
     sortOrder,
   } = parsed.data;
 
+  // Validate that the category exists and belongs to this restaurant
+  const categoryExists = await ctx.db.query.categories.findFirst({
+    where: and(
+      eq(categories.id, categoryId),
+      eq(categories.restaurantId, ctx.actor!.restaurantId)
+    ),
+  });
+
+  if (!categoryExists) {
+    return fail("NOT_FOUND", "Category not found in this restaurant", 404);
+  }
+
   const pricePaise = rupeesToPaise(priceRupees);
 
   try {
@@ -629,12 +641,12 @@ export async function createMenuItem(
       .values({
         restaurantId: ctx.actor!.restaurantId,
         categoryId,
-        name,
-        description: description ?? null,
+        name: name.trim(),
+        description: description?.trim() || null,
         pricePaise,
         isVeg,
         prepTimeMinutes,
-        imageUrl: imageUrl ?? null,
+        imageUrl: imageUrl?.trim() || null,
         isAvailable,
         sortOrder,
       })
@@ -676,19 +688,32 @@ export async function updateMenuItem(
     sortOrder,
   } = parsed.data;
 
+  if (categoryId) {
+    const categoryExists = await ctx.db.query.categories.findFirst({
+      where: and(
+        eq(categories.id, categoryId),
+        eq(categories.restaurantId, ctx.actor!.restaurantId)
+      ),
+    });
+
+    if (!categoryExists) {
+      return fail("NOT_FOUND", "Category not found in this restaurant", 404);
+    }
+  }
+
   const pricePaise = rupeesToPaise(priceRupees);
 
   try {
     await ctx.db
       .update(menuItems)
       .set({
-        name,
+        name: name.trim(),
         categoryId,
         pricePaise,
         isVeg,
         prepTimeMinutes,
-        description: description ?? null,
-        imageUrl: imageUrl ?? null,
+        description: description?.trim() || null,
+        imageUrl: imageUrl?.trim() || null,
         isAvailable,
         sortOrder,
         updatedAt: new Date(),

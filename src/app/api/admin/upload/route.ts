@@ -75,18 +75,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (session.isDemo) {
+  // Demo account guard: Production must always reject demo accounts.
+  // Outside production, demo uploads can only proceed if explicitly enabled via ALLOW_LOCAL_DEMO_UPLOADS=true.
+  const isProduction = env.NODE_ENV === "production";
+  const allowLocalDemoUpload = !isProduction && env.ALLOW_LOCAL_DEMO_UPLOADS === "true";
+
+  if (session.isDemo && !allowLocalDemoUpload) {
     return NextResponse.json(
-      { success: false, error: "Demo accounts cannot upload images." },
+      {
+        success: false,
+        error: isProduction
+          ? "Demo accounts cannot upload images in production."
+          : "Demo accounts cannot upload images.",
+      },
       { status: 403 }
     );
   }
 
-  // 2. Storage credentials check
+  // 2. Storage credentials check: strictly requires server-side SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey =
-    env.SUPABASE_SERVICE_ROLE_KEY ||
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (
     !supabaseUrl ||
@@ -95,7 +103,11 @@ export async function POST(request: NextRequest) {
     serviceKey.includes("placeholder")
   ) {
     return NextResponse.json(
-      { success: false, error: "Storage service is not configured" },
+      {
+        success: false,
+        error:
+          "Storage service is not configured. Server-side SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL are required.",
+      },
       { status: 500 }
     );
   }
@@ -152,46 +164,27 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      // If bucket does not exist, try creating it once and retry upload
       const isBucketMissing =
         uploadError.message?.toLowerCase().includes("not found") ||
+        uploadError.message?.toLowerCase().includes("does not exist") ||
         (uploadError as unknown as { statusCode?: string }).statusCode === "404";
 
       if (isBucketMissing) {
-        const { error: createBucketError } = await supabase.storage.createBucket(
-          "menu-images",
-          { public: true }
-        );
-
-        if (!createBucketError) {
-          const { error: retryError } = await supabase.storage
-            .from("menu-images")
-            .upload(fileName, processedBuffer, {
-              contentType: detected.contentType,
-              upsert: false,
-            });
-
-          if (retryError) {
-            console.error("Storage upload retry failed:", retryError);
-            return NextResponse.json(
-              { success: false, error: retryError.message || "Failed to upload image" },
-              { status: 500 }
-            );
-          }
-        } else {
-          console.error("Failed to create menu-images bucket:", createBucketError);
-          return NextResponse.json(
-            { success: false, error: uploadError.message || "Storage bucket unavailable" },
-            { status: 500 }
-          );
-        }
-      } else {
-        console.error("Storage upload failed:", uploadError);
         return NextResponse.json(
-          { success: false, error: uploadError.message || "Failed to upload image" },
+          {
+            success: false,
+            error:
+              "Storage bucket 'menu-images' not found. Please create the public bucket 'menu-images' in your Supabase project dashboard.",
+          },
           { status: 500 }
         );
       }
+
+      console.error("Storage upload failed:", uploadError.message);
+      return NextResponse.json(
+        { success: false, error: uploadError.message || "Failed to upload image" },
+        { status: 500 }
+      );
     }
 
     const { data: urlData } = supabase.storage
@@ -201,6 +194,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       url: urlData.publicUrl,
+      fileName,
     });
   } catch (error) {
     console.error("Upload handler error:", error);
