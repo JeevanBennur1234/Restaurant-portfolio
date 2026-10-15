@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { getStaffSession } from "@/server/auth";
 import { getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
@@ -11,6 +12,7 @@ export const metadata = {
 };
 
 export default async function AdminPage() {
+  await connection();
   const session = await getStaffSession();
 
   // Strict role guard: only manager or admin can access the admin dashboard

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { db } from "@/server/db";
 import { getStaffSession } from "@/server/auth";
 import { listKitchenTickets } from "@/server/services/kitchen";
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function KitchenPage() {
+  await connection();
   const session = await getStaffSession();
 
   // Protected for kitchen, manager, or admin roles

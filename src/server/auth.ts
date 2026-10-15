@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { connection } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -148,6 +149,12 @@ const getCachedStaffUserById = cache(async (userId: string) => {
  */
 export async function getStaffSession(): Promise<StaffSession | null> {
   try {
+    try {
+      await connection();
+    } catch {
+      // Outside a Next.js request context (e.g. unit tests), connection() throws; ignore.
+    }
+
     const cookieJar = await cookies();
     const cookieName = sessionCookieNameForSite(getSite());
     const sessionCookie = cookieJar.get(cookieName);
