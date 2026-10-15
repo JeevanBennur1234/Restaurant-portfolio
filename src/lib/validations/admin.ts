@@ -134,7 +134,7 @@ export function isValidImageUrl(urlStr: string): { valid: boolean; error?: strin
       };
     }
 
-    // Check if hostname is an image provider or ends with .supabase.co
+    // Check if hostname is an allowed remote host matching next.config.ts
     const isKnownHost =
       KNOWN_IMAGE_HOSTS.includes(hostname) ||
       hostname.endsWith(".supabase.co") ||
@@ -149,17 +149,21 @@ export function isValidImageUrl(urlStr: string): { valid: boolean; error?: strin
           })()
       );
 
-    const hasImageExtension = IMAGE_EXTENSIONS.some((ext) => pathname.endsWith(ext));
-
-    if (isKnownHost || hasImageExtension) {
-      return { valid: true };
+    if (!isKnownHost) {
+      return {
+        valid: false,
+        error: `Unsupported remote image host or image format "${hostname}". Remote images must be hosted on an allowed provider (Unsplash, Pexels, Cloudinary, Freepik, Supabase). To use this photo, please upload the image file or use a local path under /images/, /uploads/, or /media/.`,
+      };
     }
 
-    return {
-      valid: false,
-      error:
-        "Image URL must end in an image format (.jpg, .jpeg, .png, .webp, .avif, .svg) or be hosted on a supported image provider.",
-    };
+    if (pathname.length <= 1) {
+      return {
+        valid: false,
+        error: "Image URL must specify a path to an image file or resource.",
+      };
+    }
+
+    return { valid: true };
   } catch {
     return { valid: false, error: "Invalid URL format." };
   }

@@ -414,6 +414,17 @@ describe("Admin Image Upload Security & Validation", () => {
       expect(generalPage.error).toMatch(/image format/i);
     });
 
+    it("rejects unsupported external image hosts (e.g. myfoodstory.com) even with valid image extensions", () => {
+      const foodBlogRes = isValidImageUrl("https://myfoodstory.com/wp-content/uploads/2021/08/butter-chicken.jpg");
+      expect(foodBlogRes.valid).toBe(false);
+      expect(foodBlogRes.error).toMatch(/unsupported remote image host/i);
+      expect(foodBlogRes.error).toMatch(/myfoodstory\.com/i);
+
+      const randomCdn = isValidImageUrl("https://random-food-blog.com/images/paneer.png");
+      expect(randomCdn.valid).toBe(false);
+      expect(randomCdn.error).toMatch(/unsupported remote image host/i);
+    });
+
     it("rejects unsafe URL protocols like javascript or data", () => {
       expect(isValidImageUrl("javascript:alert(1)").valid).toBe(false);
       expect(isValidImageUrl("data:text/html;base64,PHNjcmlwdD4=").valid).toBe(false);

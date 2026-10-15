@@ -108,8 +108,8 @@ export const adminApi = {
   async createItem(
     data: CreateMenuItemInput,
     opts?: RequestOptions
-  ): Promise<ApiResult<AdminMenuItemData>> {
-    return apiFetch<AdminMenuItemData>("/api/v1/admin/items", {
+  ): Promise<ApiResult<{ itemId: string }>> {
+    return apiFetch<{ itemId: string }>("/api/v1/admin/items", {
       method: "POST",
       body: data,
       signal: opts?.signal,
@@ -120,8 +120,8 @@ export const adminApi = {
     id: string,
     data: Omit<UpdateMenuItemInput, "id">,
     opts?: RequestOptions
-  ): Promise<ApiResult<AdminMenuItemData>> {
-    return apiFetch<AdminMenuItemData>(
+  ): Promise<ApiResult<{ success: true }>> {
+    return apiFetch<{ success: true }>(
       `/api/v1/admin/items/${encodeURIComponent(id)}`,
       {
         method: "PATCH",
