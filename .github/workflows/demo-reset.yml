@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (log target URL without sending request)"
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -16,11 +22,28 @@ jobs:
         env:
           DEMO_RESET_URL: ${{ secrets.DEMO_RESET_URL }}
           DEMO_RESET_SECRET: ${{ secrets.DEMO_RESET_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           if [ -z "$DEMO_RESET_URL" ] || [ -z "$DEMO_RESET_SECRET" ]; then
             echo "DEMO_RESET_URL or DEMO_RESET_SECRET secret is not configured. Skipping demo reset."
             exit 0
           fi
 
-          curl --fail-with-body -sS -X POST "$DEMO_RESET_URL" \
-            -H "Authorization: Bearer $DEMO_RESET_SECRET"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run enabled. Target URL: $DEMO_RESET_URL (no POST request sent)."
+            exit 0
+          fi
+
+          echo "Sending POST request to $DEMO_RESET_URL..."
+          HTTP_STATUS=$(curl -s -o /tmp/reset_body.txt -w "%{http_code}" -X POST "$DEMO_RESET_URL" \
+            -H "Authorization: Bearer $DEMO_RESET_SECRET")
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response Body:"
+          cat /tmp/reset_body.txt
+          echo ""
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "Error: Demo reset failed with HTTP status $HTTP_STATUS"
+            exit 1
+          fi

@@ -1,0 +1,63 @@
+name: Production Smoke Test
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: "Run demo authentication and iframe embedding checks"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Run Smoke Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Smoke Tests
+        env:
+          CUSTOMER_URL: ${{ vars.CUSTOMER_URL }}
+          KITCHEN_URL: ${{ vars.KITCHEN_URL }}
+          MANAGER_URL: ${{ vars.MANAGER_URL }}
+          DEMO_MODE: ${{ github.event_name == 'schedule' && 'true' || inputs.demo }}
+        run: |
+          if [ -z "$CUSTOMER_URL" ] || [ -z "$KITCHEN_URL" ] || [ -z "$MANAGER_URL" ]; then
+            echo "Error: Missing required GitHub repository variables."
+            echo "Please configure the following under Settings > Secrets and variables > Actions > Variables:"
+            echo "  - CUSTOMER_URL (e.g. https://order.yourdomain.com)"
+            echo "  - KITCHEN_URL  (e.g. https://kitchen.yourdomain.com)"
+            echo "  - MANAGER_URL  (e.g. https://manager.yourdomain.com)"
+            exit 1
+          fi
+
+          DEMO_FLAG=""
+          if [ "$DEMO_MODE" = "true" ]; then
+            DEMO_FLAG="--demo"
+          fi
+
+          echo "Running smoke tests against:"
+          echo "  Customer: $CUSTOMER_URL"
+          echo "  Kitchen:  $KITCHEN_URL"
+          echo "  Manager:  $MANAGER_URL"
+          echo "  Demo:     $DEMO_MODE"
+
+          npm run smoke -- --customer "$CUSTOMER_URL" --kitchen "$KITCHEN_URL" --manager "$MANAGER_URL" $DEMO_FLAG

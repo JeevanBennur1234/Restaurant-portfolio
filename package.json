@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:customer": "cross-env SITE=customer next dev -p 3000",
-    "dev:kitchen": "cross-env SITE=kitchen next dev -p 3001",
-    "dev:manager": "cross-env SITE=manager next dev -p 3002",
+    "dev:kitchen": "cross-env SITE=kitchen FRAME_ANCESTORS=http://localhost:3000 next dev -p 3001",
+    "dev:manager": "cross-env SITE=manager FRAME_ANCESTORS=http://localhost:3000 next dev -p 3002",
     "dev:sites": "concurrently -k -n customer,kitchen,manager \"npm:dev:customer\" \"npm:dev:kitchen\" \"npm:dev:manager\"",
     "build": "next build",
     "build:customer": "cross-env SITE=customer next build",
@@ -24,7 +24,9 @@
     "db:migrate-images": "tsx scripts/migrate-data-urls.ts",
     "db:seed": "tsx src/server/db/seed.ts",
     "check-images": "tsx scripts/check-images.ts",
-    "admin:create-manager": "tsx scripts/create-manager.ts"
+    "admin:create-manager": "tsx scripts/create-manager.ts",
+    "check-env": "tsx scripts/check-env.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

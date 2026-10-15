@@ -208,30 +208,11 @@ Until custom food photos are added:
 
 ---
 
-## ☁️ Vercel Deployment
+## ☁️ Multi-Site Deployment to Vercel
 
-### Deploying to Vercel
+DinePulse uses a multi-site architecture from a single unified codebase, running as three distinct isolated sites controlled by the `SITE` environment variable: **Customer** (`SITE=customer`), **Kitchen** (`SITE=kitchen`), and **Manager** (`SITE=manager`). Each surface is deployed as its own Vercel project with dedicated build commands (`npm run build:customer`, `npm run build:kitchen`, `npm run build:manager`), strict route isolation at the edge proxy, tailored session cookies, and scoped role permissions.
 
-1. Push your repository to GitHub.
-2. Import the repository in [Vercel](https://vercel.com).
-3. Set the following environment variables in **Project Settings → Environment Variables**:
-   - `DATABASE_URL`: Hosted PostgreSQL connection string (e.g. Supabase pooler).
-   - `NEXT_PUBLIC_APP_URL`: Your Vercel production URL (e.g. `https://dinepulse.vercel.app`).
-   - `SESSION_SECRET`: Random 48-byte string (`openssl rand -base64 48`).
-   - `DEMO_MODE`: Set to `"true"` for demo deployments or `"false"` for production.
-   - `DEMO_RESET_SECRET`: Random secret string for the demo reset endpoint.
-   - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-4. Run migrations against your production database:
-   ```bash
-   DATABASE_URL="<production-url>" npm run db:migrate
-   DATABASE_URL="<production-url>" npm run db:seed
-   ```
-5. Deploy.
-
-### Demo Reset Setup
-
-Demo reset runs from GitHub Actions (demo-reset.yml). Set the repo secrets DEMO_RESET_URL (https://<customer-site>/api/demo/reset) and DEMO_RESET_SECRET.
+For complete, step-by-step instructions on setting up the 3 Vercel projects, custom domain topology, Supabase connection poolers, environment variables matrix, and automated smoke testing, see the comprehensive [Deployment Guide](docs/DEPLOY.md).
 
 ---
 
