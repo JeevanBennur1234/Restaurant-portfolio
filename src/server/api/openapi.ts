@@ -449,33 +449,6 @@ export function generateOpenApiDocument() {
           },
         },
       },
-      "/api/v1/customer/orders/{id}/step": {
-        post: {
-          summary: "Advance order to next kitchen station (compatibility alias for /demo/advance)",
-          security: [{ tableToken: [] }],
-          parameters: [
-            {
-              name: "id",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-            {
-              name: "x-table-token",
-              in: "header",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": {
-              description: "Order successfully advanced to next status",
-              content: { "application/json": { schema: envelopeSuccessRef } },
-            },
-            ...standardResponses,
-          },
-        },
-      },
       "/api/v1/kitchen/tickets": {
         get: {
           summary: "List active kitchen tickets",

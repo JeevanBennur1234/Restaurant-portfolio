@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq } from "drizzle-orm";
 import * as schema from "../src/server/db/schema";
-import { env } from "../src/server/env";
+import { poolConfig } from "../src/server/db/pool-config";
 
 /**
  * CLI script to create or update a real non-demo manager account.
@@ -12,13 +12,12 @@ import { env } from "../src/server/env";
  * without disabling demo protections or touching production data.
  *
  * Usage:
- *   npx tsx scripts/create-manager.ts --password <secret> [--username <name>] [--email <addr>] [--confirm]
- *   MANAGER_PASSWORD=<secret> npx tsx scripts/create-manager.ts [--confirm]
+ *   MANAGER_PASSWORD=<secret> npx tsx scripts/create-manager.ts [--username <name>] [--email <addr>] [--confirm]
+ *   npx tsx scripts/create-manager.ts [--username <name>] [--email <addr>] [--confirm] (interactive hidden prompt)
  */
 
 interface ParsedCliArgs {
   username: string;
-  password: string;
   email: string;
   isConfirmed: boolean;
   restaurantSlug: string;
@@ -30,18 +29,22 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === "--password" || arg === "-p" || arg.startsWith("--password=")) {
+      console.error("❌ Error: Passing passwords via CLI flags is insecure and disallowed.");
+      console.error(
+        "   Provide the password via MANAGER_PASSWORD environment variable or enter it interactively."
+      );
+      process.exit(1);
+    }
+
     if (arg === "--confirm" || arg === "--force") {
       flags.confirm = true;
-    } else if (arg === "--password" || arg === "-p") {
-      flags.password = argv[++i];
     } else if (arg === "--username" || arg === "-u") {
       flags.username = argv[++i];
     } else if (arg === "--email" || arg === "-e") {
       flags.email = argv[++i];
     } else if (arg === "--restaurant" || arg === "-r") {
       flags.restaurant = argv[++i];
-    } else if (arg.startsWith("--password=")) {
-      flags.password = arg.slice("--password=".length);
     } else if (arg.startsWith("--username=")) {
       flags.username = arg.slice("--username=".length);
     } else if (arg.startsWith("--email=")) {
@@ -58,16 +61,9 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
     "owner"
   ).trim().toLowerCase();
 
-  const password = (
-    (typeof flags.password === "string" ? flags.password : undefined) ||
-    positional[1] ||
-    process.env.MANAGER_PASSWORD ||
-    ""
-  ).trim();
-
   const email = (
     (typeof flags.email === "string" ? flags.email : undefined) ||
-    positional[2] ||
+    positional[1] ||
     process.env.MANAGER_EMAIL ||
     `${username}@masalane.local`
   ).trim();
@@ -79,19 +75,79 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
     "masala-lane"
   ).trim();
 
-  return { username, password, email, isConfirmed, restaurantSlug };
+  return { username, email, isConfirmed, restaurantSlug };
+}
+
+function promptHiddenPassword(promptText: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(promptText);
+    const stdin = process.stdin;
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    let password = "";
+
+    const onData = (ch: string) => {
+      for (const char of ch) {
+        if (char === "\n" || char === "\r" || char === "\u0004") {
+          stdin.setRawMode(wasRaw ?? false);
+          stdin.pause();
+          stdin.removeListener("data", onData);
+          process.stdout.write("\n");
+          resolve(password.trim());
+          return;
+        } else if (char === "\u0003") {
+          // Ctrl+C
+          stdin.setRawMode(wasRaw ?? false);
+          stdin.pause();
+          stdin.removeListener("data", onData);
+          process.stdout.write("\n");
+          process.exit(130);
+        } else if (char === "\u007f" || char === "\b") {
+          // Backspace
+          if (password.length > 0) {
+            password = password.slice(0, -1);
+          }
+        } else {
+          password += char;
+        }
+      }
+    };
+
+    stdin.on("data", onData);
+  });
+}
+
+async function getPassword(): Promise<string> {
+  const envPassword = process.env.MANAGER_PASSWORD?.trim();
+  if (envPassword) {
+    return envPassword;
+  }
+
+  if (!process.stdin.isTTY) {
+    console.error("❌ Error: Password is required.");
+    console.error(
+      "   Provide an explicit password via MANAGER_PASSWORD environment variable or enter it interactively."
+    );
+    process.exit(1);
+  }
+
+  return promptHiddenPassword("Enter manager password: ");
 }
 
 async function main() {
-  const { username, password, email, isConfirmed, restaurantSlug } = parseCliArgs(
+  const { username, email, isConfirmed, restaurantSlug } = parseCliArgs(
     process.argv.slice(2)
   );
 
-  // Require explicit password (no default value)
+  const password = await getPassword();
+
   if (!password) {
     console.error("❌ Error: Password is required.");
     console.error(
-      "   Provide an explicit password via command-line argument (--password <pwd>) or MANAGER_PASSWORD environment variable."
+      "   Provide an explicit password via MANAGER_PASSWORD environment variable or enter it interactively."
     );
     process.exit(1);
   }
@@ -101,15 +157,7 @@ async function main() {
     process.exit(1);
   }
 
-  const pool = new Pool({
-    connectionString: env.DATABASE_URL,
-    ssl:
-      env.DATABASE_URL.includes("supabase.co") ||
-      env.DATABASE_URL.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
-
+  const pool = new Pool(poolConfig);
   const db = drizzle(pool, { schema });
 
   try {

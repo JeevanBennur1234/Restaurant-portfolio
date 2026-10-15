@@ -81,6 +81,9 @@ vi.mock("@/server/db", () => ({
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
         returning: vi.fn().mockResolvedValue([{ id: "o_new_1" }]),
+        onConflictDoUpdate: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([{ count: 1 }]),
+        })),
       })),
     })),
     update: vi.fn(() => ({
@@ -135,7 +138,10 @@ import sitemap from "@/app/sitemap";
 async function demoLoginAction(role: string) {
   const req = new NextRequest("http://localhost:3000/api/v1/auth/demo-login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:3000",
+    },
     body: JSON.stringify({ role }),
   });
   const res = await handleDemoLogin(req);

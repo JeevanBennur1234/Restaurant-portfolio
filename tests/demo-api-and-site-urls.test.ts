@@ -1,7 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as handleDemoLogin } from "@/app/api/v1/auth/demo-login/route";
-import { POST as handleOrderStep } from "@/app/api/v1/customer/orders/[id]/step/route";
+import { POST as handleDemoAdvance } from "@/app/api/v1/customer/orders/[id]/demo/advance/route";
 import { GET as handleDemoEnter } from "@/app/demo-enter/route";
 import { getSiteUrls, resolveSiteUrl, validateSiteUrlOrigin } from "@/lib/site-urls";
 import manifest from "@/app/manifest";
@@ -18,7 +20,29 @@ vi.mock("@/server/env", () => ({
 }));
 
 vi.mock("@/server/auth", () => ({
-  setStaffSessionCookie: vi.fn(async () => undefined),
+  setStaffSessionCookie: vi.fn(
+    async (
+      _userId: string,
+      _sessionVersion?: number,
+      response?: { cookies: { set: (name: string, val: string, opts?: unknown) => void } }
+    ) => {
+      if (response) {
+        const site = process.env.SITE;
+        const cookieName =
+          site === "manager"
+            ? "dinepulse_manager_session"
+            : "dinepulse_kitchen_session";
+        response.cookies.set(cookieName, "mock-jwt-token", {
+          httpOnly: true,
+          secure: false,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 43200,
+        });
+      }
+      return undefined;
+    }
+  ),
   getStaffSession: vi.fn(async () => null),
   signSessionPayload: vi.fn(() => "mock-jwt-token"),
 }));
@@ -125,7 +149,7 @@ describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
     (env as { DEMO_MODE: string }).DEMO_MODE = "false";
     const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:3001" },
       body: JSON.stringify({ role: "kitchen" }),
     });
 
@@ -136,11 +160,53 @@ describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
     expect(json.error.message).toMatch(/not found/i);
   });
 
+  it("rejects demo login with 403 when Origin header is missing", async () => {
+    process.env.SITE = "kitchen";
+    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "kitchen" }),
+    });
+
+    const res = await handleDemoLogin(req);
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.error.message).toMatch(/Invalid origin/i);
+  });
+
+  it("returns 429 RATE_LIMITED on the 21st request within 10 minutes", async () => {
+    process.env.SITE = "kitchen";
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([{ count: 21, windowStart: new Date() }]),
+        })),
+      })),
+    } as never);
+
+    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:3001",
+      },
+      body: JSON.stringify({ role: "kitchen" }),
+    });
+
+    const res = await handleDemoLogin(req);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBeDefined();
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.error.code).toBe("RATE_LIMITED");
+  });
+
   it("rejects demo login when role is not allowed on site", async () => {
     process.env.SITE = "manager";
     const req = new NextRequest("http://localhost:3002/api/v1/auth/demo-login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:3002" },
       body: JSON.stringify({ role: "kitchen" }),
     });
 
@@ -157,7 +223,7 @@ describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
 
     const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:3001" },
       body: JSON.stringify({ role: "kitchen" }),
     });
 
@@ -179,7 +245,7 @@ describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
 
     const req = new NextRequest("http://localhost:3002/api/v1/auth/demo-login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:3002" },
       body: JSON.stringify({ role: "manager" }),
     });
 
@@ -196,7 +262,7 @@ describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
   });
 });
 
-describe("Customer Order Step API (POST /api/v1/customer/orders/[id]/step)", () => {
+describe("Customer Order Advance API (POST /api/v1/customer/orders/[id]/demo/advance)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (env as { DEMO_MODE: string }).DEMO_MODE = "true";
@@ -204,31 +270,31 @@ describe("Customer Order Step API (POST /api/v1/customer/orders/[id]/step)", () 
 
   it("returns 404 when DEMO_MODE is false", async () => {
     (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/step", {
+    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
       method: "POST",
       headers: { "x-table-token": "tok_table_7" },
     });
 
-    const res = await handleOrderStep(req, { params: Promise.resolve({ id: "ord_101" }) });
+    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
     expect(res.status).toBe(404);
   });
 
   it("returns 400 when table token is missing", async () => {
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/step", {
+    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
       method: "POST",
     });
 
-    const res = await handleOrderStep(req, { params: Promise.resolve({ id: "ord_101" }) });
+    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
     expect(res.status).toBe(400);
   });
 
   it("advances order to preparing and returns newStatus", async () => {
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/step", {
+    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
       method: "POST",
       headers: { "x-table-token": "tok_table_7" },
     });
 
-    const res = await handleOrderStep(req, { params: Promise.resolve({ id: "ord_101" }) });
+    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
@@ -267,28 +333,56 @@ describe("Demo Enter Route (GET /demo-enter)", () => {
     expect(res.status).toBe(404);
   });
 
-  it("logs in demo kitchen user and redirects to /kitchen on kitchen site", async () => {
+  it("returns 429 on the 21st demo-enter request within 10 minutes", async () => {
+    process.env.SITE = "kitchen";
+    vi.mocked(db.insert).mockReturnValueOnce({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([{ count: 21, windowStart: new Date() }]),
+        })),
+      })),
+    } as never);
+
+    const req = new NextRequest("http://localhost:3001/demo-enter");
+    const res = await handleDemoEnter(req);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBeDefined();
+    const text = await res.text();
+    expect(text).toMatch(/Too many requests/i);
+  });
+
+  it("logs in demo kitchen user and redirects to / on kitchen site", async () => {
     process.env.SITE = "kitchen";
     vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoKitchenUser as never);
 
     const req = new NextRequest("http://localhost:3001/demo-enter");
     const res = await handleDemoEnter(req);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost:3001/kitchen");
+    expect(res.headers.get("location")).toBe("http://localhost:3001/");
     const setCookie = res.headers.get("set-cookie");
     expect(setCookie).toContain("dinepulse_kitchen_session");
   });
 
-  it("logs in demo manager user and redirects to /admin on manager site", async () => {
+  it("logs in demo manager user and redirects to / on manager site", async () => {
     process.env.SITE = "manager";
     vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoManagerUser as never);
 
     const req = new NextRequest("http://localhost:3002/demo-enter");
     const res = await handleDemoEnter(req);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost:3002/admin");
+    expect(res.headers.get("location")).toBe("http://localhost:3002/");
     const setCookie = res.headers.get("set-cookie");
     expect(setCookie).toContain("dinepulse_manager_session");
+  });
+
+  it("redirects to role path when site is all", async () => {
+    process.env.SITE = "all";
+    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoKitchenUser as never);
+
+    const req = new NextRequest("http://localhost:3000/demo-enter?role=kitchen");
+    const res = await handleDemoEnter(req);
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/kitchen");
   });
 });
 
@@ -423,6 +517,12 @@ describe("Web App Manifest (src/app/manifest.ts)", () => {
         sizes: "512x512",
         type: "image/png",
       },
+      {
+        src: "/icons/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ]);
   });
 
@@ -447,5 +547,44 @@ describe("Web App Manifest (src/app/manifest.ts)", () => {
     expect(m.start_url).toBe("/");
     expect(m.display).toBe("standalone");
     expect(m.orientation).toBe("portrait");
+  });
+});
+
+describe("PWA Icons (public/icons/)", () => {
+  function readPngDimensions(filePath: string): { width: number; height: number } {
+    const fullPath = path.resolve(process.cwd(), filePath);
+    const buf = fs.readFileSync(fullPath);
+    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+    expect(buf.slice(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    );
+    // IHDR chunk begins at offset 12
+    expect(buf.slice(12, 16).toString("ascii")).toBe("IHDR");
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    return { width, height };
+  }
+
+  it("public/icons/icon-192.png is exactly 192x192 pixels", () => {
+    const dims = readPngDimensions("public/icons/icon-192.png");
+    expect(dims.width).toBe(192);
+    expect(dims.height).toBe(192);
+  });
+
+  it("public/icons/icon-512.png is exactly 512x512 pixels", () => {
+    const dims = readPngDimensions("public/icons/icon-512.png");
+    expect(dims.width).toBe(512);
+    expect(dims.height).toBe(512);
+  });
+
+  it("public/icons/icon-maskable-512.png is exactly 512x512 pixels", () => {
+    const dims = readPngDimensions("public/icons/icon-maskable-512.png");
+    expect(dims.width).toBe(512);
+    expect(dims.height).toBe(512);
+  });
+
+  it("legacy root public/icon-192.png and public/icon-512.png do not exist", () => {
+    expect(fs.existsSync(path.resolve(process.cwd(), "public/icon-192.png"))).toBe(false);
+    expect(fs.existsSync(path.resolve(process.cwd(), "public/icon-512.png"))).toBe(false);
   });
 });

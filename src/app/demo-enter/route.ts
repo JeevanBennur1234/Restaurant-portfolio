@@ -2,9 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { staffUsers } from "@/server/db/schema";
-import { signSessionPayload, type SessionPayload } from "@/server/auth";
+import { setStaffSessionCookie } from "@/server/auth";
 import { env } from "@/server/env";
-import { getSite, sessionCookieNameForSite } from "@/server/site";
+import { getSite } from "@/server/site";
+import { getClientIpFromRequest } from "@/server/api/guards";
+import { checkRateLimit } from "@/server/rate-limit";
 
 export async function GET(req: NextRequest) {
   if (env.DEMO_MODE !== "true") {
@@ -15,6 +17,23 @@ export async function GET(req: NextRequest) {
   // Strictly disallow on customer site
   if (site === "customer") {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  const clientIp = getClientIpFromRequest(req);
+  const rateCheck = await checkRateLimit({
+    key: `demo-login:${clientIp}`,
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateCheck.allowed) {
+    return new NextResponse("Too many requests", {
+      status: 429,
+      headers: {
+        "Retry-After": String(rateCheck.retryAfterSeconds ?? 600),
+        "Content-Type": "text/plain",
+      },
+    });
   }
 
   const roleParam = req.nextUrl.searchParams.get("role");
@@ -43,29 +62,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const redirectPath = targetRole === "kitchen" ? "/kitchen" : "/admin";
+  const redirectPath =
+    site === "all"
+      ? targetRole === "kitchen"
+        ? "/kitchen"
+        : "/admin"
+      : "/";
   const redirectUrl = new URL(redirectPath, req.url);
   const response = NextResponse.redirect(redirectUrl, 303);
 
-  const now = Math.floor(Date.now() / 1000);
-  const currentSite = site;
-  const payload: SessionPayload = {
-    userId: demoUser.id,
-    sessionVersion: demoUser.sessionVersion,
-    iat: now,
-    exp: now + 12 * 60 * 60, // 12 hours
-    aud: currentSite,
-  };
-  const token = signSessionPayload(payload);
-  const cookieName = sessionCookieNameForSite(currentSite);
-
-  response.cookies.set(cookieName, token, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 12,
-  });
+  await setStaffSessionCookie(demoUser.id, demoUser.sessionVersion, response);
 
   return response;
 }

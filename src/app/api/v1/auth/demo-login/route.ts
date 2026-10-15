@@ -7,7 +7,8 @@ import { env } from "@/server/env";
 import { withApi } from "@/server/api/handler";
 import { apiOk, apiError } from "@/server/api/envelope";
 import { allowedRolesForSite } from "@/server/site";
-import { validateOrigin } from "@/server/api/guards";
+import { validateOrigin, getClientIpFromRequest } from "@/server/api/guards";
+import { checkRateLimit } from "@/server/rate-limit";
 
 const demoLoginSchema = z.object({
   role: z.enum(["kitchen", "manager"], {
@@ -25,12 +26,29 @@ export const POST = withApi(
       );
     }
 
-    const origin = req.headers.get("origin");
-    if (origin && !validateOrigin(req)) {
+    if (!validateOrigin(req)) {
       return apiError(
         "FORBIDDEN",
         "Forbidden: Invalid origin",
         403
+      );
+    }
+
+    const clientIp = getClientIpFromRequest(req);
+    const rateCheck = await checkRateLimit({
+      key: `demo-login:${clientIp}`,
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateCheck.allowed) {
+      return apiError(
+        "RATE_LIMITED",
+        "Too many demo login requests",
+        429,
+        {
+          "Retry-After": String(rateCheck.retryAfterSeconds ?? 600),
+        }
       );
     }
 

@@ -1,5 +1,5 @@
 import { cookies, headers } from "next/headers";
-import { connection } from "next/server";
+import { connection, type NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -209,9 +209,9 @@ export async function getStaffSession(): Promise<StaffSession | null> {
  */
 export async function setStaffSessionCookie(
   userId: string,
-  sessionVersion: number = 1
+  sessionVersion: number = 1,
+  response?: NextResponse
 ): Promise<void> {
-  const cookieJar = await cookies();
   const now = Math.floor(Date.now() / 1000);
   const currentSite = getSite();
   const payload: SessionPayload = {
@@ -223,13 +223,20 @@ export async function setStaffSessionCookie(
   };
   const token = signSessionPayload(payload);
   const cookieName = sessionCookieNameForSite(currentSite);
-  cookieJar.set(cookieName, token, {
+  const cookieOptions = {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 12, // 12 hours
-  });
+  };
+
+  if (response) {
+    response.cookies.set(cookieName, token, cookieOptions);
+  } else {
+    const cookieJar = await cookies();
+    cookieJar.set(cookieName, token, cookieOptions);
+  }
 }
 
 /**

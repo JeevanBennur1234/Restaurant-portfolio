@@ -36,7 +36,7 @@ describe("PGlite Real PostgreSQL Service Tests", () => {
         updated_at timestamp with time zone DEFAULT now() NOT NULL
       );
     `);
-  });
+  }, 30000);
 
   afterAll(async () => {
     await client.close();

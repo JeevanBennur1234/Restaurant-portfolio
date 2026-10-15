@@ -269,38 +269,6 @@ export interface SimulateStepData {
 }
 
 /**
- * Advances order to next kitchen step in demo preview.
- */
-export async function simulateStep(
-  orderIdOrObj: string | { orderId: string; token: string },
-  tokenOrOpts?: string | { signal?: AbortSignal },
-  opts?: { signal?: AbortSignal }
-): Promise<ApiResult<SimulateStepData>> {
-  let orderId: string;
-  let token: string;
-  let signal: AbortSignal | undefined;
-
-  if (typeof orderIdOrObj === "string") {
-    orderId = orderIdOrObj;
-    token = tokenOrOpts as string;
-    signal = opts?.signal;
-  } else {
-    orderId = orderIdOrObj.orderId;
-    token = orderIdOrObj.token;
-    signal = (tokenOrOpts as { signal?: AbortSignal })?.signal;
-  }
-
-  return apiFetch<SimulateStepData>(
-    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/step`,
-    {
-      method: "POST",
-      tableToken: token,
-      signal,
-    }
-  );
-}
-
-/**
  * Advances order to next kitchen step in demo preview using canonical endpoint.
  */
 export async function advanceOrder(
@@ -341,6 +309,5 @@ export const customerApi = {
   payAtCounter,
   switchOrderToCounter: payAtCounter,
   simulatePayment,
-  simulateStep,
   advanceOrder,
 };

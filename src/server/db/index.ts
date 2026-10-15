@@ -3,23 +3,13 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 
 import { env } from "@/server/env";
+import { poolConfig } from "./pool-config";
 
 const globalForDb = globalThis as unknown as {
   conn: Pool | undefined;
 };
 
-const connectionString = env.DATABASE_URL;
-
-const pool =
-  globalForDb.conn ??
-  new Pool({
-    connectionString,
-    ssl:
-      connectionString.includes("supabase.co") ||
-      connectionString.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
+const pool = globalForDb.conn ?? new Pool(poolConfig);
 
 if (env.NODE_ENV !== "production") {
   globalForDb.conn = pool;

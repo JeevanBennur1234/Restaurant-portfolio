@@ -34,8 +34,16 @@ export function validateOrigin(req: Request): boolean {
     return false;
   }
 
-  // 1. Check against Host or X-Forwarded-Host
-  const hostHeader = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  // 1. Check against Host, X-Forwarded-Host, or Request URL host
+  let reqHost: string | undefined;
+  try {
+    reqHost = new URL(req.url).host.toLowerCase();
+  } catch {}
+
+  const hostHeader =
+    req.headers.get("x-forwarded-host") ||
+    req.headers.get("host") ||
+    reqHost;
   if (hostHeader) {
     const primaryHost = hostHeader.split(",")[0].trim().toLowerCase();
     if (originHost === primaryHost) {
