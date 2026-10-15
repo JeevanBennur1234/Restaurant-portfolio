@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ChefHat, AlertCircle, ArrowRight, Sparkles } from "lucide-react";
-import { authApi } from "@/lib/api/auth";
-// TODO(P5): replace with demo API
-import { demoLoginAction } from "@/server/actions/demo";
+import { authApi, demoLoginAction } from "@/lib/api/auth";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
 export interface KitchenLoginProps {
   isDemoMode?: boolean;
@@ -47,7 +47,6 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
     setIsDemoLoading(true);
     setError(null);
     try {
-      // TODO(P5): replace with demo API
       const res = await demoLoginAction("kitchen");
       if (res.success) {
         window.location.reload();
@@ -75,10 +74,10 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
             <ChefHat className="h-7 w-7" />
           </div>
           <span className="eyebrow text-[10px] text-amber-300 tracking-[0.2em]">
-            Station Management · KDS
+            Masala Lane Kitchen · KDS
           </span>
           <CardTitle className="text-2xl font-bold tracking-tight text-[#FAF7F2] font-serif mt-1">
-            Masala Lane Kitchen
+            Kitchen Display
           </CardTitle>
           <CardDescription className="text-xs text-zinc-400 mt-1">
             Live Kitchen Display System. Enter your authorized kitchen staff or floor manager credentials.
@@ -158,6 +157,18 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
                 <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
                 <span>Continue as demo kitchen</span>
               </Button>
+            </div>
+          )}
+
+          {/* Conditional Manager Console Link */}
+          {resolveSiteUrl("manager", "/admin") && (
+            <div className="pt-2 text-center">
+              <Link
+                href={resolveSiteUrl("manager", "/admin")!}
+                className="text-xs text-zinc-400 hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
+              >
+                <span>Manager console</span>
+              </Link>
             </div>
           )}
         </CardContent>

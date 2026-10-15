@@ -16,9 +16,13 @@ import { SmoothScroll } from "@/components/ui/smooth-scroll";
 import { Reveal } from "@/components/ui/reveal";
 import { HeroMedia } from "@/components/landing/hero-media";
 import { SignatureCarousel, type SignatureDishItem } from "@/components/landing/signature-carousel";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
 export default function HomePage() {
   const root = process.cwd();
+
+  const kitchenUrl = resolveSiteUrl("kitchen", "/kitchen");
+  const managerUrl = resolveSiteUrl("manager", "/admin");
 
   // Check on server whether custom food photos or video exist on disk
   const hasHeroVideo = fs.existsSync(path.resolve(root, "public/media/hero.mp4"));
@@ -130,12 +134,14 @@ export default function HomePage() {
               >
                 Showcase
               </Link>
-              <Link
-                href="/kitchen"
-                className="hidden lg:inline-flex items-center text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors min-h-[44px]"
-              >
-                Kitchen
-              </Link>
+              {kitchenUrl && (
+                <Link
+                  href={kitchenUrl}
+                  className="hidden lg:inline-flex items-center text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors min-h-[44px]"
+                >
+                  Kitchen
+                </Link>
+              )}
               <Link
                 href="/demo"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold tracking-wide uppercase transition-all shadow-xs min-h-[44px]"
@@ -615,12 +621,16 @@ export default function HomePage() {
                     <Link href="/demo" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
                       Interactive Showcase
                     </Link>
-                    <Link href="/kitchen" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
-                      Kitchen Board
-                    </Link>
-                    <Link href="/admin" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
-                      Manager Admin
-                    </Link>
+                    {kitchenUrl && (
+                      <Link href={kitchenUrl} className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
+                        Kitchen Board
+                      </Link>
+                    )}
+                    {managerUrl && (
+                      <Link href={managerUrl} className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
+                        Manager Admin
+                      </Link>
+                    )}
                     <a
                       href="https://intallo.in/contact"
                       target="_blank"

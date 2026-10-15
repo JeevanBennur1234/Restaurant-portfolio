@@ -63,8 +63,40 @@ export async function me(opts?: {
   });
 }
 
+/**
+ * Initiates demo login via REST API for visitors without typing credentials.
+ */
+export async function demoLogin(
+  role: "kitchen" | "manager",
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{ success: boolean; redirectTo: string }>> {
+  return apiFetch<{ success: boolean; redirectTo: string }>(
+    "/api/v1/auth/demo-login",
+    {
+      method: "POST",
+      body: { role },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Client-side helper matching the demoLoginAction signature for UI components.
+ */
+export async function demoLoginAction(
+  role: "kitchen" | "manager"
+): Promise<{ success: boolean; redirectTo?: string; error?: string }> {
+  const res = await demoLogin(role);
+  if (res.ok) {
+    return { success: true, redirectTo: res.data.redirectTo };
+  }
+  return { success: false, error: res.message || "Demo login failed" };
+}
+
 export const authApi = {
   login,
   logout,
   me,
+  demoLogin,
+  demoLoginAction,
 };

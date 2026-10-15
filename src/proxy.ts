@@ -56,6 +56,7 @@ export function routeDecisionForSite(
     const isKitchenPath =
       pathname === "/kitchen" ||
       pathname.startsWith("/kitchen/") ||
+      pathname === "/demo-enter" ||
       pathname === "/api/v1/kitchen" ||
       pathname.startsWith("/api/v1/kitchen/") ||
       pathname === "/api/v1/auth" ||
@@ -71,6 +72,7 @@ export function routeDecisionForSite(
     const isManagerPath =
       pathname === "/admin" ||
       pathname.startsWith("/admin/") ||
+      pathname === "/demo-enter" ||
       pathname === "/api/v1/admin" ||
       pathname.startsWith("/api/v1/admin/") ||
       pathname === "/api/admin" ||
@@ -148,6 +150,30 @@ export function proxy(request?: NextRequest) {
     "https://api.razorpay.com",
   ].join(" ");
 
+  // Frame-src origins: allow checkout plus configured site origins
+  const frameSrcOrigins: string[] = [
+    "'self'",
+    "https://checkout.razorpay.com",
+    "https://api.razorpay.com",
+  ];
+
+  const siteOriginsToCheck = [
+    process.env.NEXT_PUBLIC_CUSTOMER_SITE_URL || env.NEXT_PUBLIC_CUSTOMER_SITE_URL,
+    process.env.NEXT_PUBLIC_KITCHEN_SITE_URL || env.NEXT_PUBLIC_KITCHEN_SITE_URL,
+    process.env.NEXT_PUBLIC_MANAGER_SITE_URL || env.NEXT_PUBLIC_MANAGER_SITE_URL,
+  ];
+
+  for (const raw of siteOriginsToCheck) {
+    if (raw) {
+      try {
+        const u = new URL(raw);
+        if (!frameSrcOrigins.includes(u.origin)) {
+          frameSrcOrigins.push(u.origin);
+        }
+      } catch {}
+    }
+  }
+
   const cspDirectives = [
     "default-src 'self'",
     `script-src ${scriptSrcDirectives}`,
@@ -155,7 +181,7 @@ export function proxy(request?: NextRequest) {
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self'",
-    "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com",
+    `frame-src ${frameSrcOrigins.join(" ")}`,
     `connect-src 'self' https://checkout.razorpay.com https://api.razorpay.com ${supabaseOrigins}`,
     frameAncestorsDirective,
     "base-uri 'self'",

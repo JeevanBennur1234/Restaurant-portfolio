@@ -11,8 +11,6 @@ import { formatPaiseToINR } from "@/lib/currency";
 import { customerApi } from "@/lib/api/customer";
 import { userMessageFor } from "@/lib/api/errors";
 import type { OrderDetails, OrderStatus } from "@/lib/api/types";
-// TODO(P5): replace with demo API
-import { simulateKitchenStepAction } from "@/server/actions/demo";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 import {
@@ -171,10 +169,9 @@ export function OrderLiveTracker({
     if (!nextStatus || isAdvancing) return;
     setIsAdvancing(true);
     try {
-      // TODO(P5): replace with demo API
-      const res = await simulateKitchenStepAction(order.id, token);
-      if (res.success && res.newStatus) {
-        setOrder((prev) => ({ ...prev, status: res.newStatus! }));
+      const res = await customerApi.advanceOrder({ orderId: order.id, token });
+      if (res.ok && res.data?.newStatus) {
+        setOrder((prev) => ({ ...prev, status: res.data.newStatus }));
       }
     } finally {
       setIsAdvancing(false);

@@ -211,7 +211,7 @@ export function KitchenBoard({
       />
 
       {/* 3-Column Board (Designed for Tablet Landscape & Touch) */}
-      <main className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-hidden h-[calc(100vh-64px)]">
+      <main className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-y-auto md:overflow-hidden md:h-[calc(100vh-64px)]">
         {/* Column 1: NEW */}
         <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#26221E] bg-[#1E1A17]">

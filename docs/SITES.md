@@ -104,16 +104,39 @@ Staff authorization checks are strictly gated per site via `allowedRolesForSite(
 
 ---
 
-## 6. Environment Variables Reference
+## 6. Cross-Site Demo Showcase & Demo Flow
+
+The interactive demo showcase at `/demo` runs on the Customer site (`http://localhost:3000/demo`):
+- **Customer Frame**: Embeds guest QR ordering at `/t/demo-table-7`.
+- **Kitchen & Manager Frames**: Embeds `/demo-enter`.
+  - When loaded inside an iframe, `GET /demo-enter` auto-authenticates the seeded demo staff account for that site (`kitchen` or `manager`), issues the isolated session cookie (`dinepulse_kitchen_session` or `dinepulse_manager_session`), and redirects (307) immediately to `/kitchen` or `/admin`.
+- **Parent CSP & Embedding Authorization**:
+  - Customer site's Content-Security-Policy (`frame-src`) permits configured kitchen and manager origins (`NEXT_PUBLIC_KITCHEN_SITE_URL`, `NEXT_PUBLIC_MANAGER_SITE_URL`, and localhost development ports).
+  - Kitchen and Manager sites permit embedding via `FRAME_ANCESTORS=http://localhost:3000` (which drops obsolete `X-Frame-Options` and emits `frame-ancestors 'self' <origins>`).
+- **SameSite & Subdomain Cookie Guidance**:
+  - Localhost ports (`3000`, `3001`, `3002`) share the `localhost` eTLD+1 domain and permit `SameSite=Lax` session cookies during navigation to `/demo-enter`.
+  - In production multi-site deployments across subdomains (e.g. `order.dinepulse.com`, `kds.dinepulse.com`, `manager.dinepulse.com`), the same apex domain (`dinepulse.com`) ensures session cookies remain first-party same-site.
+  - If a site URL is not configured in multi-site mode, the showcase renders a clear not-configured state with an "Open in new tab" fallback.
+
+---
+
+## 7. Environment Variables Reference
 
 ```env
-# Multi-site configuration
-SITE=customer                         # Options: customer | kitchen | manager | all
-FRAME_ANCESTORS=http://localhost:3000  # Comma-separated allowed iframe embedding origins
-NEXT_PUBLIC_SITE_NAME=DinePulse       # Title branding template
+# Multi-site mode configuration
+SITE=customer                                   # Options: customer | kitchen | manager | all
+FRAME_ANCESTORS=http://localhost:3000           # Comma-separated allowed iframe embedding origins
+NEXT_PUBLIC_SITE_NAME=DinePulse                 # Title branding template
+
+# Site URLs (Absolute HTTP/HTTPS origins without paths)
+# In multi-site mode, if unset, resolveSiteUrl() returns null (never silently defaults to ports).
+NEXT_PUBLIC_CUSTOMER_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_KITCHEN_SITE_URL=http://localhost:3001
+NEXT_PUBLIC_MANAGER_SITE_URL=http://localhost:3002
 
 # Database & Core Services (shared across instances)
 DATABASE_URL=postgresql://...
-SESSION_SECRET=...
+SESSION_SECRET=...                              # At least 32 characters in production
 NEXT_PUBLIC_APP_URL=https://...
+DEMO_MODE=true                                  # Controls demo login, /demo-enter, and simulated payment/advance
 ```

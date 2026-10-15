@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import type { StaffSession } from "@/lib/api/types";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
 export type AdminTab = "orders" | "menu" | "tables" | "reports";
 
@@ -136,26 +137,30 @@ export function AdminNavbar({
 
           {/* Right Controls */}
           <div className="flex items-center gap-2">
-            <Link
-              href="/kitchen"
-              target="_blank"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-              title="Open Kitchen Display System in new tab"
-            >
-              <ChefHat className="h-3.5 w-3.5" />
-              <span>Kitchen KDS</span>
-              <ExternalLink className="h-3 w-3 opacity-60" />
-            </Link>
+            {resolveSiteUrl("kitchen", "/kitchen") && (
+              <Link
+                href={resolveSiteUrl("kitchen", "/kitchen")!}
+                target="_blank"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                title="Open Kitchen Display System in new tab"
+              >
+                <ChefHat className="h-3.5 w-3.5" />
+                <span>Kitchen KDS</span>
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </Link>
+            )}
 
-            <Link
-              href="/t/demo"
-              target="_blank"
-              className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-              title="Open Guest Ordering preview"
-            >
-              <span>Guest Menu</span>
-              <ExternalLink className="h-3 w-3 opacity-60" />
-            </Link>
+            {resolveSiteUrl("customer", "/t/demo") && (
+              <Link
+                href={resolveSiteUrl("customer", "/t/demo")!}
+                target="_blank"
+                className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                title="Open Guest Ordering preview"
+              >
+                <span>Guest Menu</span>
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </Link>
+            )}
 
             <Button
               variant="outline"

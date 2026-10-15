@@ -10,56 +10,54 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { demoLoginAction } from "@/server/actions/demo";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
-interface DemoShowcaseProps {
+export interface DemoShowcaseProps {
   isDemoMode: boolean;
+  kitchenUrl?: string | null;
+  managerUrl?: string | null;
 }
 
-export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
-  const [activeTab, setActiveTab] = React.useState<"split" | "guest" | "kitchen">("split");
-  const [isLoggingInKitchen, setIsLoggingInKitchen] = React.useState(false);
-  const [isLoggingInManager, setIsLoggingInManager] = React.useState(false);
+export function DemoShowcase({
+  isDemoMode,
+  kitchenUrl,
+  managerUrl,
+}: DemoShowcaseProps) {
+  const [activeTab, setActiveTab] = React.useState<"split" | "guest" | "kitchen" | "manager">("split");
+  const [opsView, setOpsView] = React.useState<"kitchen" | "manager">("kitchen");
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [iframeKey, setIframeKey] = React.useState(0);
 
-  const handleKitchenLogin = async () => {
-    try {
-      setIsLoggingInKitchen(true);
-      setErrorMessage(null);
-      const res = await demoLoginAction("kitchen");
-      if (res.success && res.redirectTo) {
-        window.open(res.redirectTo, "_blank");
-        // Reload iframes so session is recognized
-        setIframeKey((prev) => prev + 1);
-      } else {
-        setErrorMessage(res.error || "Failed to log in as demo kitchen");
-      }
-    } catch (err) {
-      setErrorMessage((err as Error).message || "An unexpected error occurred");
-    } finally {
-      setIsLoggingInKitchen(false);
-    }
+  const effectiveKitchenUrl =
+    kitchenUrl !== undefined && kitchenUrl !== null
+      ? (kitchenUrl.startsWith("/")
+          ? `/demo-enter?role=kitchen`
+          : `${kitchenUrl.replace(/\/$/, "")}/demo-enter`)
+      : resolveSiteUrl("kitchen", "/demo-enter");
+
+  const effectiveManagerUrl =
+    managerUrl !== undefined && managerUrl !== null
+      ? (managerUrl.startsWith("/")
+          ? `/demo-enter?role=manager`
+          : `${managerUrl.replace(/\/$/, "")}/demo-enter`)
+      : resolveSiteUrl("manager", "/demo-enter");
+
+  const effectiveGuestUrl =
+    resolveSiteUrl("customer", "/t/demo-table-7") || "/t/demo-table-7";
+
+  const directKitchenUrl = resolveSiteUrl("kitchen", "/kitchen") || "/kitchen";
+  const directManagerUrl = resolveSiteUrl("manager", "/admin") || "/admin";
+
+  const handleOpenKitchen = () => {
+    window.open(effectiveKitchenUrl || directKitchenUrl, "_blank");
   };
 
-  const handleManagerLogin = async () => {
-    try {
-      setIsLoggingInManager(true);
-      setErrorMessage(null);
-      const res = await demoLoginAction("manager");
-      if (res.success && res.redirectTo) {
-        window.open(res.redirectTo, "_blank");
-      } else {
-        setErrorMessage(res.error || "Failed to log in as demo manager");
-      }
-    } catch (err) {
-      setErrorMessage((err as Error).message || "An unexpected error occurred");
-    } finally {
-      setIsLoggingInManager(false);
-    }
+  const handleOpenManager = () => {
+    window.open(effectiveManagerUrl || directManagerUrl, "_blank");
   };
 
   return (
@@ -107,7 +105,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
 
         <div className="max-w-3xl mx-auto space-y-3">
           <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--text-primary)] leading-[1.05]">
-            Instant QR Dining & Real-Time Kitchen Operations
+            Instant QR Dining &amp; Real-Time Kitchen Operations
           </h1>
           <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-sans max-w-2xl mx-auto">
             A unified hospitality architecture by Intallo: guest self-ordering, automated server-verified billing, and a zero-latency digital kitchen dispatch system.
@@ -132,7 +130,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
           <Button
             variant="primary"
             size="md"
-            onClick={() => window.open("/t/demo-table-7", "_blank")}
+            onClick={() => window.open(effectiveGuestUrl, "_blank")}
             leftIcon={<Smartphone className="h-4 w-4" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
             className="shadow-md min-h-[44px] px-5"
@@ -143,8 +141,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
           <Button
             variant="secondary"
             size="md"
-            onClick={handleKitchenLogin}
-            isLoading={isLoggingInKitchen}
+            onClick={handleOpenKitchen}
             disabled={!isDemoMode}
             leftIcon={<ChefHat className="h-4 w-4" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
@@ -156,8 +153,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
           <Button
             variant="outline"
             size="md"
-            onClick={handleManagerLogin}
-            isLoading={isLoggingInManager}
+            onClick={handleOpenManager}
             disabled={!isDemoMode}
             leftIcon={<ShieldCheck className="h-4 w-4 text-[var(--primary)]" />}
             rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
@@ -204,7 +200,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
                 : "text-[var(--text-secondary)]"
             }`}
           >
-            Kitchen View
+            Operations View
           </button>
         </div>
       </section>
@@ -226,10 +222,10 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
                 </span>
               </div>
               <a
-                href="/t/demo-table-7"
+                href={effectiveGuestUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px] items-center"
+                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px]"
               >
                 <span>Fullscreen</span>
                 <ExternalLink className="h-3 w-3" />
@@ -248,7 +244,7 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
               <div className="relative w-full h-full rounded-[38px] overflow-hidden bg-white">
                 <iframe
                   key={`guest-${iframeKey}`}
-                  src="/t/demo-table-7"
+                  src={effectiveGuestUrl}
                   title="Guest Ordering App (Table 7)"
                   className="w-full h-full border-0"
                 />
@@ -256,39 +252,141 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
             </div>
           </div>
 
-          {/* Right Column: Live Kitchen Display Board (7 columns on desktop) */}
+          {/* Right Column: Live Kitchen Display / Manager Console (7 columns on desktop) */}
           <div
             className={`lg:col-span-7 flex flex-col ${
               activeTab === "guest" ? "hidden lg:flex" : "flex"
             }`}
           >
             <div className="w-full flex items-center justify-between mb-3 px-2">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse" />
-                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                  02 / Live Kitchen Display (KDS)
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 bg-[var(--bg-subtle)] p-1 rounded-lg border border-[var(--border-subtle)]">
+                  <button
+                    type="button"
+                    onClick={() => setOpsView("kitchen")}
+                    className={`px-3 py-1 rounded-md text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      opsView === "kitchen"
+                        ? "bg-[#2E2723] text-white shadow-xs"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Kitchen (KDS)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOpsView("manager")}
+                    className={`px-3 py-1 rounded-md text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      opsView === "manager"
+                        ? "bg-[var(--primary)] text-white shadow-xs"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    Manager Console
+                  </button>
+                </div>
               </div>
-              <a
-                href="/kitchen"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px] items-center"
-              >
-                <span>Open in Tab</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
+
+              <div className="flex items-center gap-2">
+                {opsView === "kitchen" ? (
+                  <a
+                    href={effectiveKitchenUrl || directKitchenUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px]"
+                  >
+                    <span>Open in Tab</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <a
+                    href={effectiveManagerUrl || directManagerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-medium text-[var(--primary)] hover:underline flex items-center gap-1 min-h-[44px]"
+                  >
+                    <span>Open in Tab</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Tablet / KDS Display Frame */}
             <div className="relative w-full h-[720px] rounded-[24px] bg-stone-950 p-3 shadow-2xl border-4 border-stone-800 ring-1 ring-stone-950/20">
               <div className="relative w-full h-full rounded-[16px] overflow-hidden bg-[#161412]">
-                <iframe
-                  key={`kitchen-${iframeKey}`}
-                  src="/kitchen"
-                  title="Kitchen Display System"
-                  className="w-full h-full border-0"
-                />
+                {opsView === "kitchen" ? (
+                  effectiveKitchenUrl ? (
+                    <iframe
+                      key={`kitchen-${iframeKey}`}
+                      src={effectiveKitchenUrl}
+                      title="Kitchen Display System"
+                      className="w-full h-full border-0"
+                    />
+                  ) : (
+                    /* Clear Not-Configured State */
+                    <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center text-zinc-300 space-y-4">
+                      <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <AlertTriangle className="h-7 w-7" />
+                      </div>
+                      <div className="space-y-1.5 max-w-sm">
+                        <h3 className="font-serif text-lg font-bold text-white">
+                          Kitchen Display Not Configured
+                        </h3>
+                        <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                          In multi-site mode, set{" "}
+                          <code className="text-amber-300 font-mono bg-zinc-800 px-1 py-0.5 rounded">
+                            NEXT_PUBLIC_KITCHEN_SITE_URL
+                          </code>{" "}
+                          in your environment to enable cross-site embedding.
+                        </p>
+                      </div>
+                      <a
+                        href={directKitchenUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white border border-zinc-700 transition-colors"
+                      >
+                        <span>Open in new tab</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  )
+                ) : effectiveManagerUrl ? (
+                  <iframe
+                    key={`manager-${iframeKey}`}
+                    src={effectiveManagerUrl}
+                    title="Manager Console"
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  /* Clear Not-Configured State */
+                  <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center text-zinc-300 space-y-4">
+                    <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <AlertTriangle className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-1.5 max-w-sm">
+                      <h3 className="font-serif text-lg font-bold text-white">
+                        Manager Console Not Configured
+                      </h3>
+                      <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                        In multi-site mode, set{" "}
+                        <code className="text-amber-300 font-mono bg-zinc-800 px-1 py-0.5 rounded">
+                          NEXT_PUBLIC_MANAGER_SITE_URL
+                        </code>{" "}
+                        in your environment to enable cross-site embedding.
+                      </p>
+                    </div>
+                    <a
+                      href={directManagerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white border border-zinc-700 transition-colors"
+                    >
+                      <span>Open in new tab</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -299,10 +397,10 @@ export function DemoShowcase({ isDemoMode }: DemoShowcaseProps) {
       <footer className="mt-auto border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] py-8 px-4 text-center">
         <div className="max-w-2xl mx-auto space-y-3">
           <p className="text-xs uppercase font-mono tracking-widest text-[var(--text-muted)]">
-            DinePulse Architecture & Design
+            DinePulse Architecture &amp; Design
           </p>
           <p className="font-serif text-lg font-bold text-[var(--text-primary)]">
-            Crafted by Intallo for modern restaurants & multi-outlet chains
+            Crafted by Intallo for modern restaurants &amp; multi-outlet chains
           </p>
           <p className="text-xs text-[var(--text-secondary)]">
             Need high-conversion digital menus, kitchen automation, or custom point-of-sale integrations?

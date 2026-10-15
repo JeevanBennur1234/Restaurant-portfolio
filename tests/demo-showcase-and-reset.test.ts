@@ -120,7 +120,7 @@ vi.mock("@/server/db", () => ({
 
 import { env } from "@/server/env";
 import { db } from "@/server/db";
-import { demoLoginAction } from "@/server/actions/demo";
+import { POST as handleDemoLogin } from "@/app/api/v1/auth/demo-login/route";
 import {
   deleteTable,
   deleteCategory,
@@ -132,6 +132,20 @@ import { POST as handleDemoReset, GET as handleDemoResetGet } from "@/app/api/de
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 
+async function demoLoginAction(role: string) {
+  const req = new NextRequest("http://localhost:3000/api/v1/auth/demo-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  const res = await handleDemoLogin(req);
+  const json = await res.json();
+  if (json.success && json.data) {
+    return { success: true, redirectTo: json.data.redirectTo };
+  }
+  return { success: false, error: json.error?.message || "Demo login failed" };
+}
+
 describe("Demo Login Action (demoLoginAction)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -142,7 +156,7 @@ describe("Demo Login Action (demoLoginAction)", () => {
     (env as { DEMO_MODE: string }).DEMO_MODE = "false";
     const result = await demoLoginAction("kitchen");
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/DEMO_MODE/i);
+    expect(result.error).toMatch(/not found/i);
   });
 
   it("fails on invalid role", async () => {

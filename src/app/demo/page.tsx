@@ -1,4 +1,6 @@
 import { env } from "@/server/env";
+import { getSite } from "@/server/site";
+import { getSiteUrls } from "@/lib/site-urls";
 import { DemoShowcase } from "@/components/demo/demo-showcase";
 import { SmoothScroll } from "@/components/ui/smooth-scroll";
 
@@ -10,10 +12,16 @@ export const metadata = {
 
 export default function DemoPage() {
   const isDemoMode = env.DEMO_MODE === "true";
+  const site = getSite();
+  const urls = getSiteUrls(site);
 
   return (
     <SmoothScroll>
-      <DemoShowcase isDemoMode={isDemoMode} />
+      <DemoShowcase
+        isDemoMode={isDemoMode}
+        kitchenUrl={urls.kitchen}
+        managerUrl={urls.manager}
+      />
     </SmoothScroll>
   );
 }

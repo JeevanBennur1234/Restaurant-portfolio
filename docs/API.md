@@ -62,6 +62,10 @@ In accordance with Next.js App Router architecture:
 | `adminApi.qrPdfUrl()` | `/api/v1/admin/tables/qr.pdf` | `GET` | Staff Cookie (`manager`, `admin`) | Generates printable QR PDF standees |
 | `adminApi.getReports()` | `/api/v1/admin/reports` | `GET` | Staff Cookie (`manager`, `admin`) | Analytics KPIs, top dishes, 7-day revenue |
 | `adminApi.uploadImage(file)` | `/api/v1/admin/uploads` | `POST` | Staff Cookie (`manager`, `admin`), Origin | Uploads image to Supabase Storage via `apiUpload` |
+| `authApi.demoLogin(role)` | `/api/v1/auth/demo-login` | `POST` | Demo mode gated (`DEMO_MODE=true`), site role gate | Authenticates demo staff user without credentials |
+| `customerApi.advanceOrder({ orderId, token })` | `/api/v1/customer/orders/:id/demo/advance` | `POST` | Demo mode gated, Table Token (`x-table-token`) | Advances order status in demo simulation |
+| `customerApi.simulateStep({ orderId, token })` | `/api/v1/customer/orders/:id/step` | `POST` | Demo mode gated, Table Token (`x-table-token`) | Advances order status (compatibility alias) |
+| — | `/demo-enter` | `GET` | Demo mode gated, Kitchen & Manager sites only | Sets session cookie and redirects to `/kitchen` or `/admin` |
 | — | `/api/v1/health` | `GET` | Public | Probes DB connection with `SELECT 1` |
 | — | `/api/v1/openapi.json` | `GET` | Public (Cached 5 min) | OpenAPI 3.0 specification |
 

@@ -106,6 +106,41 @@ export function validateFrameAncestors(
   return { valid: true, origins };
 }
 
+export function validateSiteUrlOrigin(val: string | undefined): {
+  valid: boolean;
+  error?: string;
+  origin?: string;
+} {
+  if (!val || val.trim() === "") return { valid: true };
+  try {
+    const url = new URL(val.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return {
+        valid: false,
+        error: `Site URL must start with http:// or https://: "${val}"`,
+      };
+    }
+    if (url.search || url.hash || url.username || url.password) {
+      return {
+        valid: false,
+        error: `Site URL must not contain query parameters, hashes, or credentials: "${val}"`,
+      };
+    }
+    if (url.pathname !== "" && url.pathname !== "/") {
+      return {
+        valid: false,
+        error: `Site URL must be an absolute origin without a path: "${val}"`,
+      };
+    }
+    return { valid: true, origin: url.origin };
+  } catch {
+    return {
+      valid: false,
+      error: `Invalid URL origin format for site URL: "${val}"`,
+    };
+  }
+}
+
 const rawEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -119,6 +154,12 @@ const rawEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z
     .string()
     .min(1, "NEXT_PUBLIC_APP_URL is required"),
+  NEXT_PUBLIC_CUSTOMER_SITE_URL: z
+    .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
+  NEXT_PUBLIC_KITCHEN_SITE_URL: z
+    .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
+  NEXT_PUBLIC_MANAGER_SITE_URL: z
+    .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
   DEMO_MODE: z
     .preprocess((val) => {
       if (val === undefined || val === "" || val === null) return "false";
@@ -165,6 +206,29 @@ const envSchema = rawEnvSchema.superRefine((data, ctx) => {
         path: ["FRAME_ANCESTORS"],
         message: result.error ?? "Invalid FRAME_ANCESTORS configuration.",
       });
+    }
+  }
+
+  // Validate site URLs as absolute origins without path
+  const siteUrlFields: Array<{
+    field: "NEXT_PUBLIC_CUSTOMER_SITE_URL" | "NEXT_PUBLIC_KITCHEN_SITE_URL" | "NEXT_PUBLIC_MANAGER_SITE_URL";
+    val: string | undefined;
+  }> = [
+    { field: "NEXT_PUBLIC_CUSTOMER_SITE_URL", val: data.NEXT_PUBLIC_CUSTOMER_SITE_URL },
+    { field: "NEXT_PUBLIC_KITCHEN_SITE_URL", val: data.NEXT_PUBLIC_KITCHEN_SITE_URL },
+    { field: "NEXT_PUBLIC_MANAGER_SITE_URL", val: data.NEXT_PUBLIC_MANAGER_SITE_URL },
+  ];
+
+  for (const { field, val } of siteUrlFields) {
+    if (val) {
+      const res = validateSiteUrlOrigin(val);
+      if (!res.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: res.error ?? `Invalid origin for ${field}.`,
+        });
+      }
     }
   }
 

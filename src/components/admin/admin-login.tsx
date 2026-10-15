@@ -12,9 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { authApi } from "@/lib/api/auth";
-// TODO(P5): replace with demo API
-import { demoLoginAction } from "@/server/actions/demo";
+import { authApi, demoLoginAction } from "@/lib/api/auth";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
 export interface AdminLoginProps {
   isDemoMode?: boolean;
@@ -54,7 +53,6 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
     setIsDemoLoading(true);
     setError(null);
     try {
-      // TODO(P5): replace with demo API
       const res = await demoLoginAction("manager");
       if (res.success) {
         window.location.reload();
@@ -82,10 +80,10 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
             <UtensilsCrossed className="h-7 w-7" />
           </div>
           <span className="eyebrow text-[10px] text-amber-700 tracking-[0.2em]">
-            Restaurant Management · Operations
+            Masala Lane Hub · Operations
           </span>
           <CardTitle className="text-2xl font-bold tracking-tight font-serif text-[var(--text-primary)] mt-1">
-            Masala Lane Hub
+            Manager Console
           </CardTitle>
           <CardDescription className="text-xs text-[var(--text-secondary)] mt-1">
             Sign in with authorized restaurant manager or administrative credentials.
@@ -169,15 +167,18 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
             </div>
           )}
 
-          <div className="pt-2 text-center">
-            <Link
-              href="/kitchen"
-              className="text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
-            >
-              <ChefHat className="h-3.5 w-3.5" />
-              <span>Looking for Kitchen Display System? Open /kitchen</span>
-            </Link>
-          </div>
+          {/* Conditional Open Kitchen Display Link */}
+          {resolveSiteUrl("kitchen", "/kitchen") && (
+            <div className="pt-2 text-center">
+              <Link
+                href={resolveSiteUrl("kitchen", "/kitchen")!}
+                className="text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
+              >
+                <ChefHat className="h-3.5 w-3.5" />
+                <span>Open kitchen display</span>
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

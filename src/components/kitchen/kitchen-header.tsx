@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { unlockAudioContext } from "@/lib/sound";
 import { authApi } from "@/lib/api/auth";
 import type { StaffSession } from "@/lib/api/types";
+import { useWakeLock } from "./use-wake-lock";
 
 export interface KitchenHeaderProps {
   session: StaffSession;
@@ -28,6 +29,7 @@ export function KitchenHeader({
 }: KitchenHeaderProps) {
   const [timeStr, setTimeStr] = React.useState("");
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const { isActive: wakeLockActive } = useWakeLock({ autoRequest: true });
 
   // Live digital clock
   React.useEffect(() => {
@@ -114,6 +116,17 @@ export function KitchenHeader({
 
       {/* Controls & Clock */}
       <div className="flex items-center gap-2.5">
+        {/* Screen Wake Lock Indicator */}
+        {wakeLockActive && (
+          <div
+            className="hidden xl:flex items-center gap-1.5 text-emerald-400 font-mono text-[11px] bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1.5 rounded-md"
+            title="Screen stays on while viewing KDS"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Screen stays on</span>
+          </div>
+        )}
+
         {/* Live Clock */}
         <div className="hidden lg:flex items-center gap-1.5 text-zinc-300 font-mono text-xs bg-[#1F1C19] border border-[#2C2825] px-3 py-2 rounded-md">
           <Clock className="h-3.5 w-3.5 text-zinc-400" />
@@ -124,7 +137,7 @@ export function KitchenHeader({
         <button
           type="button"
           onClick={handleSoundClick}
-          className={`flex items-center gap-1.5 h-9 px-3 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 min-h-[44px] px-3.5 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
             soundEnabled
               ? "bg-emerald-950/80 text-emerald-300 border-emerald-600 shadow-xs"
               : "bg-[#25211D] text-zinc-400 border-[#38332D] hover:text-white"
@@ -148,7 +161,7 @@ export function KitchenHeader({
         <button
           type="button"
           onClick={handleFullscreenToggle}
-          className="h-9 w-9 flex items-center justify-center rounded-md bg-[#25211D] border border-[#38332D] text-zinc-300 hover:text-white cursor-pointer"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-[#25211D] border border-[#38332D] text-zinc-300 hover:text-white cursor-pointer"
           title="Toggle Fullscreen"
           aria-label="Toggle Fullscreen"
         >
@@ -164,7 +177,7 @@ export function KitchenHeader({
           variant="outline"
           size="sm"
           onClick={handleLogout}
-          className="h-9 px-3 text-xs border-[#38332D] bg-[#25211D] text-zinc-300 hover:text-red-400 hover:bg-[#2C211E]"
+          className="min-h-[44px] px-3.5 text-xs border-[#38332D] bg-[#25211D] text-zinc-300 hover:text-red-400 hover:bg-[#2C211E]"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden sm:inline ml-1.5">Exit</span>
