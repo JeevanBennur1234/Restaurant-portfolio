@@ -5,6 +5,8 @@ import { getStaffSession } from "@/server/auth";
 import { listKitchenTickets } from "@/server/services/kitchen";
 import { getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
+import { getSite } from "@/server/site";
+import { resolveSiteUrl } from "@/lib/site-urls";
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 import { KitchenLogin } from "@/components/kitchen/kitchen-login";
 
@@ -24,7 +26,14 @@ export default async function KitchenPage() {
       session.role !== "manager" &&
       session.role !== "admin")
   ) {
-    return <KitchenLogin isDemoMode={env.DEMO_MODE === "true"} />;
+    const site = getSite();
+    const managerUrl = resolveSiteUrl("manager", "/admin", site);
+    return (
+      <KitchenLogin
+        isDemoMode={env.DEMO_MODE === "true"}
+        managerUrl={managerUrl}
+      />
+    );
   }
 
   const result = await listKitchenTickets({ db, actor: session });

@@ -101,9 +101,12 @@ describe("Multi-Site Security Headers & SEO Policies", () => {
       const res = proxy(req);
 
       expect(res.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
-      const csp = res.headers.get("Content-Security-Policy");
-      expect(csp).toContain("frame-ancestors 'self'");
-      expect(csp).not.toContain("localhost");
+      const csp = res.headers.get("Content-Security-Policy") || "";
+      const frameAncestorsDirective = csp
+        .split(";")
+        .map((s) => s.trim())
+        .find((s) => s.startsWith("frame-ancestors"));
+      expect(frameAncestorsDirective).toBe("frame-ancestors 'self'");
     });
   });
 

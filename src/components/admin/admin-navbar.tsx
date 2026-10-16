@@ -25,6 +25,8 @@ interface AdminNavbarProps {
   onTabChange: (tab: AdminTab) => void;
   session: StaffSession;
   activeOrdersCount?: number;
+  kitchenUrl?: string | null;
+  customerUrl?: string | null;
 }
 
 export function AdminNavbar({
@@ -32,6 +34,8 @@ export function AdminNavbar({
   onTabChange,
   session,
   activeOrdersCount = 0,
+  kitchenUrl,
+  customerUrl,
 }: AdminNavbarProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -138,9 +142,9 @@ export function AdminNavbar({
 
           {/* Right Controls */}
           <div className="flex items-center gap-2">
-            {resolveSiteUrl("kitchen", "/kitchen") && (
+            {(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen")) && (
               <Link
-                href={resolveSiteUrl("kitchen", "/kitchen")!}
+                href={(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen"))!}
                 target="_blank"
                 className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 title="Open Kitchen Display System in new tab"
@@ -151,9 +155,9 @@ export function AdminNavbar({
               </Link>
             )}
 
-            {resolveSiteUrl("customer", "/t/demo") && (
+            {(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/t/demo-table-7")) && (
               <Link
-                href={resolveSiteUrl("customer", "/t/demo")!}
+                href={(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/t/demo-table-7"))!}
                 target="_blank"
                 className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 title="Open Guest Ordering preview"

@@ -22,6 +22,8 @@ export interface AdminDashboardProps {
     totalCount: number;
     totalPages: number;
   };
+  kitchenUrl?: string | null;
+  customerUrl?: string | null;
 }
 
 function AdminDashboardContent({
@@ -29,6 +31,8 @@ function AdminDashboardContent({
   realtimeChannel,
   initialOrders,
   initialPagination,
+  kitchenUrl,
+  customerUrl,
 }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = React.useState<AdminTab>("orders");
   const [activeOrdersCount, setActiveOrdersCount] = React.useState(0);
@@ -116,6 +120,8 @@ function AdminDashboardContent({
         onTabChange={setActiveTab}
         session={session}
         activeOrdersCount={activeOrdersCount}
+        kitchenUrl={kitchenUrl}
+        customerUrl={customerUrl}
       />
 
       {/* Main Tab Content */}

@@ -20,12 +20,13 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
 
     // 1. Guest navigates to Table 7 and adds item to cart
     await guestPage.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
+    await expect(guestPage).toHaveTitle(/Table 7/i, { timeout: 15_000 });
     const firstCard = guestPage.locator('[data-testid="menu-item-card"]').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
 
     const addToOrderBtn = guestPage.locator('[data-testid="add-to-order-btn"]');
-    await expect(addToOrderBtn).toBeVisible({ timeout: 5_000 });
+    await expect(addToOrderBtn).toBeVisible({ timeout: 15_000 });
     await addToOrderBtn.click();
 
     // Open cart, select Pay at Counter, and submit

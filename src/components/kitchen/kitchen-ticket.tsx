@@ -27,17 +27,31 @@ export function KitchenTicketCard({
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [isPending, setIsPending] = React.useState(false);
 
-  // Live timer tick
+  // Live timer tick with clock skew compensation
   React.useEffect(() => {
-    const calc = () => {
-      const diff = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(ticket.createdAt).getTime()) / 1000)
-      );
-      setElapsedSeconds(diff);
+    const mountedAt = Date.now();
+    const createdMs = new Date(ticket.createdAt).getTime();
+    const isInvalid = isNaN(createdMs);
+
+    const updateTimer = () => {
+      if (isInvalid) {
+        setElapsedSeconds(0);
+        return;
+      }
+      const now = Date.now();
+      const realElapsed = Math.floor((now - createdMs) / 1000);
+      if (realElapsed >= 0) {
+        setElapsedSeconds(realElapsed);
+      } else {
+        // Compensate for clock skew: if database timestamp is ahead of client clock,
+        // count up elapsed seconds from when the ticket appeared on the KDS board
+        const mountElapsed = Math.max(0, Math.floor((now - mountedAt) / 1000));
+        setElapsedSeconds(mountElapsed);
+      }
     };
-    calc();
-    const interval = setInterval(calc, 1000);
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [ticket.createdAt]);
 

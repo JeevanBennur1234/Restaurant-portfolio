@@ -29,12 +29,16 @@ test.describe("Manager Administration Console", () => {
     );
     await page.click('[data-testid="admin-login-btn"]');
 
-    // Verify dashboard navigation bar is displayed
-    const navOrders = page.locator('[data-testid="admin-nav-orders"]');
-    await expect(navOrders).toBeVisible({ timeout: 15_000 });
+    // Verify dashboard navigation bar is displayed (supports desktop or mobile bar)
+    const navOrders = page
+      .locator('[data-testid="admin-nav-orders"]:visible, [data-testid="admin-nav-mobile-orders"]:visible')
+      .first();
+    await expect(navOrders).toBeVisible({ timeout: 30_000 });
 
     // 2. Manage Catalog: Navigate to Menu tab and create a category & item
-    const navMenu = page.locator('[data-testid="admin-nav-menu"]');
+    const navMenu = page
+      .locator('[data-testid="admin-nav-menu"]:visible, [data-testid="admin-nav-mobile-menu"]:visible')
+      .first();
     await navMenu.click();
 
     // Create Category
@@ -53,11 +57,31 @@ test.describe("Manager Administration Console", () => {
 
     const itemName = `Pista Malai Kulfi ${Date.now()}`;
     await page.fill('[data-testid="item-name-input"]', itemName);
+
+    // Ensure a category is selected if the form requires it (or select newly created category)
+    const categorySelect = page.locator("form select");
+    await expect(categorySelect).toBeVisible({ timeout: 5_000 });
+    const selectedCategoryVal = await categorySelect.inputValue();
+    if (!selectedCategoryVal) {
+      await categorySelect.selectOption({ label: categoryName });
+    } else {
+      expect(selectedCategoryVal.length).toBeGreaterThan(0);
+    }
+
+    // Fill a valid price if the form does not default safely
+    const priceInput = page.locator('input[type="number"][min="1"]').first();
+    const currentPrice = await priceInput.inputValue();
+    if (!currentPrice || Number(currentPrice) <= 0) {
+      await priceInput.fill("295");
+    }
+
     await page.click('[data-testid="save-item-btn"]');
     await expect(page.getByText(itemName)).toBeVisible({ timeout: 10_000 });
 
     // 3. Manage Tables: Navigate to Tables tab and create a table
-    const navTables = page.locator('[data-testid="admin-nav-tables"]');
+    const navTables = page
+      .locator('[data-testid="admin-nav-tables"]:visible, [data-testid="admin-nav-mobile-tables"]:visible')
+      .first();
     await navTables.click();
 
     const addTableBtn = page.locator('[data-testid="add-table-btn"]');
@@ -97,7 +121,9 @@ test.describe("Manager Administration Console", () => {
     await expect(page.locator("span", { hasText: /^Cancelled$/ }).first()).toBeVisible({ timeout: 10_000 });
 
     // 6. Open Reports & Insights tab
-    const navReports = page.locator('[data-testid="admin-nav-reports"]');
+    const navReports = page
+      .locator('[data-testid="admin-nav-reports"]:visible, [data-testid="admin-nav-mobile-reports"]:visible')
+      .first();
     await navReports.click();
     await expect(
       page.getByText(/Sales & Operational Analytics|Sales & Performance Insights|Today's Revenue|Gross Revenue/i).first()

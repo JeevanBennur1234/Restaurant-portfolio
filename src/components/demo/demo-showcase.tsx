@@ -20,12 +20,14 @@ export interface DemoShowcaseProps {
   isDemoMode: boolean;
   kitchenUrl?: string | null;
   managerUrl?: string | null;
+  guestUrl?: string | null;
 }
 
 export function DemoShowcase({
   isDemoMode,
   kitchenUrl,
   managerUrl,
+  guestUrl,
 }: DemoShowcaseProps) {
   const [activeTab, setActiveTab] = React.useState<"split" | "guest" | "kitchen" | "manager">("split");
   const [opsView, setOpsView] = React.useState<"kitchen" | "manager">("kitchen");
@@ -33,24 +35,39 @@ export function DemoShowcase({
   const [iframeKey, setIframeKey] = React.useState(0);
 
   const effectiveKitchenUrl =
-    kitchenUrl !== undefined && kitchenUrl !== null
-      ? (kitchenUrl.startsWith("/")
-          ? `/demo-enter?role=kitchen`
-          : `${kitchenUrl.replace(/\/$/, "")}/demo-enter`)
+    kitchenUrl !== undefined
+      ? (kitchenUrl
+          ? (kitchenUrl.startsWith("/")
+              ? `/demo-enter?role=kitchen`
+              : `${kitchenUrl.replace(/\/$/, "")}/demo-enter`)
+          : null)
       : resolveSiteUrl("kitchen", "/demo-enter");
 
   const effectiveManagerUrl =
-    managerUrl !== undefined && managerUrl !== null
-      ? (managerUrl.startsWith("/")
-          ? `/demo-enter?role=manager`
-          : `${managerUrl.replace(/\/$/, "")}/demo-enter`)
+    managerUrl !== undefined
+      ? (managerUrl
+          ? (managerUrl.startsWith("/")
+              ? `/demo-enter?role=manager`
+              : `${managerUrl.replace(/\/$/, "")}/demo-enter`)
+          : null)
       : resolveSiteUrl("manager", "/demo-enter");
 
   const effectiveGuestUrl =
-    resolveSiteUrl("customer", "/t/demo-table-7") || "/t/demo-table-7";
+    guestUrl || resolveSiteUrl("customer", "/t/demo-table-7") || "/t/demo-table-7";
 
-  const directKitchenUrl = resolveSiteUrl("kitchen", "/kitchen") || "/kitchen";
-  const directManagerUrl = resolveSiteUrl("manager", "/admin") || "/admin";
+  const directKitchenUrl =
+    kitchenUrl !== undefined
+      ? (kitchenUrl
+          ? (kitchenUrl.startsWith("/") ? "/kitchen" : `${kitchenUrl.replace(/\/$/, "")}/kitchen`)
+          : "/kitchen")
+      : (resolveSiteUrl("kitchen", "/kitchen") || "/kitchen");
+
+  const directManagerUrl =
+    managerUrl !== undefined
+      ? (managerUrl
+          ? (managerUrl.startsWith("/") ? "/admin" : `${managerUrl.replace(/\/$/, "")}/admin`)
+          : "/admin")
+      : (resolveSiteUrl("manager", "/admin") || "/admin");
 
   const handleOpenKitchen = () => {
     window.open(effectiveKitchenUrl || directKitchenUrl, "_blank");

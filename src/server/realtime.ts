@@ -62,7 +62,16 @@ export async function publishRealtimeEvent(
       await channelAny.httpSend(event, payload ?? {});
     } else {
       await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            resolve(); // Don't hang API handler if websocket connection is slow
+          }
+        }, 1500);
+
         channel.subscribe(async (status) => {
+          if (settled) return;
           if (status === "SUBSCRIBED") {
             try {
               await channel.send({
@@ -70,12 +79,24 @@ export async function publishRealtimeEvent(
                 event,
                 payload,
               });
-              resolve();
+              if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                resolve();
+              }
             } catch (err) {
-              reject(err);
+              if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                reject(err);
+              }
             }
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            reject(new Error(`Channel subscribe failed with status: ${status}`));
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              reject(new Error(`Channel subscribe failed with status: ${status}`));
+            }
           }
         });
       });

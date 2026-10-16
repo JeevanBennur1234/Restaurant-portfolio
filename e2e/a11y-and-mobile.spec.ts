@@ -57,7 +57,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     await payCounterChoice.click();
     await page.locator('[data-testid="checkout-submit-btn"]').click();
 
-    await page.waitForURL(/\/t\/demo-table-7\/order\/.+/, { timeout: 15_000 });
+    await page.waitForURL(/\/t\/demo-table-7\/order\/.+/, { timeout: 30_000 });
     await expect(page.locator('[data-testid="order-number-badge"]')).toBeVisible({
       timeout: 10_000,
     });

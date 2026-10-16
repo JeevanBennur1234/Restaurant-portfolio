@@ -15,12 +15,17 @@ export default function DemoPage() {
   const site = getSite();
   const urls = getSiteUrls(site);
 
+  const guestUrl = urls.customer
+    ? `${urls.customer.replace(/\/$/, "")}/t/demo-table-7`
+    : "/t/demo-table-7";
+
   return (
     <SmoothScroll>
       <DemoShowcase
         isDemoMode={isDemoMode}
         kitchenUrl={urls.kitchen}
         managerUrl={urls.manager}
+        guestUrl={guestUrl}
       />
     </SmoothScroll>
   );

@@ -16,9 +16,10 @@ import { resolveSiteUrl } from "@/lib/site-urls";
 
 export interface AdminLoginProps {
   isDemoMode?: boolean;
+  kitchenUrl?: string | null;
 }
 
-export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
+export function AdminLogin({ isDemoMode = false, kitchenUrl }: AdminLoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -170,10 +171,10 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
           )}
 
           {/* Conditional Open Kitchen Display Link */}
-          {resolveSiteUrl("kitchen", "/kitchen") && (
+          {(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen")) && (
             <div className="pt-2 text-center">
               <Link
-                href={resolveSiteUrl("kitchen", "/kitchen")!}
+                href={(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen"))!}
                 className="text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
               >
                 <ChefHat className="h-3.5 w-3.5" />

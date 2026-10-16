@@ -2,6 +2,8 @@ import { connection } from "next/server";
 import { getStaffSession } from "@/server/auth";
 import { getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
+import { getSite } from "@/server/site";
+import { resolveSiteUrl } from "@/lib/site-urls";
 import { db } from "@/server/db";
 import { getAdminOrders } from "@/server/services/manager";
 import { AdminDashboard, AdminLogin } from "@/components/admin";
@@ -17,7 +19,14 @@ export default async function AdminPage() {
 
   // Strict role guard: only manager or admin can access the admin dashboard
   if (!session || (session.role !== "manager" && session.role !== "admin")) {
-    return <AdminLogin isDemoMode={env.DEMO_MODE === "true"} />;
+    const site = getSite();
+    const kitchenUrl = resolveSiteUrl("kitchen", "/kitchen", site);
+    return (
+      <AdminLogin
+        isDemoMode={env.DEMO_MODE === "true"}
+        kitchenUrl={kitchenUrl}
+      />
+    );
   }
 
   // Server components call manager services directly with actor
@@ -28,6 +37,9 @@ export default async function AdminPage() {
     : undefined;
 
   const realtimeChannel = getRestaurantChannel(session.restaurantId);
+  const site = getSite();
+  const kitchenUrl = resolveSiteUrl("kitchen", "/kitchen", site);
+  const customerUrl = resolveSiteUrl("customer", "/t/demo-table-7", site);
 
   return (
     <AdminDashboard
@@ -35,6 +47,8 @@ export default async function AdminPage() {
       realtimeChannel={realtimeChannel}
       initialOrders={initialOrders}
       initialPagination={initialPagination}
+      kitchenUrl={kitchenUrl}
+      customerUrl={customerUrl}
     />
   );
 }

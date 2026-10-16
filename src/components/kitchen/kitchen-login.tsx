@@ -10,9 +10,10 @@ import { resolveSiteUrl } from "@/lib/site-urls";
 
 export interface KitchenLoginProps {
   isDemoMode?: boolean;
+  managerUrl?: string | null;
 }
 
-export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
+export function KitchenLogin({ isDemoMode = false, managerUrl }: KitchenLoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -163,10 +164,10 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
           )}
 
           {/* Conditional Manager Console Link */}
-          {resolveSiteUrl("manager", "/admin") && (
+          {(managerUrl !== undefined ? managerUrl : resolveSiteUrl("manager", "/admin")) && (
             <div className="pt-2 text-center">
               <Link
-                href={resolveSiteUrl("manager", "/admin")!}
+                href={(managerUrl !== undefined ? managerUrl : resolveSiteUrl("manager", "/admin"))!}
                 className="text-xs text-zinc-400 hover:text-[var(--primary)] transition-colors inline-flex items-center gap-1.5 font-medium"
               >
                 <span>Manager console</span>
