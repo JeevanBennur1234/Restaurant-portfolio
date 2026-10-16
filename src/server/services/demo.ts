@@ -138,7 +138,7 @@ export async function resetDemoData(
     // Fetch sample menu items & tables to seed realistic live tickets
     const availableTables = (await ctx.db.query.tables.findMany({
       where: eq(tables.restaurantId, restaurantId),
-      limit: 4,
+      limit: 12,
     })) ?? [];
 
     const sampleMenuItems = (await ctx.db.query.menuItems.findMany({
@@ -163,9 +163,19 @@ export async function resetDemoData(
 
       // Reset order counter sequence
       await tx
-        .update(orderCounters)
-        .set({ lastOrderNumber: 0, updatedAt: new Date() })
-        .where(eq(orderCounters.restaurantId, restaurantId));
+        .insert(orderCounters)
+        .values({
+          restaurantId,
+          lastOrderNumber: 0,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: orderCounters.restaurantId,
+          set: {
+            lastOrderNumber: 0,
+            updatedAt: new Date(),
+          },
+        });
 
       // Ensure demo table 7 has fixed token, scoped to restaurantId and tableNumber
       await tx
@@ -245,8 +255,8 @@ export async function resetDemoData(
             tableId: table7.id,
             orderNumber: "ML-0002",
             status: "preparing",
-            paymentStatus: "paid",
-            paymentMethod: "pay_now",
+            paymentStatus: "counter",
+            paymentMethod: "pay_counter",
             subtotalPaise: subtotal2,
             taxPaise: tax2,
             totalPaise: subtotal2 + tax2,
@@ -275,9 +285,19 @@ export async function resetDemoData(
 
         // Update sequence counter to 2
         await tx
-          .update(orderCounters)
-          .set({ lastOrderNumber: 2, updatedAt: new Date() })
-          .where(eq(orderCounters.restaurantId, restaurantId));
+          .insert(orderCounters)
+          .values({
+            restaurantId,
+            lastOrderNumber: 2,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: orderCounters.restaurantId,
+            set: {
+              lastOrderNumber: 2,
+              updatedAt: new Date(),
+            },
+          });
       }
     });
 

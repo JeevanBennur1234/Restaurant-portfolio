@@ -575,6 +575,7 @@ export function AdminMenuTab() {
 
         <div className="flex items-center gap-2">
           <Button
+            data-testid="add-category-btn"
             variant="outline"
             size="sm"
             onClick={() => openCategoryModal()}
@@ -585,6 +586,7 @@ export function AdminMenuTab() {
           </Button>
 
           <Button
+            data-testid="add-item-btn"
             variant="primary"
             size="sm"
             onClick={() => openItemModal()}
@@ -916,6 +918,8 @@ export function AdminMenuTab() {
                   Category Name
                 </label>
                 <input
+                  id="category-name-input"
+                  data-testid="category-name-input"
                   type="text"
                   required
                   value={categoryName}
@@ -971,6 +975,7 @@ export function AdminMenuTab() {
                   Cancel
                 </Button>
                 <Button
+                  data-testid="save-category-btn"
                   type="submit"
                   variant="primary"
                   size="sm"
@@ -1012,6 +1017,8 @@ export function AdminMenuTab() {
                     Dish Name
                   </label>
                   <input
+                    id="item-name-input"
+                    data-testid="item-name-input"
                     type="text"
                     required
                     value={itemName}
@@ -1198,6 +1205,7 @@ export function AdminMenuTab() {
                   Cancel
                 </Button>
                 <Button
+                  data-testid="save-item-btn"
                   type="submit"
                   variant="primary"
                   size="sm"

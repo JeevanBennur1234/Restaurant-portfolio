@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ChefHat, AlertCircle, ArrowRight, Sparkles } from "lucide-react";
@@ -14,7 +13,6 @@ export interface KitchenLoginProps {
 }
 
 export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
-  const router = useRouter();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -31,7 +29,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
     try {
       const res = await authApi.login(username, password);
       if (res.ok) {
-        router.refresh();
+        window.location.reload();
       } else {
         setError(res.message);
       }
@@ -102,6 +100,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
               </label>
               <input
                 id="staff-username"
+                data-testid="kitchen-username-input"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -119,6 +118,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
               </label>
               <input
                 id="staff-password"
+                data-testid="kitchen-password-input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -129,6 +129,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
 
             <Button
               type="submit"
+              data-testid="kitchen-login-btn"
               size="lg"
               variant="primary"
               isLoading={isLoading}
@@ -148,6 +149,7 @@ export function KitchenLogin({ isDemoMode = false }: KitchenLoginProps) {
               </span>
               <Button
                 type="button"
+                data-testid="kitchen-demo-login-btn"
                 variant="outline"
                 isLoading={isDemoLoading}
                 disabled={isLoading}

@@ -156,6 +156,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
 
             {/* Add CTA (min 48px height) */}
             <Button
+              data-testid="add-to-order-btn"
               size="lg"
               variant="primary"
               disabled={!isAvailable}
@@ -265,6 +266,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                       return (
                         <label
                           key={mod.id}
+                          data-testid="modifier-option"
                           onClick={() => toggleModifier(mod, isRadio)}
                           className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[48px] select-none ${
                             isSelected

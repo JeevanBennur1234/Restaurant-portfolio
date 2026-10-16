@@ -31,6 +31,7 @@ export function CartBar() {
     >
       <div
         role="button"
+        data-testid="cart-bar-btn"
         tabIndex={0}
         onClick={() => setIsCartOpen(true)}
         onKeyDown={(e) => {

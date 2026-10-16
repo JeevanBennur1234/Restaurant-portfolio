@@ -13,6 +13,7 @@ export function VegIndicator({ isVeg, className, size = "md" }: VegIndicatorProp
 
   return (
     <div
+      role="img"
       aria-label={isVeg ? "Vegetarian" : "Non-Vegetarian"}
       title={isVeg ? "Vegetarian" : "Non-Vegetarian"}
       className={cn(

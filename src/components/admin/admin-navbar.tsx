@@ -109,6 +109,7 @@ export function AdminNavbar({
               return (
                 <button
                   key={item.id}
+                  data-testid={`admin-nav-${item.id}`}
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] min-h-[36px] ${
@@ -182,6 +183,7 @@ export function AdminNavbar({
             return (
               <button
                 key={item.id}
+                data-testid={`admin-nav-mobile-${item.id}`}
                 type="button"
                 onClick={() => onTabChange(item.id)}
                 className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer min-h-[38px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${

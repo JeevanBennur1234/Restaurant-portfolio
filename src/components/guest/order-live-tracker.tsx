@@ -340,7 +340,12 @@ export function OrderLiveTracker({
             </Badge>
           )}
 
-          <Badge variant="secondary" size="md" className="font-mono text-xs">
+          <Badge
+            data-testid="order-number-badge"
+            variant="secondary"
+            size="md"
+            className="font-mono text-xs"
+          >
             #{order.orderNumber}
           </Badge>
         </div>
@@ -403,7 +408,9 @@ export function OrderLiveTracker({
               {currentHeadline.icon}
             </div>
             <div>
-              <CardTitle className="text-lg">{currentHeadline.title}</CardTitle>
+              <CardTitle data-testid="order-status-title" className="text-lg">
+                {currentHeadline.title}
+              </CardTitle>
               <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
                 {currentHeadline.subtitle}
               </p>

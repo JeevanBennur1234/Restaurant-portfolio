@@ -92,6 +92,22 @@ async function seed() {
   const insertedTables = await db.insert(schema.tables).values(tableValues).returning();
   console.log(`✅ Inserted ${insertedTables.length} tables.`);
 
+  // Initialize orderCounters row so order sequential generation never collides
+  await db
+    .insert(schema.orderCounters)
+    .values({
+      restaurantId,
+      lastOrderNumber: 0,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: schema.orderCounters.restaurantId,
+      set: {
+        lastOrderNumber: 0,
+        updatedAt: new Date(),
+      },
+    });
+
   // 3. Insert 6 Categories
   console.log("📂 Inserting 6 menu categories...");
   const categoryData = [

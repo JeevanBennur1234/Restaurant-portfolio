@@ -444,6 +444,7 @@ export function AdminOrdersTab({
                         {canCancel && (
                           <button
                             type="button"
+                            data-testid="cancel-order-btn"
                             onClick={() => {
                               setCancelModalOrder(order);
                               setCancelReason("");
@@ -687,6 +688,7 @@ export function AdminOrdersTab({
                 </label>
                 <textarea
                   id="cancel-reason"
+                  data-testid="cancel-reason-input"
                   rows={3}
                   required
                   value={cancelReason}
@@ -706,6 +708,7 @@ export function AdminOrdersTab({
                   Dismiss
                 </Button>
                 <Button
+                  data-testid="confirm-cancel-btn"
                   type="submit"
                   variant="destructive"
                   size="sm"

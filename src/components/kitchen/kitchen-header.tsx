@@ -137,6 +137,7 @@ export function KitchenHeader({
         <button
           type="button"
           onClick={handleSoundClick}
+          aria-label={soundEnabled ? "Chime ON" : "Enable Sound"}
           className={`flex items-center gap-1.5 min-h-[44px] px-3.5 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
             soundEnabled
               ? "bg-emerald-950/80 text-emerald-300 border-emerald-600 shadow-xs"
@@ -177,6 +178,7 @@ export function KitchenHeader({
           variant="outline"
           size="sm"
           onClick={handleLogout}
+          aria-label="Exit KDS"
           className="min-h-[44px] px-3.5 text-xs border-[#38332D] bg-[#25211D] text-zinc-300 hover:text-red-400 hover:bg-[#2C211E]"
         >
           <LogOut className="h-3.5 w-3.5" />

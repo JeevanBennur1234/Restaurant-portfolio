@@ -82,6 +82,7 @@ export function KitchenTicketCard({
 
   return (
     <article
+      data-testid="kitchen-ticket"
       className={cn(
         "relative flex flex-col rounded-xl border transition-all duration-300 bg-[#1A1816] select-none overflow-hidden pl-2",
         isHighlighted
@@ -105,7 +106,10 @@ export function KitchenTicketCard({
           <span className="font-serif text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-none">
             {ticket.tableNumber}
           </span>
-          <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-black/40 text-amber-300/90 border border-white/10">
+          <span
+            data-testid="ticket-order-number"
+            className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-black/40 text-amber-300/90 border border-white/10"
+          >
             #{ticket.orderNumber}
           </span>
         </div>
@@ -202,6 +206,7 @@ export function KitchenTicketCard({
         {ticket.status === "placed" || ticket.status === "accepted" ? (
           <button
             type="button"
+            data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("preparing")}
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
@@ -213,6 +218,7 @@ export function KitchenTicketCard({
         ) : ticket.status === "preparing" ? (
           <button
             type="button"
+            data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("ready")}
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
@@ -224,6 +230,7 @@ export function KitchenTicketCard({
         ) : ticket.status === "ready" ? (
           <button
             type="button"
+            data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("served")}
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"

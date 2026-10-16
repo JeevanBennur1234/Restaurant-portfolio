@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   AlertCircle,
@@ -20,7 +19,6 @@ export interface AdminLoginProps {
 }
 
 export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
-  const router = useRouter();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -37,7 +35,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
     try {
       const res = await authApi.login(username, password);
       if (res.ok) {
-        router.refresh();
+        window.location.reload();
       } else {
         setError(res.message);
       }
@@ -108,6 +106,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
               </label>
               <input
                 id="admin-username"
+                data-testid="admin-username-input"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -125,6 +124,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
               </label>
               <input
                 id="admin-password"
+                data-testid="admin-password-input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -135,6 +135,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
 
             <Button
               type="submit"
+              data-testid="admin-login-btn"
               size="lg"
               variant="primary"
               isLoading={isLoading}
@@ -155,6 +156,7 @@ export function AdminLogin({ isDemoMode = false }: AdminLoginProps) {
 
               <Button
                 type="button"
+                data-testid="admin-demo-login-btn"
                 variant="outline"
                 isLoading={isDemoLoading}
                 disabled={isLoading}

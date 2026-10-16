@@ -21,6 +21,7 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
 
   return (
     <article
+      data-testid="menu-item-card"
       onClick={() => {
         if (isAvailable) onSelect(item);
       }}
@@ -112,6 +113,7 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
           {/* Circular '+' Button (min 44px tap target) */}
           <button
             type="button"
+            data-testid="add-item-btn"
             disabled={!isAvailable}
             onClick={(e) => {
               e.stopPropagation();

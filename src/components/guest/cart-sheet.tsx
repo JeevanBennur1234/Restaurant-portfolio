@@ -41,7 +41,9 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   const [notes, setNotes] = React.useState("");
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentOption>("pay_now");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
+  const isSubmittingRef = React.useRef(false);
+  const statusMessageState = React.useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = statusMessageState;
 
   // Failure & retry tracking
   const [pendingOrderId, setPendingOrderId] = React.useState<string | null>(null);
@@ -207,8 +209,9 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   };
 
   const handleCheckoutSubmit = async () => {
-    if (items.length === 0 || isSubmitting) return;
+    if (items.length === 0 || isSubmitting || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setPaymentError(null);
     setStatusMessage("Placing order...");
@@ -239,6 +242,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
             result.message || "Could not place order. Please try again."
           )
         );
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         setStatusMessage(null);
         return;
@@ -270,6 +274,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       setPaymentError((err as Error).message ?? "An unexpected error occurred.");
       setIsSubmitting(false);
       setStatusMessage(null);
+    } finally {
+      if (paymentMethod !== "counter") {
+        isSubmittingRef.current = false;
+      }
     }
   };
 
@@ -393,6 +401,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 Clear
               </Button>
               <Button
+                data-testid="checkout-submit-btn"
                 size="md"
                 variant="primary"
                 isLoading={isSubmitting}
@@ -554,6 +563,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               {/* Option A: Pay Now */}
               <button
                 type="button"
+                data-testid="pay-now-choice"
                 onClick={() => setPaymentMethod("pay_now")}
                 className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "pay_now"
@@ -578,6 +588,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               {/* Option B: Pay at Counter */}
               <button
                 type="button"
+                data-testid="pay-counter-choice"
                 onClick={() => setPaymentMethod("counter")}
                 className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "counter"

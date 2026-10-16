@@ -99,6 +99,9 @@ vi.mock("@/server/db", () => ({
         insert: vi.fn(() => ({
           values: vi.fn(() => ({
             returning: vi.fn().mockResolvedValue([{ id: "o_new_1" }]),
+            onConflictDoUpdate: vi.fn(() => ({
+              returning: vi.fn().mockResolvedValue([{ count: 1 }]),
+            })),
           })),
         })),
         update: vi.fn(() => ({

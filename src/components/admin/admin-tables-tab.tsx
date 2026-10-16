@@ -170,6 +170,7 @@ export function AdminTablesTab() {
         <div className="flex items-center gap-2">
           {/* Print All Tables PDF Button */}
           <Link
+            data-testid="download-qr-pdf-btn"
             href={adminApi.qrPdfUrl()}
             target="_blank"
             className="inline-flex items-center justify-center font-medium transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] shadow-sm h-9 px-3.5 text-xs gap-2 rounded-[var(--radius-md)]"
@@ -190,6 +191,7 @@ export function AdminTablesTab() {
           </Button>
 
           <Button
+            data-testid="add-table-btn"
             variant="outline"
             size="sm"
             onClick={() => {
@@ -299,6 +301,8 @@ export function AdminTablesTab() {
                   Table Number / Label
                 </label>
                 <input
+                  id="table-number-input"
+                  data-testid="table-number-input"
                   type="text"
                   required
                   value={tableNumber}
@@ -333,6 +337,7 @@ export function AdminTablesTab() {
                   Cancel
                 </Button>
                 <Button
+                  data-testid="submit-create-table-btn"
                   type="submit"
                   variant="primary"
                   size="sm"
