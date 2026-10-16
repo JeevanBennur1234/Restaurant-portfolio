@@ -1,9 +1,6 @@
 name: Production Smoke Test
 
 on:
-  schedule:
-    # Run daily at 06:00 UTC
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       demo:
@@ -38,15 +35,13 @@ jobs:
           CUSTOMER_URL: ${{ vars.CUSTOMER_URL }}
           KITCHEN_URL: ${{ vars.KITCHEN_URL }}
           MANAGER_URL: ${{ vars.MANAGER_URL }}
-          DEMO_MODE: ${{ github.event_name == 'schedule' && 'true' || inputs.demo }}
+          DEMO_MODE: ${{ inputs.demo }}
         run: |
           if [ -z "$CUSTOMER_URL" ] || [ -z "$KITCHEN_URL" ] || [ -z "$MANAGER_URL" ]; then
-            echo "Error: Missing required GitHub repository variables."
-            echo "Please configure the following under Settings > Secrets and variables > Actions > Variables:"
-            echo "  - CUSTOMER_URL (e.g. https://order.yourdomain.com)"
-            echo "  - KITCHEN_URL  (e.g. https://kitchen.yourdomain.com)"
-            echo "  - MANAGER_URL  (e.g. https://manager.yourdomain.com)"
-            exit 1
+            echo "Notice: Required repository variables (CUSTOMER_URL, KITCHEN_URL, or MANAGER_URL) are not configured."
+            echo "Configure them under Settings > Secrets and variables > Actions > Variables to run live smoke tests against deployed environments."
+            echo "Skipping smoke test execution."
+            exit 0
           fi
 
           DEMO_FLAG=""

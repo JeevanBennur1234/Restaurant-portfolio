@@ -60,7 +60,7 @@ In accordance with Next.js App Router architecture:
 | `adminApi.updateTable(id, data)` | `/api/v1/admin/tables/:id` | `PATCH` | Staff Cookie (`manager`, `admin`), Origin | Updates table attributes |
 | `adminApi.deleteTable(id)` | `/api/v1/admin/tables/:id` | `DELETE` | Staff Cookie (`manager`, `admin`), Origin | Deactivates table |
 | `adminApi.qrPdfUrl()` | `/api/v1/admin/tables/qr.pdf` | `GET` | Staff Cookie (`manager`, `admin`) | Generates printable QR PDF standees |
-| `adminApi.getReports()` | `/api/v1/admin/reports` | `GET` | Staff Cookie (`manager`, `admin`) | Analytics KPIs, top dishes, 7-day revenue |
+| `adminApi.getReports()` | `/api/v1/admin/reports` | `GET` | Staff Cookie (`manager`, `admin`) | Analytics KPIs, top items, 7-day revenue |
 | `adminApi.uploadImage(file)` | `/api/v1/admin/uploads` | `POST` | Staff Cookie (`manager`, `admin`), Origin | Uploads image to Supabase Storage via `apiUpload` |
 | `authApi.demoLogin(role)` | `/api/v1/auth/demo-login` | `POST` | Demo mode gated (`DEMO_MODE=true`), site role gate | Authenticates demo staff user without credentials |
 | `customerApi.advanceOrder({ orderId, token })` | `/api/v1/customer/orders/:id/demo/advance` | `POST` | Demo mode gated, Table Token (`x-table-token`) | Advances order status in demo simulation |

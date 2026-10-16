@@ -117,25 +117,36 @@ Every project requires environment variables configured under **Project Settings
 
 ---
 
-## 4. Supabase Connection Pooler & Database Limits
+## 4. Supabase Connection Poolers & Database SSL Configuration
 
 In a serverless platform like Vercel, requests spin up stateless functions on demand. A sudden burst of visitors can create dozens of concurrent connections.
 
-### Runtime Connection String (`DATABASE_URL`)
-Always use the **Supabase Transaction Pooler (port `6543`)** for your deployed sites:
+### Runtime Connection String (`DATABASE_URL`) on Vercel
+In the Vercel project settings for all three deployments, configure `DATABASE_URL` to point to the **Supabase Transaction Pooler (port `6543`)**:
 ```env
-DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 ```
 
-- **Port `6543`**: Connects via Supavisor / PgBouncer in transaction mode. Connections are returned to the pool as soon as each transaction completes.
-- **`?pgbouncer=true`**: Tells Drizzle / Postgres client to avoid prepared statements that fail in transaction pooling mode.
+- **Transaction Pooler (Port `6543`)**: Supavisor connects in transaction mode. Client connections are borrowed only for the duration of an active transaction and returned immediately to the pool.
+- **No Prepared Statement Restrictions**: DinePulse uses no named prepared statements, so the transaction pooler works seamlessly with `node-postgres` (`pg`) and Drizzle ORM out of the box.
 
-### Database Migrations Connection String
-For running schema migrations (`npm run db:migrate`), you need a session connection:
-```env
-MIGRATION_DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+### Migration & Seeding Connection String (`DATABASE_URL`) in Shell
+Both `npm run db:migrate` and `npm run db:seed` read `DATABASE_URL` from the environment.
+For running these administrative commands from your local shell, set `DATABASE_URL` to the **Supabase Session Pooler (port `5432`)**:
+```bash
+export DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
 ```
-Port `5432` supports schema modifications and advisory locks required by Drizzle Kit.
+Port `5432` maintains a persistent session connection required for Drizzle Kit advisory locks, schema migrations, and relational seeding transactions.
+
+### Database SSL Configuration & `db:check`
+The connection pooler logic in `src/server/db/pool-config.ts` automatically configures SSL:
+- If `DATABASE_URL` contains `supabase.co` or `sslmode=require`, it automatically applies `ssl: { rejectUnauthorized: false }`.
+- You do not need to append manual SSL query flags or download custom certificates.
+
+Always verify your database connection and schema migration status before deploying:
+```bash
+npm run db:check
+```
 
 ---
 
@@ -144,12 +155,14 @@ Port `5432` supports schema modifications and advisory locks required by Drizzle
 All three Vercel projects **MUST share the exact same `SESSION_SECRET`**.
 
 ### Why?
-DinePulse signs session cookies using HMAC-SHA256 with this secret. In demo mode, the customer site authenticates staff accounts and redirects to kitchen or manager consoles. If the projects have different secrets, authentication will fail with invalid signature errors.
+While staff authentication sessions are scoped per site (each site issues its own cookie with its own signed audience claim, such as `aud: "kitchen"` or `aud: "manager"`), the **Supabase Realtime broadcast channel name is derived from an HMAC-SHA256 hash of `SESSION_SECRET`** (`deriveChannelName` in `src/server/services/realtime.ts`).
+
+If the three projects do not use the exact same `SESSION_SECRET`, the Customer, Kitchen, and Manager deployments will compute different channel names. As a result, when a customer places an order, live WebSocket broadcasts will be published to one channel while the kitchen listens to another, **silently breaking live order updates**.
 
 ### Generating a Safe Secret
-Generate a cryptographically random 48-byte base64 string:
+Generate a cryptographically random 48-byte URL-safe base64 string:
 ```bash
-openssl rand -base64 48
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
 ### Verifying Secret Consistency with `check-env`
@@ -188,7 +201,7 @@ To accept guest payments in production:
 
 DinePulse includes automated workflows in `.github/workflows/`:
 1. `ci.yml`: Typechecks, lints, runs tests, and validates Next.js builds on every push/PR.
-2. `smoke.yml`: Runs the production smoke test suite against live deployed URLs.
+2. `smoke.yml`: Runs the production smoke test suite against live deployed URLs via manual trigger (`workflow_dispatch`).
 3. `demo-reset.yml`: Runs a scheduled reset every 6 hours (if `DEMO_MODE=true`).
 
 ### Configure Repository Variables
@@ -206,7 +219,7 @@ Go to **GitHub Repo -> Settings -> Secrets and variables -> Actions -> Secrets**
 > **GitHub Actions 60-Day Cron Inactivity Notice**:
 > GitHub automatically disables scheduled workflows (`cron`) on repositories where no commit or repository activity has occurred in **60 days**. If this happens:
 > - GitHub sends an email notification to the repository owner.
-> - Go to the **Actions** tab in GitHub, select the disabled workflow (`Demo Reset` or `Production Smoke Test`), and click **Enable workflow**.
+> - Go to the **Actions** tab in GitHub, select the disabled workflow (`Demo Reset`), and click **Enable workflow**.
 > - Pushing any commit will also keep scheduled workflows active.
 
 ---
@@ -219,10 +232,13 @@ Always apply database migrations **before deploying new code**:
 # 1. Point to your production database session connection (port 5432)
 export DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
 
-# 2. Run migrations
+# 2. Check database schema status
+npm run db:check
+
+# 3. Run migrations
 npm run db:migrate
 
-# 3. If this is a fresh database, run initial seed
+# 4. If this is a fresh database, run initial seed
 npm run db:seed
 ```
 
@@ -231,21 +247,61 @@ npm run db:seed
 
 ---
 
-## 9. Switching Between Demo and Production
+## 9. Switching to Production for Real Clients
 
-When you are ready to transition DinePulse from a demo showcase to live production operations:
+When preparing DinePulse for live commercial restaurant operations:
 
-| Step | Setting | Action |
-| :--- | :--- | :--- |
-| **1. Disable Demo Mode** | `DEMO_MODE="false"` | Set on all three Vercel projects (`customer`, `kitchen`, `manager`). |
-| **2. Production Payments** | `RAZORPAY_*` | Add live `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. |
-| **3. Frame Ancestors** | `FRAME_ANCESTORS=""` | Remove `FRAME_ANCESTORS` on Kitchen and Manager projects so the portals cannot be embedded in iframes. |
-| **4. Staff Accounts** | Passwords | Create strong, unique passwords for staff using the manager creation script (`npm run manager:create`). |
-| **5. Storage Buckets** | Supabase | Ensure the `dishes` bucket in Supabase Storage has appropriate read-only public policies and authenticated upload policies. |
+> [!CAUTION]
+> **Demo Credentials Security Warning**:
+> Default credentials like `kitchen123` and `manager123` are strictly for local and showcase demo use. They must **never** be used in a live client production restaurant.
+
+Follow this checklist for a clean production rollout:
+
+1. **Seed with `DEMO_MODE=false`**:
+   Run database seeding with demo mode disabled so that staff users are generated with strong, cryptographically random passwords:
+   ```bash
+   DEMO_MODE=false DATABASE_URL="<session-pooler-5432-url>" npm run db:seed
+   ```
+   *Note: Randomly generated credentials will be printed to stdout once during seeding. Copy them securely.*
+
+2. **Purge Demo Accounts**:
+   Delete or deactivate any legacy accounts with `isDemo: true` in the database to prevent demo account bypasses.
+
+3. **Disable Demo Mode on All Deployments**:
+   Set `DEMO_MODE=false` across all three Vercel projects (`customer`, `kitchen`, and `manager`).
+
+4. **Lock Down Frame Ancestors**:
+   Remove `FRAME_ANCESTORS` (or leave it empty) on Kitchen and Manager projects so that staff consoles cannot be embedded in third-party iframes.
+
+5. **Provision the Restaurant Manager Account**:
+   Create the primary restaurant manager account using the administrative script:
+   ```bash
+   DATABASE_URL="<session-pooler-5432-url>" npm run admin:create-manager -- --username "storemanager" --email "manager@restaurant.com" --confirm
+   ```
+   Provide the password via the `MANAGER_PASSWORD` environment variable or the interactive hidden terminal prompt. **Never pass passwords as CLI flags.**
+
+6. **Configure Supabase Storage Bucket**:
+   In the Supabase Dashboard under **Storage**, create the `menu-images` bucket:
+   - Mark the bucket as **Public** so menu item images can be loaded by guest browsers.
+   - Ensure upload mutations are authorized using the `SUPABASE_SERVICE_ROLE_KEY`.
+
+7. **Production Payment Gateway**:
+   Configure live `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` on the Customer project.
 
 ---
 
-## 10. Post-Deployment Checklist
+## 10. Costs and Platform Limits
+
+Keep the following infrastructure limits in mind when deploying for clients:
+
+- **Vercel Hobby vs Pro Plan**:
+  The Vercel **Hobby** tier is strictly restricted to non-commercial, personal use. Deploying DinePulse for a paying restaurant client requires a **Vercel Pro** subscription to comply with Vercel's Terms of Service and to prevent commercial usage suspensions.
+- **Supabase Inactivity Pausing**:
+  Free-tier Supabase projects automatically pause after **1 week (7 days) of inactivity**. When paused, database queries will time out until manually unpaused from the Supabase dashboard. Running an automated scheduled workflow (such as `demo-reset.yml` or a health probe pinging `/api/v1/health`) keeps the database active and warm, provided it executes at least weekly.
+
+---
+
+## 11. Post-Deployment Checklist
 
 After deploying your three sites to Vercel, complete this checklist:
 
@@ -253,45 +309,50 @@ After deploying your three sites to Vercel, complete this checklist:
    ```bash
    npm run check-env -- --site all
    ```
-2. [ ] **Run Live Smoke Tests**:
+2. [ ] **Run Smoke Tests Against Live URLs**:
    ```bash
-   npm run smoke -- --customer https://order.yourdomain.com --kitchen https://kitchen.yourdomain.com --manager https://manager.yourdomain.com --demo
+   npm run smoke -- --customer https://order.yourdomain.com --kitchen https://kitchen.yourdomain.com --manager https://manager.yourdomain.com
    ```
 3. [ ] **Verify Guest Table Ordering**:
-   - Open `https://order.yourdomain.com/t/demo-table-7`.
+   - Open `https://order.yourdomain.com/t/<table-token>`.
    - Add items to the cart and place an order.
 4. [ ] **Verify Kitchen Display System (KDS)**:
    - Open `https://kitchen.yourdomain.com`.
    - Verify that the new order appears on the board.
-   - Click "Accept" -> "Preparing" -> "Ready" -> "Served" to verify status advancement.
+   - Advance ticket status (`Accept` -> `Preparing` -> `Ready` -> `Served`).
 5. [ ] **Verify Manager Console**:
    - Open `https://manager.yourdomain.com`.
-   - Log in and verify sales metrics, menu items, and PDF QR code export.
-6. [ ] **Verify Automated Reset Workflow**:
-   - In GitHub Actions, manually trigger `Demo Reset` with `dry_run: false` and verify HTTP 200 response.
+   - Sign in with credentials created via `npm run admin:create-manager`.
+   - Verify sales metrics, menu items, and PDF QR code export.
 
 ---
 
-## 11. Troubleshooting Common Issues
+## 12. Troubleshooting Common Issues
 
 ### 1. `Max client connections reached` / Pool Exhaustion
-- **Cause**: Connecting directly to port `5432` from serverless functions.
-- **Fix**: Update `DATABASE_URL` to use port `6543` with `?pgbouncer=true`. Check connection pooling limits in the Supabase Dashboard under **Project Settings -> Database -> Connection Pooling**.
+- **Cause**: Connecting directly to port `5432` from serverless Vercel functions.
+- **Fix**: Update `DATABASE_URL` in Vercel to use the Supabase Transaction Pooler on port `6543`. Verify connection pool limits in the Supabase Dashboard under **Project Settings -> Database -> Connection Pooling**.
 
-### 2. Login Redirect Loops or "Session Invalid"
+### 2. Orders Don't Appear Live on the Kitchen Board
+- **Cause 1 (Mismatched Secret)**: The Supabase Realtime channel name is derived via HMAC from `SESSION_SECRET`. If `SESSION_SECRET` differs between customer, kitchen, or manager projects, the sites broadcast and listen on different channels.
+  - **Fix**: Run `npm run check-env -- --print-secret-hash` and verify that all three Vercel projects have the identical secret hash.
+- **Cause 2 (Supabase Credentials)**: Check that `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are configured properly on all projects.
+- **Fallback**: The KDS board includes an automated polling fallback that refreshes orders every few seconds even if WebSocket connections are delayed or interrupted.
+
+### 3. Login Redirect Loops or "Session Invalid"
 - **Cause**: Mismatched `SESSION_SECRET` between the three projects, or missing `aud` claim from legacy sessions.
-- **Fix**: Check `npm run check-env -- --print-secret-hash` and ensure all three Vercel projects have the exact same `SESSION_SECRET` string. Clear browser cookies and log in again.
+- **Fix**: Check `npm run check-env -- --print-secret-hash` and ensure all three Vercel projects share the same secret. Clear browser cookies and log in again.
 
-### 3. `Refused to frame... ancestor violates Content Security Policy`
+### 4. `Refused to frame... ancestor violates Content Security Policy`
 - **Cause**: Kitchen or Manager sites are rejecting iframe embeds from the Customer site.
 - **Fix**: Ensure `FRAME_ANCESTORS` in the Kitchen and Manager Vercel project settings includes the exact origin of the Customer site (e.g. `https://order.yourdomain.com`).
 
-### 4. `Invalid Razorpay signature` on Webhook
+### 5. `Invalid Razorpay signature` on Webhook
 - **Cause**: `RAZORPAY_WEBHOOK_SECRET` on the Customer site differs from the secret configured in the Razorpay Webhooks dashboard.
 - **Fix**: Verify and align the secret in both places. Do not confuse `RAZORPAY_KEY_SECRET` with `RAZORPAY_WEBHOOK_SECRET`.
 
-### 5. `404 Not Found` on `/admin` or `/kitchen`
-- **Cause**: DinePulse enforces strict route isolation at the edge proxy.
+### 6. `404 Not Found` on `/admin` or `/kitchen`
+- **Cause**: DinePulse enforces strict route isolation at the edge proxy (`src/proxy.ts`).
 - **Fix**:
   - `/kitchen` is **only** accessible on `SITE=kitchen`.
   - `/admin` is **only** accessible on `SITE=manager`.

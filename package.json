@@ -19,6 +19,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/server/db/migrate.ts",
     "db:migrate-images": "tsx scripts/migrate-data-urls.ts",
