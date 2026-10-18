@@ -36,7 +36,13 @@ import { getRestaurantChannel, publishRealtimeEvent } from "@/server/realtime";
 
 describe("Supabase Realtime Security", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
+    mockChannel.httpSend = mockHttpSend;
+    mockChannel.subscribe.mockReset();
+    mockChannel.send.mockReset().mockResolvedValue("ok");
+    mockHttpSend.mockResolvedValue({ success: true });
+    mockSupabaseClient.channel.mockReturnValue(mockChannel);
   });
 
   it("Requirement 2: getRestaurantChannel derives HMAC-SHA256 channel name with 24 hex chars", () => {
@@ -70,12 +76,73 @@ describe("Supabase Realtime Security", () => {
   });
 
   it("Requirement 1: publishRealtimeEvent cleans up channel even if publish throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockHttpSend.mockRejectedValueOnce(new Error("Network timeout"));
 
     const channelName = getRestaurantChannel("rest_test");
-    await publishRealtimeEvent(channelName, "order.created", { orderId: "ord_2" });
+    await expect(
+      publishRealtimeEvent(channelName, "order.created", { orderId: "ord_2" })
+    ).resolves.toBeUndefined();
 
-    // Must still execute removeChannel in finally block
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[Realtime Publish Error]"),
+      "Network timeout"
+    );
     expect(mockSupabaseClient.removeChannel).toHaveBeenCalledWith(mockChannel);
+    errorSpy.mockRestore();
+  });
+
+  it("treats an HTTP broadcast error status as a failed publish without failing the API call", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockHttpSend.mockResolvedValueOnce({
+      success: false,
+      status: 503,
+      error: "service unavailable",
+    });
+
+    await expect(
+      publishRealtimeEvent("restaurant:test", "order.created", { orderId: "ord_3" })
+    ).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[Realtime Publish Error]"),
+      "HTTP broadcast failed with status 503"
+    );
+    expect(mockSupabaseClient.removeChannel).toHaveBeenCalledWith(mockChannel);
+    errorSpy.mockRestore();
+  });
+
+  it("warns once at the 1500 ms fallback timeout and ignores a late SUBSCRIBED callback", async () => {
+    const channel = mockChannel as unknown as { httpSend?: typeof mockHttpSend };
+    delete channel.httpSend;
+    let onStatus: ((status: string) => void) | undefined;
+    mockChannel.subscribe.mockImplementation((callback: (status: string) => void) => {
+      onStatus = callback;
+      return mockChannel;
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    const publish = publishRealtimeEvent("restaurant:test", "order.ready", {
+      private: "must-not-be-logged",
+    });
+    expect(mockChannel.subscribe).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await expect(publish).resolves.toBeUndefined();
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[Realtime Publish Timeout] Channel: restaurant:test | Event: order.ready"
+    );
+    expect(warnSpy.mock.calls.flat().join(" ")).not.toContain("must-not-be-logged");
+
+    onStatus?.("SUBSCRIBED");
+    await Promise.resolve();
+    expect(mockChannel.send).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.removeChannel).toHaveBeenCalledWith(mockChannel);
+
+    warnSpy.mockRestore();
+    vi.useRealTimers();
   });
 });

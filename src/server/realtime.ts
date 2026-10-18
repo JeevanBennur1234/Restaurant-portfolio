@@ -59,14 +59,27 @@ export async function publishRealtimeEvent(
     };
 
     if (typeof channelAny.httpSend === "function") {
-      await channelAny.httpSend(event, payload ?? {});
+      const result = await channelAny.httpSend(event, payload ?? {});
+      if (
+        result &&
+        typeof result === "object" &&
+        "success" in result &&
+        result.success === false
+      ) {
+        throw new Error(
+          `HTTP broadcast failed with status ${"status" in result ? result.status : "unknown"}`
+        );
+      }
     } else {
       await new Promise<void>((resolve, reject) => {
         let settled = false;
         const timer = setTimeout(() => {
           if (!settled) {
             settled = true;
-            resolve(); // Don't hang API handler if websocket connection is slow
+            console.warn(
+              `[Realtime Publish Timeout] Channel: ${channelName} | Event: ${event}`
+            );
+            resolve(); // Realtime is best-effort; don't hang the API handler
           }
         }, 1500);
 
