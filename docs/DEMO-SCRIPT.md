@@ -46,7 +46,7 @@
   4. Tap `Place Order` (`data-testid="checkout-submit-btn"`).
   5. Page transitions to `/t/demo-table-7/order/[id]` showing the Live Order Tracker with status **Order Placed & Queued** and the order badge (e.g. `#ML-0003`).
 - **Narration / Voiceover**:
-  > *"Guests review itemized subtotals with automated GST computation and choose their payment preference. Submitting the order sends an atomic, idempotent request to our REST API, guaranteeing that no duplicate tickets can be placed even on unstable mobile connections."*
+  > *"Guests review itemized subtotals with automated GST computation and choose their payment preference. Submitting the order sends an atomic, idempotent request to our REST API, protecting against duplicate tickets even during mobile network retries."*
 
 ---
 
@@ -75,7 +75,7 @@
   2. Observe the guest phone screen updating automatically without page refresh to emerald **Plated & Ready to Serve**.
   3. Show the order stepper timeline illuminating the chef prep milestone.
 - **Narration / Voiceover**:
-  > *"When the dish is plated, the chef taps 'Mark Ready'. The guest's phone reflects the update immediately—keeping diners informed without floor staff having to check on station progress. If the network drops, an integrated five-second polling fallback guarantees zero lost updates."*
+  > *"When the dish is plated, the chef taps 'Mark Ready'. The guest's phone reflects the update immediately—keeping diners informed without floor staff having to check on station progress. If WebSocket notifications are delayed or unavailable, an integrated five-second polling fallback automatically synchronizes the latest status."*
 
 ---
 
@@ -104,7 +104,7 @@
 - **On-Screen Actions**:
   1. Click `Tables` tab (`data-testid="admin-nav-tables"`), highlight `Download QR Sheet` button generating vector `%PDF` files.
   2. Click `Reports` tab (`data-testid="admin-nav-reports"`), showcasing Today's Gross Sales, Net Revenue, and Category distribution.
-  3. Open `http://localhost:3000/demo` showing the side-by-side interactive multi-experience preview frame.
+  3. Open `http://localhost:3000/demo` showing the dual-pane concept showcase (guest phone frame alongside toggleable operations tablet).
   4. Fade out with Intallo logo and website URL: `https://www.intallo.in`.
 - **Narration / Voiceover**:
   > *"Managers can print high-resolution QR plaques directly from the browser and review real-time sales analytics. Three specialized roles, one cohesive Next.js codebase. DinePulse was engineered by Intallo—bespoke web applications and digital automation. Visit intallo.in."*

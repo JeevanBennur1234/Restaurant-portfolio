@@ -108,7 +108,7 @@ Staff authorization checks are strictly gated per site via `allowedRolesForSite(
 
 The interactive demo showcase at `/demo` runs on the Customer site (`http://localhost:3000/demo`):
 - **Customer Frame**: Embeds guest QR ordering at `/t/demo-table-7`.
-- **Kitchen & Manager Frames**: Embeds `/demo-enter`.
+- **Operations Frame (Toggleable)**: Embeds `/demo-enter` with the appropriate role (`kitchen` or `manager`), allowing one-click switching between Kitchen KDS and Manager Console.
   - When loaded inside an iframe, `GET /demo-enter` auto-authenticates the seeded demo staff account for that site (`kitchen` or `manager`), issues the isolated session cookie (`dinepulse_kitchen_session` or `dinepulse_manager_session`), and redirects (307) immediately to `/kitchen` or `/admin`.
 - **Parent CSP & Embedding Authorization**:
   - Customer site's Content-Security-Policy (`frame-src`) permits configured kitchen and manager origins (`NEXT_PUBLIC_KITCHEN_SITE_URL`, `NEXT_PUBLIC_MANAGER_SITE_URL`, and localhost development ports).

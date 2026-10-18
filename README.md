@@ -76,7 +76,7 @@ PostgreSQL Database (Drizzle ORM)  <──  Single Source of Truth (Integer Pais
 ```
 
 - **Perimeter Security**: Staff routes return genuine 404 responses when requested on the customer domain.
-- **Atomic Idempotency**: Order submissions require an `Idempotency-Key` header, guaranteeing zero duplicate orders or charges during mobile network drops.
+- **Atomic Idempotency**: Order submissions require an `Idempotency-Key` header, preventing duplicate orders or charges during mobile network drops and retries.
 - **Financial Precision**: All monetary values are calculated and stored exclusively as integer paise (`₹1.00 = 100 paise`).
 - **Dual-Channel Resilience**: Realtime WebSocket notifications are treated as hints, backed by an automated 5-second polling fallback.
 
@@ -92,7 +92,7 @@ DinePulse exposes a structured, typed REST API under `/api/v1/` documented inter
   - Success: `{ "success": true, "data": { ... } }`
   - Error: `{ "success": false, "error": { "code": "...", "message": "...", "requestId": "..." } }`
 - **Customer Endpoints**: Menu catalog fetching, table verification, order placement (`POST /api/v1/customer/orders`), and live order status.
-- **Kitchen Endpoints**: Active ticket listings (`GET /api/v1/kitchen/orders`) and ticket status advancement (`POST /api/v1/kitchen/orders/:id/status`).
+- **Kitchen Endpoints**: Active ticket listings (`GET /api/v1/kitchen/orders`) and ticket status advancement (`POST /api/v1/kitchen/orders/:id/transition`).
 - **Admin Endpoints**: Order management, catalog CRUD, table management, QR PDF streaming (`GET /api/v1/admin/tables/qr.pdf`), and analytics summaries.
 - **Staff Auth Endpoints**: Secure session login (`POST /api/v1/auth/login`), demo entry (`POST /api/v1/auth/demo-login`), and session verification (`GET /api/v1/auth/me`).
 

@@ -71,6 +71,14 @@ flowchart TD
 2. **Layered Decoupling**: UI components never query the database directly. All mutations and queries pass through the domain service layer ([`src/server/services/`](../src/server/services/)), ensuring business rules (such as GST calculations and valid order status state machines) are centralized and unit-testable.
 3. **Resilient Realtime**: Supabase Realtime operates purely as an ephemeral notification bus. State mutations are committed atomically to PostgreSQL first. If WebSockets stall or drop, both the guest tracker and kitchen display automatically fall back to 5-second polling.
 
+### Interactive Showcase Architecture (`/demo`)
+
+The `/demo` route provides a live concept preview designed for prospective operators. Rather than attempting to crowd three simultaneous full viewports onto a desktop screen—which would compress the multi-column kitchen KDS board and manager data tables below readable tap targets and minimum widths—`/demo` implements an ergonomic **dual-pane split layout**:
+- **Guest Mobile Pane (Left, 5 cols)**: Persistent mobile phone mockup rendering the live guest QR menu and order tracker (`/t/demo-table-7`).
+- **Operational Tablet Pane (Right, 7 cols)**: High-resolution tablet frame embedding the staff surface via `/demo-enter`, featuring an instant one-click toggle switcher between the **Kitchen Display System (KDS)** and the **Manager Administration Console**.
+
+This approach mirrors real restaurant operations: guests order on handheld smartphones, while staff toggle between kitchen station fulfillment and manager floor oversight on dedicated tablets or desktop workstations.
+
 ---
 
 ## 2. Order Lifecycle Sequence
@@ -117,7 +125,7 @@ sequenceDiagram
     Guest->>UI: View Live Tracker (displays "Order Placed & Queued")
     
     note over KDS: Chef taps "Start Prep"
-    KDS->>API: POST /api/v1/kitchen/orders/:id/status { status: "preparing" }
+    KDS->>API: POST /api/v1/kitchen/orders/:id/transition { status: "preparing" }
     API->>DB: UPDATE orders SET status = "preparing", INSERT order_events
     API-)RT: publishRealtimeEvent("order:orderId", "order.status_changed", { status: "preparing" })
     API-->>KDS: 200 OK
@@ -130,7 +138,7 @@ sequenceDiagram
     end
 
     note over KDS: Chef taps "Mark Ready"
-    KDS->>API: POST /api/v1/kitchen/orders/:id/status { status: "ready" }
+    KDS->>API: POST /api/v1/kitchen/orders/:id/transition { status: "ready" }
     API->>DB: UPDATE orders SET status = "ready", INSERT order_events
     API-)RT: publishRealtimeEvent("order:orderId", "order.status_changed", { status: "ready" })
     RT--)UI: Broadcast arrives -> Tracker updates to "Plated & Ready to Serve"

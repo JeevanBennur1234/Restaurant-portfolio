@@ -39,7 +39,7 @@ DinePulse runs three distinct surfaces from a single unified codebase:
 ### Why Shared Registrable Domains Matter
 
 For demo mode and seamless cross-site experiences:
-- In demo mode, the Customer site (`/demo`) renders the Kitchen and Manager consoles side-by-side in `<iframe>` embeds.
+- In demo mode, the Customer site (`/demo`) renders a dual-pane showcase embedding the guest ordering interface alongside a toggleable operational tablet for the Kitchen and Manager consoles in `<iframe>` embeds.
 - To allow authentication cookies (`SameSite=Lax` or `SameSite=None`) and iframe embedding across sites, all three sites **must share the same registrable domain** (e.g. `order.yourdomain.com`, `kitchen.yourdomain.com`, `manager.yourdomain.com` all belong to `yourdomain.com`).
 
 > [!WARNING]
