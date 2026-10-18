@@ -89,6 +89,9 @@ jobs:
         env:
           CI: "true"
           E2E_DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/dinepulse_e2e
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          SESSION_SECRET: e2e-fixed-test-session-secret-at-least-32-chars-long
+          DEMO_MODE: "true"
 
       - name: Upload Playwright Report & Traces on Failure
         if: failure()
