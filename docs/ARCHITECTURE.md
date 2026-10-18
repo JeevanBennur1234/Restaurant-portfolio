@@ -22,7 +22,7 @@ flowchart TD
         ManagerSite["Manager Site (:3002)<br/>/admin (Orders, Menu, Tables, Analytics)<br/>/demo-enter"]
     end
 
-    subgraph Perimeter["Edge Security & Perimeter"]
+    subgraph Perimeter["Proxy Layer & Perimeter"]
         ProxyRouter["Next.js Proxy Router<br/>(src/proxy.ts)"]
         AuthGuards["Role & Site Auth Guards<br/>(src/server/auth.ts)"]
         RateLimiter["DB Rate Limiter<br/>(login, demo, order spam)"]
@@ -67,7 +67,7 @@ flowchart TD
 
 ### Core Architecture Principles
 
-1. **One Codebase, Strict Site Boundaries**: Next.js App Router runs with a site-specific personality defined by the `SITE` environment variable (`customer`, `kitchen`, or `manager`). The edge proxy ([`src/proxy.ts`](../src/proxy.ts)) enforces absolute perimeter isolation—manager routes return 404 on the customer domain, and customer table tokens return 404 on the kitchen or manager domains.
+1. **One Codebase, Strict Site Boundaries**: Next.js App Router runs with a site-specific personality defined by the `SITE` environment variable (`customer`, `kitchen`, or `manager`). The request proxy ([`src/proxy.ts`](../src/proxy.ts)) enforces absolute perimeter isolation—manager routes return 404 on the customer domain, and customer table tokens return 404 on the kitchen or manager domains.
 2. **Layered Decoupling**: UI components never query the database directly. All mutations and queries pass through the domain service layer ([`src/server/services/`](../src/server/services/)), ensuring business rules (such as GST calculations and valid order status state machines) are centralized and unit-testable.
 3. **Resilient Realtime**: Supabase Realtime operates purely as an ephemeral notification bus. State mutations are committed atomically to PostgreSQL first. If WebSockets stall or drop, both the guest tracker and kitchen display automatically fall back to 5-second polling.
 

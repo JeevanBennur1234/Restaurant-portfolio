@@ -2,7 +2,7 @@
 
 > Concept preview and engineering showcase by [Intallo](https://www.intallo.in), a bespoke web application and digital automation agency in Bengaluru.
 
-**DinePulse** is a commercial-grade restaurant ordering, kitchen display, and management platform designed for **Masala Lane**, a contemporary Indian dining concept. Engineered from a single unified codebase, DinePulse delivers three distinct surfaces: a zero-install mobile ordering experience for diners, a high-contrast dark Kitchen Display System (KDS) for culinary staff, and an executive management console for floor leadership.
+**DinePulse** is a production-minded restaurant ordering, kitchen display, and management platform designed for **Masala Lane**, a contemporary Indian dining concept. Engineered from a single unified codebase, DinePulse delivers three distinct surfaces: a zero-install mobile ordering experience for diners, a high-contrast dark Kitchen Display System (KDS) for culinary staff, and an executive management console for floor leadership.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## Three Sites, One Codebase
 
-DinePulse runs three tailored web experiences from a single Next.js 16 App Router codebase. The application personality is established at runtime by the `SITE` environment variable, while the edge proxy router ([`src/proxy.ts`](src/proxy.ts)) enforces strict perimeter isolation across domains.
+DinePulse runs three tailored web experiences from a single Next.js 16 App Router codebase. The application personality is established at runtime by the `SITE` environment variable, while the request proxy router ([`src/proxy.ts`](src/proxy.ts)) enforces strict perimeter isolation across domains.
 
 | Site | Primary Audience | Key Route Scope | Role Authorization | Local Port |
 |---|---|---|---|:---:|
@@ -42,7 +42,7 @@ DinePulse runs three tailored web experiences from a single Next.js 16 App Route
 - **Chronological Ticket Ingestion**: Instant ticket arrival via Supabase Realtime broadcast with audio chimes.
 - **Sequential Ticket Actions**: Enforces the valid transition state machine (`Start Prep` → `Mark Ready` → `Served`).
 - **Clock-Skew Compensated Timers**: Live elapsed timers counting up accurately even if server and station clocks deviate.
-- **Ambient Wake Lock**: Browser screen lock integration prevents tablet displays from sleeping during active shifts.
+- **Ambient Wake Lock**: Requests a screen wake lock where the browser supports it, so tablets are less likely to sleep during a shift.
 
 ### 3. Manager Administration Console (`:3002`)
 - **Live Orders Module**: Real-time floor overview across all active tables with audit-enforced cancellation reasons.
@@ -60,7 +60,7 @@ DinePulse separates concerns across three logical layers:
 Clients (Guest Phone / Kitchen Tablet / Manager Desktop)
    │
    ▼
-Edge Proxy Router (src/proxy.ts)  ──>  Strict Site Route Allowlisting & 404 Rejection
+Request Proxy Router (src/proxy.ts)  ──>  Strict Site Route Allowlisting & 404 Rejection
    │
    ▼
 REST API v1 (/api/v1/*)            ──>  Typed Envelope, Request ID, Idempotency-Key
@@ -76,7 +76,7 @@ PostgreSQL Database (Drizzle ORM)  <──  Single Source of Truth (Integer Pais
 ```
 
 - **Perimeter Security**: Staff routes return genuine 404 responses when requested on the customer domain.
-- **Atomic Idempotency**: Order submissions require an `Idempotency-Key` header, preventing duplicate orders or charges during mobile network drops and retries.
+- **Atomic Idempotency**: A repeated order submission with the same Idempotency-Key returns the original order instead of creating a second one. Payments are protected separately by signature and amount verification.
 - **Financial Precision**: All monetary values are calculated and stored exclusively as integer paise (`₹1.00 = 100 paise`).
 - **Dual-Channel Resilience**: Realtime WebSocket notifications are treated as hints, backed by an automated 5-second polling fallback.
 

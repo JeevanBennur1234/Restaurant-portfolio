@@ -352,7 +352,7 @@ After deploying your three sites to Vercel, complete this checklist:
 - **Fix**: Verify and align the secret in both places. Do not confuse `RAZORPAY_KEY_SECRET` with `RAZORPAY_WEBHOOK_SECRET`.
 
 ### 6. `404 Not Found` on `/admin` or `/kitchen`
-- **Cause**: DinePulse enforces strict route isolation at the edge proxy (`src/proxy.ts`).
+- **Cause**: DinePulse enforces strict route isolation at the request proxy (`src/proxy.ts`).
 - **Fix**:
   - `/kitchen` is **only** accessible on `SITE=kitchen`.
   - `/admin` is **only** accessible on `SITE=manager`.

@@ -49,7 +49,7 @@ Kitchen staff work in high-heat, fast-paced environments where touch targets mus
 
 ![DinePulse Kitchen Display Board](screenshots/kitchen-board.webp)
 
-The Kitchen Display System (KDS) renders chronological, color-coded tickets showing items, special modifiers, elapsed timers with clock-skew compensation, and one-tap status advancement controls (`Start Prep` → `Mark Ready` → `Served`). An ambient wake-lock ensures displays never sleep during kitchen shifts.
+The Kitchen Display System (KDS) renders chronological, color-coded tickets showing items, special modifiers, elapsed timers with clock-skew compensation, and one-tap status advancement controls (`Start Prep` → `Mark Ready` → `Served`). An ambient wake-lock requests a screen wake lock where the browser supports it, so tablets are less likely to sleep during a shift.
 
 ### Manager Administration Console (Desktop & Tablet)
 
@@ -70,13 +70,13 @@ The Manager Console provides four key operational modules:
 ## 3. Key Decisions and Why
 
 ### One Codebase, Three Isolated Sites
-Instead of maintaining three separate Next.js projects with duplicated business logic, DinePulse uses Next.js App Router configured via the `SITE` environment variable. The edge proxy ([`src/proxy.ts`](../src/proxy.ts)) enforces strict perimeter isolation: staff routes return 404 responses when accessed on the customer domain.
+Instead of maintaining three separate Next.js projects with duplicated business logic, DinePulse uses Next.js App Router configured via the `SITE` environment variable. The request proxy ([`src/proxy.ts`](../src/proxy.ts)) enforces strict perimeter isolation: staff routes return 404 responses when accessed on the customer domain.
 
 ### Domain Service Layer & Consistent REST API v1
 UI components never query the database directly. All mutations route through typed domain services ([`src/server/services/`](../src/server/services/)) returning a standard `ServiceResult<T>` envelope. API responses consistently format success payloads or structured errors with traceable request IDs.
 
 ### Atomic Idempotency Protection
-Mobile network drops during checkout often cause guests to tap "Submit" multiple times. DinePulse implements atomic database-backed idempotency via the `Idempotency-Key` header. Duplicate requests replay the original response without creating duplicate tickets or charges.
+Mobile network drops during checkout often cause guests to tap "Submit" multiple times. A repeated order submission with the same Idempotency-Key returns the original order instead of creating a second one. Payments are protected separately by signature and amount verification.
 
 ### Strict Integer Paise Financial Calculations
 Floating-point math introduces rounding errors that violate accounting standards. DinePulse stores and calculates all monetary values strictly as integer paise (`₹1.00 = 100 paise`), computing 5% Goods and Services Tax (GST) entirely on the server.
@@ -110,7 +110,7 @@ System reliability is enforced through automated testing pipelines:
 
 ## 6. Tech Stack
 
-- **Framework**: Next.js 16 (App Router, Server Components, Edge Proxy)
+- **Framework**: Next.js 16 (App Router, Server Components, Next.js proxy)
 - **Frontend & UI**: React 19, Tailwind CSS v4, Lucide Icons, Motion, Lenis
 - **Database & ORM**: PostgreSQL with Drizzle ORM
 - **Authentication**: Custom HMAC-SHA256 signed session cookies, bcrypt password hashing

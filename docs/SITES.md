@@ -29,7 +29,7 @@ During development, each site writes its build cache to an isolated directory (`
 
 ## 2. Route Matrix & Rewrites
 
-Routes are strictly enforced at the edge middleware proxy layer (`src/proxy.ts`). Requests to unauthorized routes return a **real 404** (rewritten to `/_not-found`).
+Routes are strictly enforced at the request proxy layer (`src/proxy.ts`). Requests to unauthorized routes return a **real 404** (rewritten to `/_not-found`).
 
 | Route Pattern | `SITE=customer` | `SITE=kitchen` | `SITE=manager` | `SITE=all` |
 | :--- | :---: | :---: | :---: | :---: |
