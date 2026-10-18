@@ -29,6 +29,8 @@
     "check-images": "tsx scripts/check-images.ts",
     "admin:create-manager": "tsx scripts/create-manager.ts",
     "check-env": "tsx scripts/check-env.ts",
+    "check-links": "tsx scripts/check-links.ts",
+    "screenshots": "tsx scripts/capture-screenshots.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
@@ -66,6 +68,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
