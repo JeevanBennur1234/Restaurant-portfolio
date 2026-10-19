@@ -14,7 +14,7 @@ import {
   CreditCard,
   Banknote,
   AlertTriangle,
-  RotateCcw,
+  QrCode,
 } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
@@ -27,6 +27,7 @@ import {
 } from "./idempotency-key";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
+import { UpiQrModal } from "./upi-qr-modal";
 
 export interface CartSheetProps {
   tableLabel: string;
@@ -49,6 +50,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   const [pendingOrderId, setPendingOrderId] = React.useState<string | null>(null);
   const [pendingOrderNumber, setPendingOrderNumber] = React.useState<string | null>(null);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
+  const [isUpiQrOpen, setIsUpiQrOpen] = React.useState(false);
 
   // Idempotency: generate one key per checkout attempt.
   // Reused when retrying after network error or 5xx; replaced when cart body changes, on 4xx, or on success.
@@ -112,6 +114,19 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       return;
     }
 
+    if (
+      !rzpOrderRes.data.keyId ||
+      rzpOrderRes.data.keyId.trim() === "" ||
+      rzpOrderRes.data.keyId.toLowerCase().includes("placeholder")
+    ) {
+      setPaymentError(
+        "Payment gateway is not configured. Please choose Pay at counter or configure Razorpay test credentials."
+      );
+      setIsSubmitting(false);
+      setStatusMessage(null);
+      return;
+    }
+
     const isLoaded = await loadRazorpayScript();
 
     if (!isLoaded || !window.Razorpay) {
@@ -125,12 +140,42 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
 
     // Launch official Razorpay Checkout popup
     const rzpOptions: RazorpayOptions = {
-      key: rzpOrderRes.data.keyId ?? "rzp_test_placeholder",
+      key: rzpOrderRes.data.keyId,
       amount: rzpOrderRes.data.amountPaise ?? grandTotalPaise,
       currency: "INR",
       name: "Masala Lane",
       description: `Order #${orderNumber} • ${tableLabel}`,
       order_id: rzpOrderRes.data.razorpayOrderId,
+      prefill: {
+        contact: "9876543210",
+      },
+      config: {
+        display: {
+          blocks: {
+            upi: {
+              name: "Pay using UPI",
+              instruments: [
+                {
+                  method: "upi",
+                  flows: ["qr", "intent"],
+                },
+              ],
+            },
+            other: {
+              name: "Cards, Netbanking & Wallets",
+              instruments: [
+                { method: "card" },
+                { method: "netbanking" },
+                { method: "wallet" },
+              ],
+            },
+          },
+          sequence: ["block.upi", "block.other"],
+          preferences: {
+            show_default_blocks: true,
+          },
+        },
+      },
       handler: async function (response: RazorpaySuccessResponse) {
         setStatusMessage("Verifying payment with bank...");
         setIsSubmitting(true);
@@ -180,6 +225,19 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
     };
 
     const rzp = new window.Razorpay(rzpOptions);
+
+    rzp.on("payment.failed", function (failResponse) {
+      setIsSubmitting(false);
+      setStatusMessage(null);
+      const reason =
+        failResponse.error?.description ||
+        failResponse.error?.reason ||
+        "Payment was declined by your bank.";
+      setPaymentError(
+        `${reason} Your order is reserved; please retry payment or choose Pay at counter.`
+      );
+    });
+
     rzp.open();
   };
 
@@ -244,8 +302,10 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         return;
       }
 
-      // If Pay now: initiate Razorpay Checkout
-      await initiateRazorpayPayment(result.data.orderId, result.data.orderNumber);
+      // If Pay now: open dynamic UPI QR scan modal directly
+      setIsUpiQrOpen(true);
+      setIsSubmitting(false);
+      setStatusMessage(null);
     } catch (err) {
       setPaymentError((err as Error).message ?? "An unexpected error occurred.");
       setIsSubmitting(false);
@@ -255,6 +315,19 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         isSubmittingRef.current = false;
       }
     }
+  };
+
+  const handleUpiSuccess = () => {
+    setIsUpiQrOpen(false);
+    clearCart();
+    setIsCartOpen(false);
+    showToast({
+      title: "Payment Verified",
+      message: `Order #${pendingOrderNumber} sent to kitchen!`,
+      variant: "success",
+      duration: 3500,
+    });
+    router.push(`/t/${token}/order/${pendingOrderId}`);
   };
 
   const handleSwitchToCounter = async () => {
@@ -290,7 +363,8 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   };
 
   return (
-    <Sheet
+    <>
+      <Sheet
       isOpen={isCartOpen}
       onClose={() => {
         if (!isSubmitting) setIsCartOpen(false);
@@ -337,29 +411,42 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   {pendingOrderId && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        isLoading={isSubmitting}
-                        onClick={() =>
-                          initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
-                        }
-                        className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
-                        leftIcon={<RotateCcw className="h-3 w-3" />}
-                      >
-                        Retry Online Payment
-                      </Button>
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          isLoading={isSubmitting}
+                          onClick={() => setIsUpiQrOpen(true)}
+                          className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                          leftIcon={<QrCode className="h-3.5 w-3.5" />}
+                        >
+                          Scan UPI QR
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          isLoading={isSubmitting}
+                          onClick={() =>
+                            initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
+                          }
+                          className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                          leftIcon={<CreditCard className="h-3 w-3" />}
+                        >
+                          Cards / Netbanking
+                        </Button>
+                      </div>
                       <Button
                         size="sm"
                         variant="outline"
                         isLoading={isSubmitting}
                         onClick={handleSwitchToCounter}
-                        className="text-xs min-h-[44px] h-11 px-2.5 flex-1 bg-white"
+                        className="text-xs min-h-[40px] h-10 px-2.5 w-full bg-white"
+                        leftIcon={<Banknote className="h-3.5 w-3.5" />}
                       >
                         Pay at Counter Instead
                       </Button>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -616,5 +703,27 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
         </div>
       )}
     </Sheet>
+
+    {pendingOrderId && (
+      <UpiQrModal
+        isOpen={isUpiQrOpen}
+        orderId={pendingOrderId}
+        orderNumber={pendingOrderNumber || ""}
+        tableNumber={tableLabel}
+        totalPaise={grandTotalPaise}
+        token={token}
+        onClose={() => setIsUpiQrOpen(false)}
+        onSuccess={handleUpiSuccess}
+        onSwitchToStandardCheckout={() => {
+          setIsUpiQrOpen(false);
+          initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!);
+        }}
+        onSwitchToCounter={() => {
+          setIsUpiQrOpen(false);
+          handleSwitchToCounter();
+        }}
+      />
+    )}
+  </>
   );
 }

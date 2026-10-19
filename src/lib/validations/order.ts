@@ -88,3 +88,23 @@ export const confirmSimulatedPaymentSchema = z.object({
 export type ConfirmSimulatedPaymentInput = z.infer<
   typeof confirmSimulatedPaymentSchema
 >;
+
+export const createUpiQrSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required"),
+  token: z.string().trim().min(1, "Table token is required"),
+});
+
+export const paymentStatusSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required"),
+  token: z.string().trim().min(1, "Table token is required"),
+});
+
+export const verifyTestUpiPaymentSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required"),
+  token: z.string().trim().min(1, "Table token is required"),
+});
+
+export type CreateUpiQrInput = z.infer<typeof createUpiQrSchema>;
+export type PaymentStatusInput = z.infer<typeof paymentStatusSchema>;
+export type VerifyTestUpiPaymentInput = z.infer<typeof verifyTestUpiPaymentSchema>;
+

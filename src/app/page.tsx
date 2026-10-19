@@ -151,7 +151,8 @@ export default function HomePage() {
                 </Link>
               )}
               <Link
-                href="#table-ordering"
+                href="/order"
+                data-testid="header-order-btn"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold tracking-wide uppercase transition-all shadow-xs min-h-[44px]"
               >
                 <Smartphone className="h-3.5 w-3.5" />
@@ -208,17 +209,24 @@ export default function HomePage() {
 
               <Reveal delay={0.35}>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                  <a
-                    href="#signature-dishes"
+                  <Link
+                    href="/order"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[#D97706] hover:bg-[#B45309] text-white text-xs sm:text-sm font-semibold tracking-wider uppercase transition-all shadow-md active:scale-98 min-h-[48px]"
                   >
-                    <span>View signature dishes</span>
+                    <span>Order at Table</span>
                     <ArrowRight className="h-4 w-4" />
+                  </Link>
+
+                  <a
+                    href="#signature-dishes"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 text-[#FAF7F2] text-xs sm:text-sm font-semibold tracking-wider uppercase transition-all min-h-[48px]"
+                  >
+                    <span>View signature dishes</span>
                   </a>
 
                   <a
                     href="#table-ordering"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 text-[#FAF7F2] text-xs sm:text-sm font-semibold tracking-wider uppercase transition-all min-h-[48px]"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-full bg-white/5 hover:bg-white/15 backdrop-blur-md text-[#D1C5B8] hover:text-[#FAF7F2] text-xs sm:text-sm font-medium tracking-wider uppercase transition-all min-h-[48px]"
                   >
                     <span>Dine-In QR Ordering</span>
                   </a>
@@ -463,13 +471,13 @@ export default function HomePage() {
                     Take your seat at our dining room and scan the table QR code standee to begin.
                   </p>
                 </div>
-                <a
-                  href="#signature-dishes"
+                <Link
+                  href="/order"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-full bg-[#D97706] hover:bg-[#B45309] text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-md shrink-0 min-h-[44px]"
                 >
-                  <span>Explore Menu</span>
+                  <span>Order at Table</span>
                   <ArrowRight className="h-4 w-4" />
-                </a>
+                </Link>
               </Reveal>
             </div>
           </section>
@@ -536,13 +544,13 @@ export default function HomePage() {
                   </div>
 
                   <div className="pt-4 flex flex-col sm:flex-row gap-3">
-                    <a
-                      href="#signature-dishes"
+                    <Link
+                      href="/order"
                       className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold tracking-wider uppercase transition-all shadow-xs min-h-[44px]"
                     >
-                      <span>Explore Menu</span>
+                      <span>Order at Table</span>
                       <ArrowRight className="h-4 w-4" />
-                    </a>
+                    </Link>
                     <a
                       href="https://maps.google.com/?q=12th+Main+Rd+Indiranagar+Bengaluru"
                       target="_blank"
@@ -626,9 +634,9 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                    <a href="#table-ordering" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
+                    <Link href="/order" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
                       Table Ordering
-                    </a>
+                    </Link>
                     {kitchenUrl && (
                       <Link href={kitchenUrl} className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
                         Kitchen Board

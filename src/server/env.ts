@@ -183,11 +183,51 @@ const rawEnvSchema = z.object({
       return String(val);
     }, z.enum(["true", "false"]))
     .default("false"),
+  ALLOW_TEST_PAYMENT_SIMULATION: z
+    .preprocess((val) => {
+      if (val === undefined || val === "" || val === null) return "false";
+      return String(val);
+    }, z.enum(["true", "false"]))
+    .default("false"),
+  DEV_TABLE_TOKEN: z.string().optional(),
+  ENABLE_DEV_TABLE_LAUNCHER: z
+    .preprocess((val) => {
+      if (val === undefined || val === "" || val === null) return "false";
+      return String(val);
+    }, z.enum(["true", "false"]))
+    .default("false"),
 });
 
 const envSchema = rawEnvSchema.superRefine((data, ctx) => {
   const isProduction = data.NODE_ENV === "production";
   const isDemo = data.DEMO_MODE === "true";
+
+  if (isProduction && data.ALLOW_TEST_PAYMENT_SIMULATION === "true") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ALLOW_TEST_PAYMENT_SIMULATION"],
+      message:
+        "ALLOW_TEST_PAYMENT_SIMULATION must not be 'true' in production. Test payment simulation is strictly prohibited in production.",
+    });
+  }
+
+  if (isProduction && data.DEV_TABLE_TOKEN) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["DEV_TABLE_TOKEN"],
+      message:
+        "DEV_TABLE_TOKEN must not be set in production. Local development table shortcuts are strictly prohibited in production.",
+    });
+  }
+
+  if (isProduction && data.ENABLE_DEV_TABLE_LAUNCHER === "true") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ENABLE_DEV_TABLE_LAUNCHER"],
+      message:
+        "ENABLE_DEV_TABLE_LAUNCHER must not be 'true' in production. Local development table shortcuts are strictly prohibited in production.",
+    });
+  }
 
   if (isProduction && data.ALLOW_LOCAL_DEMO_UPLOADS === "true") {
     ctx.addIssue({

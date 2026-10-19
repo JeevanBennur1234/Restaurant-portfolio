@@ -11,6 +11,8 @@ import type {
   OrderDetails,
   CreateRazorpayOrderData,
   VerifyPaymentData,
+  CreateUpiQrData,
+  PaymentStatusData,
 } from "@/server/services/customer";
 import type {
   KitchenTicket,
@@ -73,6 +75,8 @@ export type {
   OrderDetails,
   CreateRazorpayOrderData,
   VerifyPaymentData,
+  CreateUpiQrData,
+  PaymentStatusData,
   KitchenTicket,
   KitchenTicketItem,
   TransitionOrderInput,
