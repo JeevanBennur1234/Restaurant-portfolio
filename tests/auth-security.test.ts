@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "test",
-    DEMO_MODE: "true",
+    PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     SESSION_SECRET: "test-session-secret-at-least-32-chars-long-123456",

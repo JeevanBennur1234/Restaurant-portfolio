@@ -137,6 +137,5 @@ NEXT_PUBLIC_MANAGER_SITE_URL=http://localhost:3002
 # Database & Core Services (shared across instances)
 DATABASE_URL=postgresql://...
 SESSION_SECRET=...                              # At least 32 characters in production
-NEXT_PUBLIC_APP_URL=https://...
-DEMO_MODE=true                                  # Controls demo login, /demo-enter, and simulated payment/advance
+PAYMENTS_MODE=online                           # "online" or "counter_only"
 ```

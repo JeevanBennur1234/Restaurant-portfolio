@@ -16,6 +16,8 @@ export interface MenuViewProps {
   items: GuestMenuItem[];
   table: GuestTable;
   restaurantName?: string;
+  paymentsEnabled?: boolean;
+  paymentsTestMode?: boolean;
 }
 
 type DietaryFilter = "all" | "veg" | "non-veg";
@@ -25,6 +27,8 @@ export function MenuView({
   items,
   table,
   restaurantName = "Masala Lane",
+  paymentsEnabled = true,
+  paymentsTestMode = false,
 }: MenuViewProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [dietaryFilter, setDietaryFilter] = React.useState<DietaryFilter>("all");
@@ -373,7 +377,12 @@ export function MenuView({
       />
 
       {/* Cart Bottom Sheet */}
-      <CartSheet tableLabel={table.tableNumber} token={table.qrToken} />
+      <CartSheet
+        tableLabel={table.tableNumber}
+        token={table.qrToken}
+        paymentsEnabled={paymentsEnabled}
+        paymentsTestMode={paymentsTestMode}
+      />
 
       {/* Sticky Bottom "View Cart" Floating Bar */}
       <CartBar />

@@ -68,15 +68,14 @@ async function seed() {
     console.log(`✅ Created Restaurant: Masala Lane (ID: ${restaurantId})`);
   }
 
-  // 2. Insert 12 Tables (Table 7 gets fixed token 'demo-table-7' if DEMO_MODE === 'true')
+  // 2. Insert 12 Tables (Table 7 gets fixed token if DEV_TABLE_TOKEN is set in non-production)
   console.log("🍽️ Generating 12 tables...");
-  const isDemoMode = env.DEMO_MODE === "true";
+  const devToken = env.DEV_TABLE_TOKEN;
   const tableValues = Array.from({ length: 12 }, (_, i) => {
     const tableNum = i + 1;
-    // When DEMO_MODE === "true", seed Table 7 with fixed token "demo-table-7" so demo launcher links work
     const qrToken =
-      isDemoMode && tableNum === 7
-        ? "demo-table-7"
+      devToken && tableNum === 7
+        ? devToken
         : crypto.randomBytes(16).toString("hex");
     const capacity = tableNum <= 4 ? 2 : tableNum <= 10 ? 4 : 6;
 
@@ -185,10 +184,11 @@ async function seed() {
   // 5. Insert Two Staff Users (kitchen, manager) with Hashed Passwords
   console.log("👥 Creating 2 staff users (kitchen, manager) with bcrypt hashed passwords...");
 
+  const isDevOrTest = env.NODE_ENV !== "production";
   let kitchenPassword = env.SEED_KITCHEN_PASSWORD;
   let managerPassword = env.SEED_MANAGER_PASSWORD;
 
-  if (isDemoMode) {
+  if (isDevOrTest) {
     kitchenPassword = kitchenPassword || "kitchen123";
     managerPassword = managerPassword || "manager123";
   } else {
@@ -209,21 +209,21 @@ async function seed() {
     {
       restaurantId,
       username: "kitchen",
-      email: "kitchen@masalane.demo",
+      email: "kitchen@masalane.restaurant",
       passwordHash: kitchenPasswordHash,
       role: "kitchen" as const,
       isActive: true,
-      isDemo: isDemoMode,
+      isDemo: false,
       sessionVersion: 1,
     },
     {
       restaurantId,
       username: "manager",
-      email: "manager@masalane.demo",
+      email: "manager@masalane.restaurant",
       passwordHash: managerPasswordHash,
       role: "manager" as const,
       isActive: true,
-      isDemo: isDemoMode,
+      isDemo: false,
       sessionVersion: 1,
     },
   ];
@@ -231,11 +231,7 @@ async function seed() {
   for (const user of staff) {
     await db.insert(schema.staffUsers).values(user);
   }
-  console.log(
-    isDemoMode
-      ? "✅ Inserted staff users: 'kitchen' (pw: kitchen123) and 'manager' (pw: manager123)."
-      : "✅ Inserted staff users: 'kitchen' and 'manager'."
-  );
+  console.log("✅ Inserted staff users: 'kitchen' and 'manager'.");
 
   console.log("\n🎉 Seed completed successfully!");
   console.log(`Summary:

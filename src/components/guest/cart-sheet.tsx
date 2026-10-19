@@ -32,15 +32,24 @@ import { UpiQrModal } from "./upi-qr-modal";
 export interface CartSheetProps {
   tableLabel: string;
   token: string;
+  paymentsEnabled?: boolean;
+  paymentsTestMode?: boolean;
 }
 
 type PaymentOption = "pay_now" | "counter";
 
-export function CartSheet({ tableLabel, token }: CartSheetProps) {
+export function CartSheet({
+  tableLabel,
+  token,
+  paymentsEnabled = true,
+  paymentsTestMode = false,
+}: CartSheetProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [notes, setNotes] = React.useState("");
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentOption>("pay_now");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("pay_now");
+  const paymentMethod: PaymentOption = paymentsEnabled ? selectedPaymentMethod : "counter";
+  const setPaymentMethod = setSelectedPaymentMethod;
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isSubmittingRef = React.useRef(false);
   const statusMessageState = React.useState<string | null>(null);
@@ -412,30 +421,32 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                 <div className="flex items-center gap-2 pt-1">
                   {pendingOrderId && (
                     <div className="flex flex-col gap-2 w-full">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          isLoading={isSubmitting}
-                          onClick={() => setIsUpiQrOpen(true)}
-                          className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
-                          leftIcon={<QrCode className="h-3.5 w-3.5" />}
-                        >
-                          Scan UPI QR
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          isLoading={isSubmitting}
-                          onClick={() =>
-                            initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
-                          }
-                          className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
-                          leftIcon={<CreditCard className="h-3 w-3" />}
-                        >
-                          Cards / Netbanking
-                        </Button>
-                      </div>
+                      {paymentsEnabled && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            isLoading={isSubmitting}
+                            onClick={() => setIsUpiQrOpen(true)}
+                            className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                            leftIcon={<QrCode className="h-3.5 w-3.5" />}
+                          >
+                            Scan UPI QR
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            isLoading={isSubmitting}
+                            onClick={() =>
+                              initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
+                            }
+                            className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                            leftIcon={<CreditCard className="h-3 w-3" />}
+                          >
+                            Cards / Netbanking
+                          </Button>
+                        </div>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -454,35 +465,45 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
 
             {/* Do not allow a second order while this order is awaiting payment. */}
             {!pendingOrderId && (
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="md"
-                  disabled={isSubmitting}
-                  onClick={clearCart}
-                  className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0 min-h-[48px] h-12 px-4"
-                >
-                  Clear
-                </Button>
-                <Button
-                  data-testid="checkout-submit-btn"
-                  size="md"
-                  variant="primary"
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting}
-                  onClick={handleCheckoutSubmit}
-                  className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
-                >
-                  <span className="truncate pr-1">
-                    {statusMessage ||
-                      (paymentMethod === "pay_now"
-                        ? "Pay Now"
-                        : "Pay at Counter")}
-                  </span>
-                  <span className="font-mono font-bold shrink-0">
-                    {formatPaiseToINR(grandTotalPaise)}
-                  </span>
-                </Button>
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    disabled={isSubmitting}
+                    onClick={clearCart}
+                    className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0 min-h-[48px] h-12 px-4"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    data-testid="checkout-submit-btn"
+                    size="md"
+                    variant="primary"
+                    isLoading={isSubmitting}
+                    disabled={isSubmitting}
+                    onClick={handleCheckoutSubmit}
+                    className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
+                  >
+                    <span className="truncate pr-1">
+                      {statusMessage ||
+                        (paymentMethod === "pay_now"
+                          ? "Pay Now"
+                          : "Pay at Counter")}
+                    </span>
+                    <span className="font-mono font-bold shrink-0">
+                      {formatPaiseToINR(grandTotalPaise)}
+                    </span>
+                  </Button>
+                </div>
+                {paymentsTestMode && (
+                  <p
+                    data-testid="payments-test-mode-notice"
+                    className="text-[11px] text-amber-600 dark:text-amber-400 font-medium text-center"
+                  >
+                    Test mode: no real money is charged.
+                  </p>
+                )}
               </div>
             )}
 
@@ -627,59 +648,79 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               Payment Choice
             </label>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Option A: Pay Now */}
-              <button
-                type="button"
-                data-testid="pay-now-choice"
-                disabled={Boolean(pendingOrderId)}
-                onClick={() => setPaymentMethod("pay_now")}
-                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
-                  paymentMethod === "pay_now"
-                    ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 ring-1 ring-[var(--primary)] text-[var(--text-primary)]"
-                    : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <CreditCard className="h-4 w-4 text-[var(--primary)]" />
-                  <span className="text-[10px] uppercase font-bold text-[var(--primary)]">
-                    Fastest
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xs font-bold">Pay now</div>
-                  <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
-                    UPI, GPay, Cards
+            {paymentsEnabled ? (
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Option A: Pay Now */}
+                <button
+                  type="button"
+                  data-testid="pay-now-choice"
+                  disabled={Boolean(pendingOrderId)}
+                  onClick={() => setPaymentMethod("pay_now")}
+                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
+                    paymentMethod === "pay_now"
+                      ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 ring-1 ring-[var(--primary)] text-[var(--text-primary)]"
+                      : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <CreditCard className="h-4 w-4 text-[var(--primary)]" />
+                    <span className="text-[10px] uppercase font-bold text-[var(--primary)]">
+                      Fastest
+                    </span>
                   </div>
-                </div>
-              </button>
+                  <div>
+                    <div className="text-xs font-bold">Pay now</div>
+                    <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
+                      UPI, GPay, Cards
+                    </div>
+                  </div>
+                </button>
 
-              {/* Option B: Pay at Counter */}
-              <button
-                type="button"
+                {/* Option B: Pay at Counter */}
+                <button
+                  type="button"
+                  data-testid="pay-counter-choice"
+                  disabled={Boolean(pendingOrderId)}
+                  onClick={() => setPaymentMethod("counter")}
+                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
+                    paymentMethod === "counter"
+                      ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
+                      : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <Banknote className="h-4 w-4 text-[var(--secondary)]" />
+                    <span className="text-[10px] uppercase font-semibold text-[var(--text-muted)]">
+                      Traditional
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold">Pay at counter</div>
+                    <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
+                      Pay after meal
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ) : (
+              <div
                 data-testid="pay-counter-choice"
-                disabled={Boolean(pendingOrderId)}
-                onClick={() => setPaymentMethod("counter")}
-                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
-                  paymentMethod === "counter"
-                    ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
-                    : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
-                }`}
+                className="p-3.5 rounded-[var(--radius-md)] border border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)] flex flex-col justify-between gap-2 min-h-[64px] select-none"
               >
                 <div className="flex items-center justify-between w-full">
                   <Banknote className="h-4 w-4 text-[var(--secondary)]" />
                   <span className="text-[10px] uppercase font-semibold text-[var(--text-muted)]">
-                    Traditional
+                    In-Person
                   </span>
                 </div>
                 <div>
                   <div className="text-xs font-bold">Pay at counter</div>
                   <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
-                    Pay after meal
+                    Order sent directly to kitchen; settle bill at counter
                   </div>
                 </div>
-              </button>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Kitchen Notes */}

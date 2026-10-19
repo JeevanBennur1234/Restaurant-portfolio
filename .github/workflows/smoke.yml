@@ -2,12 +2,6 @@ name: Production Smoke Test
 
 on:
   workflow_dispatch:
-    inputs:
-      demo:
-        description: "Run demo authentication and iframe embedding checks"
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -35,7 +29,6 @@ jobs:
           CUSTOMER_URL: ${{ vars.CUSTOMER_URL }}
           KITCHEN_URL: ${{ vars.KITCHEN_URL }}
           MANAGER_URL: ${{ vars.MANAGER_URL }}
-          DEMO_MODE: ${{ inputs.demo }}
         run: |
           if [ -z "$CUSTOMER_URL" ] || [ -z "$KITCHEN_URL" ] || [ -z "$MANAGER_URL" ]; then
             echo "Notice: Required repository variables (CUSTOMER_URL, KITCHEN_URL, or MANAGER_URL) are not configured."
@@ -44,15 +37,9 @@ jobs:
             exit 0
           fi
 
-          DEMO_FLAG=""
-          if [ "$DEMO_MODE" = "true" ]; then
-            DEMO_FLAG="--demo"
-          fi
-
           echo "Running smoke tests against:"
           echo "  Customer: $CUSTOMER_URL"
           echo "  Kitchen:  $KITCHEN_URL"
           echo "  Manager:  $MANAGER_URL"
-          echo "  Demo:     $DEMO_MODE"
 
-          npm run smoke -- --customer "$CUSTOMER_URL" --kitchen "$KITCHEN_URL" --manager "$MANAGER_URL" $DEMO_FLAG
+          npm run smoke -- --customer "$CUSTOMER_URL" --kitchen "$KITCHEN_URL" --manager "$MANAGER_URL"

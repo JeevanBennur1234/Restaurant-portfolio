@@ -156,6 +156,37 @@ export function generateOpenApiDocument() {
         CreateTableInput: z.toJSONSchema(createTableSchema),
         UpdateTableInput: z.toJSONSchema(updateTableSchema),
         AdminOrdersQuery: z.toJSONSchema(adminOrdersQuerySchema),
+        GuestMenuData: {
+          type: "object",
+          properties: {
+            restaurant: { type: "object" },
+            table: { type: "object" },
+            categories: {
+              type: "array",
+              items: { type: "object" },
+            },
+            items: {
+              type: "array",
+              items: { type: "object" },
+            },
+            paymentsEnabled: {
+              type: "boolean",
+              description: "Whether online payments (Razorpay UPI/Cards) are enabled",
+            },
+            paymentsTestMode: {
+              type: "boolean",
+              description: "Whether Razorpay is running with test keys (rzp_test_*)",
+            },
+          },
+          required: [
+            "restaurant",
+            "table",
+            "categories",
+            "items",
+            "paymentsEnabled",
+            "paymentsTestMode",
+          ],
+        },
       },
     },
     paths: {
@@ -239,7 +270,18 @@ export function generateOpenApiDocument() {
           responses: {
             "200": {
               description: "Active menu categories and items",
-              content: { "application/json": { schema: envelopeSuccessRef } },
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean", example: true },
+                      data: { $ref: "#/components/schemas/GuestMenuData" },
+                    },
+                    required: ["success", "data"],
+                  },
+                },
+              },
             },
             ...standardResponses,
           },

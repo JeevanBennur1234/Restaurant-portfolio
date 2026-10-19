@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { orders, payments, orderEvents } from "@/server/db/schema";
 import { verifyRazorpayWebhookSignature } from "@/server/razorpay";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
+import { env } from "@/server/env";
 
 interface RazorpayWebhookPayload {
   event: string;
@@ -38,6 +39,13 @@ interface RazorpayWebhookPayload {
 }
 
 export async function POST(req: NextRequest) {
+  if (env.PAYMENTS_MODE === "counter_only") {
+    return NextResponse.json(
+      { error: "Not Found" },
+      { status: 404 }
+    );
+  }
+
   try {
     const rawBody = await req.text();
     const signature = req.headers.get("x-razorpay-signature");

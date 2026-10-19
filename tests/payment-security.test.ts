@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "development",
-    DEMO_MODE: "true",
+    PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     SESSION_SECRET: "test-secret-at-least-32-characters-long",
@@ -30,6 +30,7 @@ vi.mock("@/server/razorpay", () => ({
   createRazorpayOrder: vi.fn(),
   isRazorpayConfigured: vi.fn().mockReturnValue(true),
   isRazorpayTestMode: vi.fn().mockReturnValue(true),
+  isOnlinePaymentsEnabled: vi.fn().mockReturnValue(true),
   createRazorpayQrCode: vi.fn(),
   fetchRazorpayQrCode: vi.fn(),
   fetchRazorpayQrCodePayments: vi.fn().mockResolvedValue([]),
@@ -100,7 +101,7 @@ import { NextRequest } from "next/server";
 describe("Payment Security & Integrity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    env.DEMO_MODE = "true";
+    env.PAYMENTS_MODE = "online";
   });
 
   describe("Requirement 1: verifyRazorpayPaymentAction pairing & amount checks", () => {

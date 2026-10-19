@@ -7,7 +7,6 @@ export const CUSTOMER_URL = "http://localhost:3000";
 export const KITCHEN_URL = "http://localhost:3001";
 export const MANAGER_URL = "http://localhost:3002";
 
-export const DEMO_RESET_SECRET = "e2e-demo-reset-secret-at-least-32-chars-long";
 export const DEMO_TABLE_TOKEN = "demo-table-7";
 
 export const SEEDED_KITCHEN_USER = {

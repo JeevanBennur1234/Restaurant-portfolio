@@ -276,12 +276,11 @@ export function validateEnvForSite(
     });
   }
 
-  // 8. Site-specific rules
-  const isDemo = env.DEMO_MODE === "true";
+  // 8. Site-specific payment rules
+  const paymentsMode = env.PAYMENTS_MODE || "online";
 
   if (site === "customer" || site === "all") {
-    if (!isDemo) {
-      // Real payment keys required
+    if (paymentsMode === "online") {
       const razorpayFields: Array<[string, string | undefined]> = [
         ["RAZORPAY_KEY_ID", env.RAZORPAY_KEY_ID],
         ["RAZORPAY_KEY_SECRET", env.RAZORPAY_KEY_SECRET],
@@ -293,7 +292,7 @@ export function validateEnvForSite(
           items.push({
             name: keyName,
             status: "FAIL",
-            message: `${keyName} is required when DEMO_MODE is not "true".`,
+            message: `${keyName} is required when PAYMENTS_MODE is "online".`,
           });
         } else if (isPlaceholder(val)) {
           items.push({
@@ -305,164 +304,33 @@ export function validateEnvForSite(
           items.push({
             name: keyName,
             status: "PASS",
-            message: "Configured for live payment processing.",
+            message: "Configured for online payment processing.",
           });
         }
       }
     } else {
-      // DEMO_MODE = true
-      const demoResetSecret = env.DEMO_RESET_SECRET;
-      if (!demoResetSecret || demoResetSecret.trim() === "") {
-        items.push({
-          name: "DEMO_RESET_SECRET",
-          status: "FAIL",
-          message: "DEMO_RESET_SECRET is required when DEMO_MODE is true.",
-        });
-      } else if (isPlaceholder(demoResetSecret)) {
-        items.push({
-          name: "DEMO_RESET_SECRET",
-          status: "FAIL",
-          message: "DEMO_RESET_SECRET must not be a placeholder.",
-        });
-      } else {
-        items.push({
-          name: "DEMO_RESET_SECRET",
-          status: "PASS",
-          message: "Configured.",
-        });
-      }
-
-      // Customer site demo links to kitchen and manager
-      const kitchenUrl = env.NEXT_PUBLIC_KITCHEN_SITE_URL;
-      const managerUrl = env.NEXT_PUBLIC_MANAGER_SITE_URL;
-
-      if (!kitchenUrl || kitchenUrl.trim() === "") {
-        items.push({
-          name: "NEXT_PUBLIC_KITCHEN_SITE_URL",
-          status: "FAIL",
-          message: "NEXT_PUBLIC_KITCHEN_SITE_URL is required on customer site when DEMO_MODE is true.",
-        });
-      } else {
-        const valRes = validateSiteUrlOrigin(kitchenUrl);
-        if (!valRes.valid) {
-          items.push({
-            name: "NEXT_PUBLIC_KITCHEN_SITE_URL",
-            status: "FAIL",
-            message: valRes.error ?? "Invalid kitchen site URL origin.",
-          });
-        } else {
-          items.push({
-            name: "NEXT_PUBLIC_KITCHEN_SITE_URL",
-            status: "PASS",
-            message: valRes.origin ?? kitchenUrl,
-          });
-        }
-      }
-
-      if (!managerUrl || managerUrl.trim() === "") {
-        items.push({
-          name: "NEXT_PUBLIC_MANAGER_SITE_URL",
-          status: "FAIL",
-          message: "NEXT_PUBLIC_MANAGER_SITE_URL is required on customer site when DEMO_MODE is true.",
-        });
-      } else {
-        const valRes = validateSiteUrlOrigin(managerUrl);
-        if (!valRes.valid) {
-          items.push({
-            name: "NEXT_PUBLIC_MANAGER_SITE_URL",
-            status: "FAIL",
-            message: valRes.error ?? "Invalid manager site URL origin.",
-          });
-        } else {
-          items.push({
-            name: "NEXT_PUBLIC_MANAGER_SITE_URL",
-            status: "PASS",
-            message: valRes.origin ?? managerUrl,
-          });
-        }
-      }
-    }
-  }
-
-  if (site === "kitchen" || site === "manager") {
-    if (isDemo) {
-      const frameAncestorsRaw = env.FRAME_ANCESTORS;
-      const customerOrigin =
-        env.NEXT_PUBLIC_CUSTOMER_SITE_URL ||
-        env.NEXT_PUBLIC_APP_URL ||
-        "http://localhost:3000";
-
-      let customerOriginNormalized = customerOrigin;
-      try {
-        customerOriginNormalized = new URL(customerOrigin).origin;
-      } catch {}
-
-      if (!frameAncestorsRaw || frameAncestorsRaw.trim() === "") {
-        items.push({
-          name: "FRAME_ANCESTORS",
-          status: "FAIL",
-          message: `FRAME_ANCESTORS must include the customer origin ("${customerOriginNormalized}") when DEMO_MODE is true.`,
-        });
-      } else {
-        const parsed = validateFrameAncestors(frameAncestorsRaw, isProduction);
-        if (!parsed.valid) {
-          items.push({
-            name: "FRAME_ANCESTORS",
-            status: "FAIL",
-            message: parsed.error ?? "Invalid FRAME_ANCESTORS configuration.",
-          });
-        } else if (!parsed.origins.includes(customerOriginNormalized)) {
-          items.push({
-            name: "FRAME_ANCESTORS",
-            status: "FAIL",
-            message: `FRAME_ANCESTORS must include the customer origin ("${customerOriginNormalized}") for demo iframes. Currently configured: ${parsed.origins.join(", ")}.`,
-          });
-        } else {
-          items.push({
-            name: "FRAME_ANCESTORS",
-            status: "PASS",
-            message: `Includes customer origin ("${customerOriginNormalized}").`,
-          });
-        }
-      }
-    }
-  }
-
-  // 9. Subdomain check (warn, not fail) if all three site URLs are configured
-  const custUrl = env.NEXT_PUBLIC_CUSTOMER_SITE_URL || (site === "customer" ? env.NEXT_PUBLIC_APP_URL : undefined);
-  const kitchUrl = env.NEXT_PUBLIC_KITCHEN_SITE_URL || (site === "kitchen" ? env.NEXT_PUBLIC_APP_URL : undefined);
-  const mgrUrl = env.NEXT_PUBLIC_MANAGER_SITE_URL || (site === "manager" ? env.NEXT_PUBLIC_APP_URL : undefined);
-
-  if (custUrl && kitchUrl && mgrUrl) {
-    try {
-      const custHost = new URL(custUrl).hostname;
-      const kitchHost = new URL(kitchUrl).hostname;
-      const mgrHost = new URL(mgrUrl).hostname;
-
-      const custDom = getRegistrableDomain(custHost);
-      const kitchDom = getRegistrableDomain(kitchHost);
-      const mgrDom = getRegistrableDomain(mgrHost);
-
-      const allMatch = custDom === kitchDom && kitchDom === mgrDom;
-
-      if (!allMatch) {
-        items.push({
-          name: "CROSS_SITE_DOMAINS",
-          status: "WARN",
-          message: `Site URLs are not subdomains of the same registrable domain (customer: "${custDom}", kitchen: "${kitchDom}", manager: "${mgrDom}"). Cross-site demo iframes will fail due to third-party cookie restrictions.`,
-        });
-      } else {
-        items.push({
-          name: "CROSS_SITE_DOMAINS",
-          status: "PASS",
-          message: `All site URLs are subdomains of "${custDom}".`,
-        });
-      }
-    } catch {
       items.push({
-        name: "CROSS_SITE_DOMAINS",
-        status: "WARN",
-        message: "Unable to parse all three site URLs for domain alignment check.",
+        name: "PAYMENTS_MODE",
+        status: "PASS",
+        message: "Configured for counter_only mode (no Razorpay credentials required).",
+      });
+    }
+  }
+
+  // Validate FRAME_ANCESTORS if provided (optional)
+  if (env.FRAME_ANCESTORS) {
+    const parsed = validateFrameAncestors(env.FRAME_ANCESTORS, isProduction);
+    if (!parsed.valid) {
+      items.push({
+        name: "FRAME_ANCESTORS",
+        status: "FAIL",
+        message: parsed.error ?? "Invalid FRAME_ANCESTORS configuration.",
+      });
+    } else {
+      items.push({
+        name: "FRAME_ANCESTORS",
+        status: "PASS",
+        message: `Valid format: ${parsed.origins.join(", ")}`,
       });
     }
   }

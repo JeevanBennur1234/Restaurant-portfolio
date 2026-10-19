@@ -72,8 +72,7 @@ export default async function globalSetup() {
   const safeE2EDefaults: Record<string, string> = {
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
-    DEMO_MODE: "true",
-    DEMO_RESET_SECRET: "e2e-demo-reset-secret-at-least-32-chars-long",
+    PAYMENTS_MODE: "online",
     NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",
     NEXT_PUBLIC_KITCHEN_SITE_URL: "http://localhost:3001",
     NEXT_PUBLIC_MANAGER_SITE_URL: "http://localhost:3002",
@@ -108,12 +107,11 @@ export default async function globalSetup() {
     stdio: "inherit",
   });
 
-  console.log("🌱 [E2E Setup] Seeding test database (DEMO_MODE=true)...");
+  console.log("🌱 [E2E Setup] Seeding test database...");
   execSync("npx tsx src/server/db/seed.ts", {
     env: {
       ...process.env,
       DATABASE_URL: cleanDbUrl,
-      DEMO_MODE: "true",
       SEED_KITCHEN_PASSWORD: "kitchen123",
       SEED_MANAGER_PASSWORD: "manager123",
       NODE_ENV: "development",

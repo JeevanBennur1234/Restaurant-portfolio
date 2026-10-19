@@ -8,6 +8,6 @@ if (process.env.NEXT_PUBLIC_APP_URL === undefined) {
 if (process.env.SESSION_SECRET === undefined) {
   process.env.SESSION_SECRET = "test-session-secret-at-least-32-characters-long";
 }
-if (process.env.DEMO_MODE === undefined) {
-  process.env.DEMO_MODE = "true";
+if (process.env.PAYMENTS_MODE === undefined) {
+  process.env.PAYMENTS_MODE = "online";
 }

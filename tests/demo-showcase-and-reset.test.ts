@@ -7,10 +7,10 @@ import sitemap from "@/app/sitemap";
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "test",
-    DEMO_MODE: "false",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "https://dinepulse.example.com",
     SESSION_SECRET: "test-session-secret-at-least-32-chars-long-123456",
+    PAYMENTS_MODE: "online",
   },
 }));
 

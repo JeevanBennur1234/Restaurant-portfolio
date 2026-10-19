@@ -105,14 +105,10 @@ Every project requires environment variables configured under **Project Settings
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Yes | Supabase API URL (`https://<project-ref>.supabase.co`). |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Yes | Yes | Supabase public anonymous API key. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Yes | Yes | Supabase private service role key for storage and broadcasts. |
-| `DEMO_MODE` | `"true"` or `"false"` | `"true"` or `"false"` | `"true"` or `"false"` | Controls demo account, `/demo` page, and simulation buttons. |
-| `DEMO_RESET_SECRET` | If Demo | No | No | Secret required to authorize `/api/demo/reset`. |
-| `NEXT_PUBLIC_KITCHEN_SITE_URL` | If Demo | No | No | Kitchen URL for demo navigation (`https://kitchen.foo.com`). |
-| `NEXT_PUBLIC_MANAGER_SITE_URL` | If Demo | No | No | Manager URL for demo navigation (`https://manager.foo.com`). |
-| `FRAME_ANCESTORS` | No | If Demo | If Demo | Allowed iframe origins (`https://order.foo.com`). |
-| `RAZORPAY_KEY_ID` | Production | No | No | Razorpay API Key ID (`rzp_live_...` or `rzp_test_...`). |
-| `RAZORPAY_KEY_SECRET` | Production | No | No | Razorpay Key Secret. |
-| `RAZORPAY_WEBHOOK_SECRET` | Production | No | No | Razorpay Webhook Secret. |
+| `PAYMENTS_MODE` | `online` or `counter_only` | No | No | Payment mode on customer site (default: `online`). |
+| `RAZORPAY_KEY_ID` | If `online` | No | No | Razorpay API Key ID (`rzp_live_...` or `rzp_test_...`). |
+| `RAZORPAY_KEY_SECRET` | If `online` | No | No | Razorpay Key Secret. |
+| `RAZORPAY_WEBHOOK_SECRET` | If `online` | No | No | Razorpay Webhook Secret. |
 | `NEXT_PUBLIC_SITE_NAME` | Optional | Optional | Optional | Custom branding string (default: `"DinePulse"`). |
 
 ---
@@ -202,25 +198,12 @@ To accept guest payments in production:
 DinePulse includes automated workflows in `.github/workflows/`:
 1. `ci.yml`: Typechecks, lints, runs tests, and validates Next.js builds on every push/PR.
 2. `smoke.yml`: Runs the production smoke test suite against live deployed URLs via manual trigger (`workflow_dispatch`).
-3. `demo-reset.yml`: Runs a scheduled reset every 6 hours (if `DEMO_MODE=true`).
 
 ### Configure Repository Variables
 Go to **GitHub Repo -> Settings -> Secrets and variables -> Actions -> Variables** and add:
 - `CUSTOMER_URL`: `https://order.yourdomain.com`
 - `KITCHEN_URL`: `https://kitchen.yourdomain.com`
 - `MANAGER_URL`: `https://manager.yourdomain.com`
-
-### Configure Repository Secrets
-Go to **GitHub Repo -> Settings -> Secrets and variables -> Actions -> Secrets** and add:
-- `DEMO_RESET_URL`: `https://order.yourdomain.com/api/demo/reset`
-- `DEMO_RESET_SECRET`: The same secret string configured in your Vercel `DEMO_RESET_SECRET`.
-
-> [!NOTE]
-> **GitHub Actions 60-Day Cron Inactivity Notice**:
-> GitHub automatically disables scheduled workflows (`cron`) on repositories where no commit or repository activity has occurred in **60 days**. If this happens:
-> - GitHub sends an email notification to the repository owner.
-> - Go to the **Actions** tab in GitHub, select the disabled workflow (`Demo Reset`), and click **Enable workflow**.
-> - Pushing any commit will also keep scheduled workflows active.
 
 ---
 
@@ -257,21 +240,17 @@ When preparing DinePulse for live commercial restaurant operations:
 
 Follow this checklist for a clean production rollout:
 
-1. **Seed with `DEMO_MODE=false`**:
-   Run database seeding with demo mode disabled so that staff users are generated with strong, cryptographically random passwords:
+1. **Seed Production Dishes and Tables**:
+   Run database seeding so that menu categories and dishes are populated:
    ```bash
-   DEMO_MODE=false DATABASE_URL="<session-pooler-5432-url>" npm run db:seed
+   DATABASE_URL="<session-pooler-5432-url>" npm run db:seed
    ```
-   *Note: Randomly generated credentials will be printed to stdout once during seeding. Copy them securely.*
 
-2. **Purge Demo Accounts**:
-   Delete or deactivate any legacy accounts with `isDemo: true` in the database to prevent demo account bypasses.
+2. **Configure Payments Mode**:
+   Set `PAYMENTS_MODE=online` on the customer project with your live Razorpay credentials, or `PAYMENTS_MODE=counter_only` if accepting counter payments only.
 
-3. **Disable Demo Mode on All Deployments**:
-   Set `DEMO_MODE=false` across all three Vercel projects (`customer`, `kitchen`, and `manager`).
-
-4. **Lock Down Frame Ancestors**:
-   Remove `FRAME_ANCESTORS` (or leave it empty) on Kitchen and Manager projects so that staff consoles cannot be embedded in third-party iframes.
+3. **Lock Down Frame Ancestors**:
+   Leave `FRAME_ANCESTORS` unset on Kitchen and Manager projects so that staff consoles cannot be embedded in third-party iframes.
 
 5. **Provision the Restaurant Manager Account**:
    Create the primary restaurant manager account using the administrative script:

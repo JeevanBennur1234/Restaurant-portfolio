@@ -160,14 +160,12 @@ const rawEnvSchema = z.object({
     .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
   NEXT_PUBLIC_MANAGER_SITE_URL: z
     .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
-  DEMO_MODE: z
+  PAYMENTS_MODE: z
     .preprocess((val) => {
-      if (val === undefined || val === "" || val === null) return "false";
+      if (val === undefined || val === "" || val === null) return "online";
       return String(val);
-    }, z.enum(["true", "false"]))
-    .default("false"),
-  DEMO_RESET_SECRET: z.string().optional(),
-  CRON_SECRET: z.string().optional(),
+    }, z.enum(["online", "counter_only"]))
+    .default("online"),
   SESSION_SECRET: z.string().min(1, "SESSION_SECRET is required"),
   SEED_KITCHEN_PASSWORD: z.string().optional(),
   SEED_MANAGER_PASSWORD: z.string().optional(),
@@ -198,9 +196,8 @@ const rawEnvSchema = z.object({
     .default("false"),
 });
 
-const envSchema = rawEnvSchema.superRefine((data, ctx) => {
+export const envSchema = rawEnvSchema.superRefine((data, ctx) => {
   const isProduction = data.NODE_ENV === "production";
-  const isDemo = data.DEMO_MODE === "true";
 
   if (isProduction && data.ALLOW_TEST_PAYMENT_SIMULATION === "true") {
     ctx.addIssue({
@@ -301,21 +298,25 @@ const envSchema = rawEnvSchema.superRefine((data, ctx) => {
       });
     }
 
-    // 2. Razorpay credentials checks (required & no placeholder unless DEMO_MODE === "true")
-    if (!isDemo) {
+    // 2. Razorpay credentials checks: required only on customer or all site when PAYMENTS_MODE is online
+    const requiresRazorpay =
+      (data.SITE === "customer" || data.SITE === "all") &&
+      data.PAYMENTS_MODE === "online";
+
+    if (requiresRazorpay) {
       if (!data.RAZORPAY_KEY_ID || data.RAZORPAY_KEY_ID.trim() === "") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_KEY_ID"],
           message:
-            "In production without DEMO_MODE='true', RAZORPAY_KEY_ID is required.",
+            "In production with PAYMENTS_MODE='online', RAZORPAY_KEY_ID is required.",
         });
       } else if (containsPlaceholder(data.RAZORPAY_KEY_ID)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_KEY_ID"],
           message:
-            'In production without DEMO_MODE=\'true\', RAZORPAY_KEY_ID must not contain "placeholder".',
+            'In production with PAYMENTS_MODE=\'online\', RAZORPAY_KEY_ID must not contain "placeholder".',
         });
       }
 
@@ -324,14 +325,14 @@ const envSchema = rawEnvSchema.superRefine((data, ctx) => {
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_KEY_SECRET"],
           message:
-            "In production without DEMO_MODE='true', RAZORPAY_KEY_SECRET is required.",
+            "In production with PAYMENTS_MODE='online', RAZORPAY_KEY_SECRET is required.",
         });
       } else if (containsPlaceholder(data.RAZORPAY_KEY_SECRET)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_KEY_SECRET"],
           message:
-            'In production without DEMO_MODE=\'true\', RAZORPAY_KEY_SECRET must not contain "placeholder".',
+            'In production with PAYMENTS_MODE=\'online\', RAZORPAY_KEY_SECRET must not contain "placeholder".',
         });
       }
 
@@ -343,14 +344,14 @@ const envSchema = rawEnvSchema.superRefine((data, ctx) => {
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_WEBHOOK_SECRET"],
           message:
-            "In production without DEMO_MODE='true', RAZORPAY_WEBHOOK_SECRET is required.",
+            "In production with PAYMENTS_MODE='online', RAZORPAY_WEBHOOK_SECRET is required.",
         });
       } else if (containsPlaceholder(data.RAZORPAY_WEBHOOK_SECRET)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["RAZORPAY_WEBHOOK_SECRET"],
           message:
-            'In production without DEMO_MODE=\'true\', RAZORPAY_WEBHOOK_SECRET must not contain "placeholder".',
+            'In production with PAYMENTS_MODE=\'online\', RAZORPAY_WEBHOOK_SECRET must not contain "placeholder".',
         });
       }
     }
@@ -404,3 +405,7 @@ function parseEnv() {
 
 export const env = parseEnv();
 export type Env = z.infer<typeof envSchema>;
+export { rawEnvSchema };
+export function validateEnv(data: Record<string, unknown>) {
+  return envSchema.safeParse(data);
+}

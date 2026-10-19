@@ -7,8 +7,7 @@ dotenv.config({ path: ".env" });
 const safeE2EDefaults: Record<string, string> = {
   NEXT_PUBLIC_APP_URL: "http://localhost:3000",
   SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
-  DEMO_MODE: "true",
-  DEMO_RESET_SECRET: "e2e-demo-reset-secret-at-least-32-chars-long",
+  PAYMENTS_MODE: "online",
   NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",
   NEXT_PUBLIC_KITCHEN_SITE_URL: "http://localhost:3001",
   NEXT_PUBLIC_MANAGER_SITE_URL: "http://localhost:3002",
@@ -35,14 +34,13 @@ const dbUrl =
 
 const commonEnv = {
   NODE_ENV: "development",
-  DEMO_MODE: "true",
+  PAYMENTS_MODE: "online",
   DATABASE_URL: dbUrl,
   NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",
   NEXT_PUBLIC_KITCHEN_SITE_URL: "http://localhost:3001",
   NEXT_PUBLIC_MANAGER_SITE_URL: "http://localhost:3002",
   FRAME_ANCESTORS: "http://localhost:3000",
   SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
-  DEMO_RESET_SECRET: "e2e-demo-reset-secret-at-least-32-chars-long",
   NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
   SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",

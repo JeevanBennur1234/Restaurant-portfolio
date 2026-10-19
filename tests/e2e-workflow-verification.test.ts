@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock environment
 vi.mock("@/server/env", () => ({
   env: {
-    DEMO_MODE: "true",
+    PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     SESSION_SECRET: "mock-session-secret-at-least-32-chars-long",
@@ -38,6 +38,8 @@ vi.mock("@/server/auth", () => ({
 vi.mock("@/server/razorpay", () => ({
   verifyRazorpaySignature: vi.fn(() => true),
   isRazorpayConfigured: vi.fn(() => true),
+  isRazorpayTestMode: vi.fn(() => true),
+  isOnlinePaymentsEnabled: vi.fn(() => true),
   createRazorpayOrder: vi.fn(),
 }));
 

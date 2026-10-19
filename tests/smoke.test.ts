@@ -11,7 +11,6 @@ describe("smoke Script (scripts/smoke.ts)", () => {
     customerUrl: "http://localhost:3000",
     kitchenUrl: "http://localhost:3001",
     managerUrl: "http://localhost:3002",
-    demo: false,
   };
 
   function createMockFetch(overrides: Record<string, Partial<Response>> = {}): FetchFunction {
@@ -25,12 +24,7 @@ describe("smoke Script (scripts/smoke.ts)", () => {
       const isCustomer = urlStr.includes(":3000") || urlStr.includes("order.") || (!isKitchen && !isManager);
 
       const headers = new Headers();
-      headers.set(
-        "content-security-policy",
-        isKitchen || isManager
-          ? "default-src 'self'; frame-ancestors 'self' http://localhost:3000 https://order.dinepulse.intallo.in"
-          : "default-src 'self'"
-      );
+      headers.set("content-security-policy", "default-src 'self'");
       headers.set("x-content-type-options", "nosniff");
 
       if (urlStr.startsWith("https://")) {
@@ -65,15 +59,6 @@ describe("smoke Script (scripts/smoke.ts)", () => {
         });
       }
 
-      if (urlStr.endsWith("/api/v1/auth/login")) {
-        const authHeaders = new Headers(headers);
-        authHeaders.set("set-cookie", "dinepulse_kitchen_session=sample-cookie; Path=/; HttpOnly");
-        return new Response(JSON.stringify({ success: true, data: { user: { role: "kitchen" } } }), {
-          status: 200,
-          headers: authHeaders,
-        });
-      }
-
       // Default 404 blocked endpoints
       if (
         (isCustomer && (urlStr.endsWith("/kitchen") || urlStr.endsWith("/admin") || urlStr.endsWith("/api/v1/admin/orders"))) ||
@@ -97,24 +82,6 @@ describe("smoke Script (scripts/smoke.ts)", () => {
 
     expect(summary.passed).toBe(true);
     expect(summary.results.every((r) => r.status === "PASS")).toBe(true);
-  });
-
-  it("checks staff auth endpoints when demo is enabled", async () => {
-    const mockFetch = createMockFetch();
-    const summary = await runSmokeTests({ ...config, demo: true }, mockFetch);
-
-    expect(summary.passed).toBe(true);
-    const kitchenDemoCheck = summary.results.find(
-      (r) => r.site === "kitchen" && r.name.includes("/api/v1/auth/login")
-    );
-    expect(kitchenDemoCheck).toBeDefined();
-    expect(kitchenDemoCheck?.status).toBe("PASS");
-
-    const managerDemoCheck = summary.results.find(
-      (r) => r.site === "manager" && r.name.includes("/api/v1/auth/login")
-    );
-    expect(managerDemoCheck).toBeDefined();
-    expect(managerDemoCheck?.status).toBe("PASS");
   });
 
   it("fails if health check returns non-200 or database error", async () => {
@@ -227,48 +194,6 @@ describe("smoke Script (scripts/smoke.ts)", () => {
     expect(summary.passed).toBe(false);
     expect(summary.results[0].status).toBe("FAIL");
     expect(summary.results[0].message).toContain("ECONNREFUSED");
-  });
-
-  it("fails if frame-ancestors is missing on kitchen or manager during demo mode", async () => {
-    const missingFrameAncestorsHeaders = new Headers();
-    missingFrameAncestorsHeaders.set("content-security-policy", "default-src 'self'"); // no frame-ancestors
-    missingFrameAncestorsHeaders.set("x-content-type-options", "nosniff");
-
-    const mockFetch = createMockFetch({
-      "GET http://localhost:3001/": {
-        status: 200,
-        headers: missingFrameAncestorsHeaders,
-      },
-    });
-
-    const summary = await runSmokeTests({ ...config, demo: true }, mockFetch);
-    expect(summary.passed).toBe(false);
-    const kitchenSecCheck = summary.results.find(
-      (r) => r.site === "kitchen" && r.name.includes("Security Headers")
-    );
-    expect(kitchenSecCheck?.status).toBe("FAIL");
-    expect(kitchenSecCheck?.message).toContain("Expected CSP frame-ancestors to include customer origin");
-  });
-
-  it("fails if login returns 200 but lacks set-cookie header", async () => {
-    const noCookieHeaders = new Headers();
-    noCookieHeaders.set("content-security-policy", "default-src 'self'");
-    noCookieHeaders.set("x-content-type-options", "nosniff");
-
-    const mockFetch = createMockFetch({
-      "POST http://localhost:3001/api/v1/auth/login": {
-        status: 200,
-        headers: noCookieHeaders, // missing set-cookie
-      },
-    });
-
-    const summary = await runSmokeTests({ ...config, demo: true }, mockFetch);
-    expect(summary.passed).toBe(false);
-    const loginCheck = summary.results.find(
-      (r) => r.site === "kitchen" && r.name.includes("/api/v1/auth/login")
-    );
-    expect(loginCheck?.status).toBe("FAIL");
-    expect(loginCheck?.message).toContain("missing set-cookie");
   });
 
   it("formats readable summary table", () => {

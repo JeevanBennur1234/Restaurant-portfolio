@@ -7,7 +7,6 @@ export interface SmokeTestConfig {
   customerUrl: string;
   kitchenUrl: string;
   managerUrl: string;
-  demo?: boolean;
 }
 
 export interface SmokeCheckResult {
@@ -36,7 +35,6 @@ export async function runSmokeTests(
   const customer = normalizeUrl(config.customerUrl);
   const kitchen = normalizeUrl(config.kitchenUrl);
   const manager = normalizeUrl(config.managerUrl);
-  const isDemo = Boolean(config.demo);
 
   const results: SmokeCheckResult[] = [];
 
@@ -199,86 +197,9 @@ export async function runSmokeTests(
         return { ok: false, message: "Missing Strict-Transport-Security header on HTTPS origin" };
       }
 
-      // In demo mode, verify kitchen and manager include customer origin in frame-ancestors
-      if (isDemo && (s.site === "kitchen" || s.site === "manager")) {
-        const customerOrigin = new URL(customer).origin;
-        const cspLower = csp.toLowerCase();
-        const hasFrameAncestors = cspLower.includes("frame-ancestors");
-        const includesCustomer = csp.includes(customerOrigin);
-        if (!hasFrameAncestors || !includesCustomer) {
-          return {
-            ok: false,
-            message: `Expected CSP frame-ancestors to include customer origin "${customerOrigin}"`,
-          };
-        }
-      }
-
       const hstsMsg = isHttps ? ", HSTS active" : " (HTTP origin, HSTS skipped)";
       return { ok: true, message: `CSP present, X-Content-Type-Options: nosniff${hstsMsg}` };
     });
-  }
-
-  // 6. With --demo: POST /api/v1/auth/login on kitchen and manager -> 200 and set-cookie
-  if (isDemo) {
-    await checkEndpoint(
-      "kitchen",
-      "POST /api/v1/auth/login (kitchen)",
-      `${kitchen}/api/v1/auth/login`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: kitchen,
-        },
-        body: JSON.stringify({
-          username: "kitchen",
-          password: process.env.SEED_KITCHEN_PASSWORD || "kitchen123",
-        }),
-      },
-      (res, text) => {
-        const setCookie = res.headers.get("set-cookie");
-        if (res.status === 200 && setCookie) {
-          return { ok: true, message: "HTTP 200 OK, set-cookie header present" };
-        }
-        if (res.status === 200 && !setCookie) {
-          return { ok: false, message: "HTTP 200 OK but missing set-cookie header" };
-        }
-        return {
-          ok: false,
-          message: `Expected HTTP 200, got ${res.status}. Response: ${text.slice(0, 100)}`,
-        };
-      }
-    );
-
-    await checkEndpoint(
-      "manager",
-      "POST /api/v1/auth/login (manager)",
-      `${manager}/api/v1/auth/login`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: manager,
-        },
-        body: JSON.stringify({
-          username: "manager",
-          password: process.env.SEED_MANAGER_PASSWORD || "manager123",
-        }),
-      },
-      (res, text) => {
-        const setCookie = res.headers.get("set-cookie");
-        if (res.status === 200 && setCookie) {
-          return { ok: true, message: "HTTP 200 OK, set-cookie header present" };
-        }
-        if (res.status === 200 && !setCookie) {
-          return { ok: false, message: "HTTP 200 OK but missing set-cookie header" };
-        }
-        return {
-          ok: false,
-          message: `Expected HTTP 200, got ${res.status}. Response: ${text.slice(0, 100)}`,
-        };
-      }
-    );
   }
 
   const passed = results.every((r) => r.status === "PASS");
@@ -334,7 +255,6 @@ function parseCliArgs(argv: string[]): SmokeTestConfig {
     process.env.MANAGER_URL ||
     process.env.NEXT_PUBLIC_MANAGER_SITE_URL ||
     "http://localhost:3002";
-  let demo = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -350,12 +270,10 @@ function parseCliArgs(argv: string[]): SmokeTestConfig {
       managerUrl = argv[++i];
     } else if (arg.startsWith("--manager=")) {
       managerUrl = arg.slice("--manager=".length);
-    } else if (arg === "--demo" || arg === "--demo=true") {
-      demo = true;
     }
   }
 
-  return { customerUrl, kitchenUrl, managerUrl, demo };
+  return { customerUrl, kitchenUrl, managerUrl };
 }
 
 export async function runCli(): Promise<void> {
@@ -365,7 +283,6 @@ export async function runCli(): Promise<void> {
   console.log(`  Customer: ${config.customerUrl}`);
   console.log(`  Kitchen:  ${config.kitchenUrl}`);
   console.log(`  Manager:  ${config.managerUrl}`);
-  console.log(`  Demo:     ${config.demo ? "enabled (--demo)" : "disabled"}`);
 
   const summary = await runSmokeTests(config);
   console.log(formatSmokeResults(summary));

@@ -124,8 +124,7 @@ Ensure `.env.local` contains a valid local database connection and session secre
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dinepulse"
 SESSION_SECRET="your-secure-random-session-secret-at-least-32-chars-long"
-DEMO_MODE="true"
-DEMO_RESET_SECRET="your-local-demo-reset-secret-at-least-32-chars-long"
+PAYMENTS_MODE="online"
 ```
 
 ### 3. Initialize & Seed Database
@@ -160,14 +159,13 @@ DinePulse validates all environment variables on boot using Zod in [`src/server/
 | `SESSION_SECRET` | **Yes** | Min 32 chars | Secret key for signing staff HMAC session tokens and deriving private realtime channels. |
 | `NEXT_PUBLIC_APP_URL` | **Yes** | e.g. `http://localhost:3000` | Canonical public URL for the running site instance. |
 | `SITE` | Conditional | `customer` \| `kitchen` \| `manager` \| `all` | Controls site personality and proxy routing rules. |
-| `DEMO_MODE` | No | `false` | Enables one-click demo logins, simulated payments, and demo reset endpoints. |
-| `DEMO_RESET_SECRET` | If Demo | Min 32 chars | Bearer token authorizing `POST /api/demo/reset`. |
+| `PAYMENTS_MODE` | No | `online` | Payment gateway mode (`online` or `counter_only`). |
 | `NEXT_PUBLIC_CUSTOMER_SITE_URL` | If Multi-site | e.g. `http://localhost:3000` | Cross-site navigation link to customer portal. |
 | `NEXT_PUBLIC_KITCHEN_SITE_URL` | If Multi-site | e.g. `http://localhost:3001` | Cross-site navigation link to kitchen portal. |
 | `NEXT_PUBLIC_MANAGER_SITE_URL` | If Multi-site | e.g. `http://localhost:3002` | Cross-site navigation link to manager console. |
-| `FRAME_ANCESTORS` | If Demo | Origin URL | CSP `frame-ancestors` directive for split-screen showcase rendering. |
-| `RAZORPAY_KEY_ID` | Production | `rzp_live_*` | Razorpay Key ID (required in production unless `DEMO_MODE=true`). |
-| `RAZORPAY_KEY_SECRET` | Production | Secret | Razorpay Key Secret (required in production unless `DEMO_MODE=true`). |
+| `FRAME_ANCESTORS` | Optional | Origin URL | CSP `frame-ancestors` directive for iframe embedding. |
+| `RAZORPAY_KEY_ID` | Production | `rzp_live_*` | Razorpay Key ID (required on customer/all in production when PAYMENTS_MODE=online). |
+| `RAZORPAY_KEY_SECRET` | Production | Secret | Razorpay Key Secret (required on customer/all in production when PAYMENTS_MODE=online). |
 | `RAZORPAY_WEBHOOK_SECRET` | Production | Secret | Razorpay Webhook HMAC secret for webhook signature verification. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Optional | Supabase Host | Supabase project URL for Realtime broadcasts and storage. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | JWT Anon Key | Supabase anon key for browser client subscriptions. |
@@ -224,13 +222,13 @@ DinePulse deploys to Vercel as three independent projects from the same reposito
 
 ---
 
-## Demo Credentials Notice
+## Local Development & Testing Credentials Notice
 
-When running with `DEMO_MODE="true"`:
+When running locally with seeded data:
 - Seeded kitchen staff account: Username `kitchen` / Password `kitchen123`
 - Seeded manager account: Username `manager` / Password `manager123`
 
-> **Security Warning**: These credentials are strictly intended for local demonstration, sandbox evaluation, and automated end-to-end testing. Never use or recommend these passwords in a staging or production deployment. In production, create secure manager accounts via `npm run admin:create-manager` with strong, randomly generated passwords.
+> **Security Warning**: These credentials are strictly intended for local development and automated end-to-end testing. Never use or recommend these passwords in a staging or production deployment. In production, create secure manager accounts via `npm run admin:create-manager` with strong, randomly generated passwords.
 
 ---
 

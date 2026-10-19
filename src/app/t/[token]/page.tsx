@@ -50,7 +50,7 @@ export default async function GuestTablePage({ params }: GuestPageProps) {
     return <InvalidTokenView reason={reason} />;
   }
 
-  const { restaurant, table, categories, items } = result.data;
+  const { restaurant, table, categories, items, paymentsEnabled, paymentsTestMode } = result.data;
 
   return (
     <CartProvider menuItems={items} tableId={table.id}>
@@ -64,6 +64,8 @@ export default async function GuestTablePage({ params }: GuestPageProps) {
           items={items}
           table={table}
           restaurantName={restaurant.name}
+          paymentsEnabled={paymentsEnabled}
+          paymentsTestMode={paymentsTestMode}
         />
       </div>
     </CartProvider>

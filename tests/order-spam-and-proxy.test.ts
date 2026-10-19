@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "production",
-    DEMO_MODE: "false",
+    PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "https://dinepulse.example.com",
     SESSION_SECRET: "test-secret-at-least-32-characters-long-123456",
@@ -99,6 +99,8 @@ vi.mock("@/server/realtime", () => ({
 vi.mock("@/server/razorpay", () => ({
   createRazorpayOrder: vi.fn().mockResolvedValue({ id: "rzp_order_999", keyId: "rzp_live_testkey123" }),
   isRazorpayConfigured: vi.fn().mockReturnValue(true),
+  isRazorpayTestMode: vi.fn().mockReturnValue(false),
+  isOnlinePaymentsEnabled: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("@/server/auth", () => ({

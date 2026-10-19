@@ -2,21 +2,43 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import { env } from "@/server/env";
 
-const keyId = env.RAZORPAY_KEY_ID || "";
-const keySecret = env.RAZORPAY_KEY_SECRET || "";
-const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET || "";
+function getKeyId(): string {
+  return env.RAZORPAY_KEY_ID || "";
+}
 
-const isConfigured =
-  Boolean(keyId) &&
-  Boolean(keySecret) &&
-  !keyId.includes("placeholder") &&
-  !keySecret.includes("placeholder");
+function getKeySecret(): string {
+  return env.RAZORPAY_KEY_SECRET || "";
+}
 
-let razorpayClient: Razorpay | null = null;
-if (isConfigured) {
-  razorpayClient = new Razorpay({
-    key_id: keyId,
-    key_secret: keySecret,
+function getWebhookSecret(): string {
+  return env.RAZORPAY_WEBHOOK_SECRET || "";
+}
+
+export function isRazorpayConfigured(): boolean {
+  const kId = getKeyId();
+  const kSec = getKeySecret();
+  return (
+    Boolean(kId) &&
+    Boolean(kSec) &&
+    !kId.includes("placeholder") &&
+    !kSec.includes("placeholder")
+  );
+}
+
+export function isOnlinePaymentsEnabled(): boolean {
+  return env.PAYMENTS_MODE === "online" && isRazorpayConfigured();
+}
+
+export function isRazorpayTestMode(): boolean {
+  const kId = getKeyId();
+  return Boolean(kId && kId.startsWith("rzp_test_"));
+}
+
+function getRazorpayClient(): Razorpay | null {
+  if (!isRazorpayConfigured()) return null;
+  return new Razorpay({
+    key_id: getKeyId(),
+    key_secret: getKeySecret(),
   });
 }
 
@@ -26,14 +48,6 @@ export interface RazorpayOrderResult {
   currency: string;
   receipt?: string;
   keyId: string;
-}
-
-export function isRazorpayConfigured(): boolean {
-  return isConfigured;
-}
-
-export function isRazorpayTestMode(): boolean {
-  return isConfigured && keyId.startsWith("rzp_test_");
 }
 
 export interface RazorpayQrResult {
@@ -51,9 +65,10 @@ export async function createRazorpayQrCode(
   orderNumber: string,
   notes?: Record<string, string>
 ): Promise<RazorpayQrResult | null> {
-  if (!razorpayClient) return null;
+  const client = getRazorpayClient();
+  if (!client) return null;
   try {
-    const qr = await razorpayClient.qrCode.create({
+    const qr = await client.qrCode.create({
       type: "upi_qr",
       name: "Masala Lane",
       usage: "single_use",
@@ -84,9 +99,10 @@ export async function createRazorpayQrCode(
 export async function fetchRazorpayQrCode(
   qrCodeId: string
 ): Promise<{ id: string; status: string; paymentsAmountReceived: number } | null> {
-  if (!razorpayClient) return null;
+  const client = getRazorpayClient();
+  if (!client) return null;
   try {
-    const qr = await razorpayClient.qrCode.fetch(qrCodeId);
+    const qr = await client.qrCode.fetch(qrCodeId);
     return {
       id: qr.id,
       status: qr.status,
@@ -112,9 +128,10 @@ export interface RazorpayQrPaymentItem {
 export async function fetchRazorpayQrCodePayments(
   qrCodeId: string
 ): Promise<RazorpayQrPaymentItem[]> {
-  if (!razorpayClient) return [];
+  const client = getRazorpayClient();
+  if (!client) return [];
   try {
-    const res = await (razorpayClient.qrCode as unknown as {
+    const res = await (client.qrCode as unknown as {
       fetchAllPayments: (id: string) => Promise<{ items?: RazorpayQrPaymentItem[]; count?: number }>;
     }).fetchAllPayments(qrCodeId);
     return res.items ?? [];
@@ -124,16 +141,16 @@ export async function fetchRazorpayQrCodePayments(
   }
 }
 
-
 /**
  * Fetches order details directly from Razorpay
  */
 export async function fetchRazorpayOrder(
   orderId: string
 ): Promise<{ id: string; status: string; amountPaid: number } | null> {
-  if (!razorpayClient) return null;
+  const client = getRazorpayClient();
+  if (!client) return null;
   try {
-    const order = await razorpayClient.orders.fetch(orderId);
+    const order = await client.orders.fetch(orderId);
     return {
       id: order.id,
       status: order.status,
@@ -153,11 +170,12 @@ export async function createRazorpayOrder(
   receipt: string,
   notes?: Record<string, string>
 ): Promise<RazorpayOrderResult> {
-  if (!razorpayClient) {
+  const client = getRazorpayClient();
+  if (!client) {
     throw new Error("Razorpay client is not configured");
   }
 
-  const order = await razorpayClient.orders.create({
+  const order = await client.orders.create({
     amount: amountPaise,
     currency: "INR",
     receipt,
@@ -169,7 +187,7 @@ export async function createRazorpayOrder(
     amount: Number(order.amount),
     currency: order.currency,
     receipt: order.receipt ?? receipt,
-    keyId,
+    keyId: getKeyId(),
   };
 }
 
@@ -183,12 +201,13 @@ export function verifyRazorpaySignature(
   signature: string
 ): boolean {
   if (!signature || !razorpayOrderId || !razorpayPaymentId) return false;
-  if (!keySecret) return false;
+  const keySec = getKeySecret();
+  if (!keySec) return false;
 
   try {
     const body = `${razorpayOrderId}|${razorpayPaymentId}`;
     const expectedSignature = crypto
-      .createHmac("sha256", keySecret)
+      .createHmac("sha256", keySec)
       .update(body)
       .digest("hex");
 
@@ -211,11 +230,12 @@ export function verifyRazorpayWebhookSignature(
   signature: string
 ): boolean {
   if (!signature || !rawBody) return false;
-  if (!webhookSecret) return false;
+  const webhookSec = getWebhookSecret();
+  if (!webhookSec) return false;
 
   try {
     const expectedSignature = crypto
-      .createHmac("sha256", webhookSecret)
+      .createHmac("sha256", webhookSec)
       .update(rawBody)
       .digest("hex");
 

@@ -34,7 +34,8 @@ In accordance with Next.js App Router architecture:
 | `customerApi.createRazorpayOrder(data)` | `/api/v1/customer/orders/:id/payment/razorpay` | `POST` | `x-table-token` Header | Initializes Razorpay payment order |
 | `customerApi.verifyRazorpayPayment(data)` | `/api/v1/customer/orders/:id/payment/verify` | `POST` | `x-table-token` Header | Validates HMAC-SHA256 Razorpay signature |
 | `customerApi.payAtCounter(data)` | `/api/v1/customer/orders/:id/payment/counter` | `POST` | `x-table-token` Header | Switches pending order to pay-at-counter |
-| `customerApi.simulatePayment(data)` | `/api/v1/customer/orders/:id/payment/simulate` | `POST` | `x-table-token` Header (DEMO_MODE) | Confirms demo test payment |
+| `customerApi.createUpiQr(data)` | `/api/v1/customer/orders/:id/payment/upi-qr` | `POST` | `x-table-token` Header | Generates Razorpay dynamic UPI QR code |
+| `customerApi.getPaymentStatus(data)` | `/api/v1/customer/orders/:id/payment/status` | `GET` | `x-table-token` Header | Queries server-verified Razorpay payment status |
 | `authApi.login(username, password)` | `/api/v1/auth/login` | `POST` | Public (Rate-limited, Anti-timing) | Issues secure HTTP-only session cookie |
 | `authApi.logout()` | `/api/v1/auth/logout` | `POST` | Cookie, Origin Check | Invalidates and clears session cookie |
 | `authApi.me()` | `/api/v1/auth/me` | `GET` | Staff Cookie (`getStaffSession`) | Returns authenticated staff session profile |
@@ -62,9 +63,6 @@ In accordance with Next.js App Router architecture:
 | `adminApi.qrPdfUrl()` | `/api/v1/admin/tables/qr.pdf` | `GET` | Staff Cookie (`manager`, `admin`) | Generates printable QR PDF standees |
 | `adminApi.getReports()` | `/api/v1/admin/reports` | `GET` | Staff Cookie (`manager`, `admin`) | Analytics KPIs, top items, 7-day revenue |
 | `adminApi.uploadImage(file)` | `/api/v1/admin/uploads` | `POST` | Staff Cookie (`manager`, `admin`), Origin | Uploads image to Supabase Storage via `apiUpload` |
-| `authApi.demoLogin(role)` | `/api/v1/auth/demo-login` | `POST` | Demo mode gated (`DEMO_MODE=true`), site role gate | Authenticates demo staff user without credentials |
-| `customerApi.advanceOrder({ orderId, token })` | `/api/v1/customer/orders/:id/demo/advance` | `POST` | Demo mode gated, Table Token (`x-table-token`) | Advances order status in demo simulation |
-| — | `/demo-enter` | `GET` | Demo mode gated, Kitchen & Manager sites only | Sets session cookie and redirects to `/kitchen` or `/admin` |
 | — | `/api/v1/health` | `GET` | Public | Probes DB connection with `SELECT 1` |
 | — | `/api/v1/openapi.json` | `GET` | Public (Cached 5 min) | OpenAPI 3.0 specification |
 

@@ -35,7 +35,6 @@ const mockStaffSession = vi.hoisted(() => ({
 const mockEnv = vi.hoisted(() => ({
   value: {
     NODE_ENV: "test",
-    DEMO_MODE: "false",
     ALLOW_LOCAL_DEMO_UPLOADS: "false",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
@@ -83,7 +82,6 @@ describe("Admin Image Upload Security & Validation", () => {
     };
     mockEnv.value = {
       NODE_ENV: "test",
-      DEMO_MODE: "false",
       ALLOW_LOCAL_DEMO_UPLOADS: "false",
       DATABASE_URL: "postgres://mock",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",

@@ -2,7 +2,7 @@
 
 *Production recording script and narration guide for Intallo's DinePulse portfolio video.*
 
-> **Notice**: This document is a screen recording guide and shot list. All demonstrations are performed against the local development environment using local demo data (`DEMO_MODE=true`) and simulated payment behavior.
+> **Notice**: This document is a screen recording guide and shot list. All demonstrations are performed against the local development environment using local seeded data and testing credentials.
 
 ---
 

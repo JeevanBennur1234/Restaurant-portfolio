@@ -35,7 +35,7 @@ import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import {
   createRazorpayOrder as createRzpOrder,
   verifyRazorpaySignature,
-  isRazorpayConfigured,
+  isOnlinePaymentsEnabled,
   isRazorpayTestMode,
   createRazorpayQrCode,
   fetchRazorpayQrCode,
@@ -45,6 +45,8 @@ import {
 import { isIsolatedLocalTestDatabase } from "@/server/db/safe-test-db";
 import { env } from "@/server/env";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
+
+export { isOnlinePaymentsEnabled, isRazorpayTestMode };
 
 
 export interface GuestModifier {
@@ -95,6 +97,8 @@ export interface GuestMenuData {
   table: GuestTable;
   categories: GuestCategory[];
   items: GuestMenuItem[];
+  paymentsEnabled: boolean;
+  paymentsTestMode: boolean;
 }
 
 export interface PlaceOrderData {
@@ -282,6 +286,8 @@ export async function getMenuForTable(
         sortOrder: c.sortOrder,
       })),
       items: formattedItems,
+      paymentsEnabled: isOnlinePaymentsEnabled(),
+      paymentsTestMode: isRazorpayTestMode(),
     });
   } catch (error) {
     console.error("Database query failed in getMenuForTable:", error);
@@ -311,6 +317,14 @@ export async function placeOrder(
     customerName,
     customerPhone,
   } = validation.data;
+
+  if (paymentMethod === "pay_now" && !isOnlinePaymentsEnabled()) {
+    return fail(
+      "PAYMENT",
+      "Online payments are not available right now. Please pay at the counter.",
+      503
+    );
+  }
 
   // Max 30 total items per order
   const totalItemCount = inputItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -665,6 +679,14 @@ export async function createRazorpayOrder(
 
   const { orderId, token } = validation.data;
 
+  if (!isOnlinePaymentsEnabled()) {
+    return fail(
+      "PAYMENT",
+      "Online payments are not available right now. Please pay at the counter.",
+      503
+    );
+  }
+
   try {
     // Rate limit: per table token
     const rateLimit = await checkRateLimit({
@@ -695,10 +717,6 @@ export async function createRazorpayOrder(
 
     if (dbOrder.paymentStatus === "paid") {
       return fail("CONFLICT", "Order is already paid", 409);
-    }
-
-    if (!isRazorpayConfigured()) {
-      return fail("PAYMENT", "Payment gateway is not configured", 503);
     }
 
     const existingPayment = await ctx.db.query.payments.findFirst({
@@ -772,6 +790,14 @@ export async function verifyRazorpayPayment(
 
   const { orderId, token, razorpayOrderId, razorpayPaymentId, razorpaySignature } =
     validation.data;
+
+  if (!isOnlinePaymentsEnabled()) {
+    return fail(
+      "PAYMENT",
+      "Online payments are not available right now. Please pay at the counter.",
+      503
+    );
+  }
 
   // Cryptographically verify signature server-side
   const isValid = verifyRazorpaySignature(
@@ -964,6 +990,14 @@ export async function createUpiQrPayment(
 
   const { orderId, token } = validation.data;
 
+  if (!isOnlinePaymentsEnabled()) {
+    return fail(
+      "PAYMENT",
+      "Online payments are not available right now. Please pay at the counter.",
+      503
+    );
+  }
+
   try {
     const rateLimit = await checkRateLimit({
       key: `razorpay_upi_qr:${token}`,
@@ -993,10 +1027,6 @@ export async function createUpiQrPayment(
 
     if (dbOrder.paymentStatus === "paid") {
       return fail("CONFLICT", "Order is already paid", 409);
-    }
-
-    if (!isRazorpayConfigured()) {
-      return fail("PAYMENT", "Payment gateway is not configured", 503);
     }
 
     // Attempt to create dynamic UPI QR Code via Razorpay official API

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/server/db";
-import { getOrder } from "@/server/services/customer";
+import { getOrder, isOnlinePaymentsEnabled, isRazorpayTestMode } from "@/server/services/customer";
 import { GuestHeader } from "@/components/guest/guest-header";
 import { OrderLiveTracker } from "@/components/guest/order-live-tracker";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -83,6 +83,8 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
       <OrderLiveTracker
         initialOrder={order}
         token={token}
+        paymentsEnabled={isOnlinePaymentsEnabled()}
+        paymentsTestMode={isRazorpayTestMode()}
       />
     </div>
   );

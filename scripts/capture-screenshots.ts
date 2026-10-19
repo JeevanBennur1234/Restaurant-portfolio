@@ -16,7 +16,6 @@ const KITCHEN_URL = `http://localhost:${KITCHEN_PORT}`;
 const MANAGER_URL = `http://localhost:${MANAGER_PORT}`;
 
 const FIXED_SESSION_SECRET = "e2e-fixed-test-session-secret-at-least-32-chars-long";
-const FIXED_DEMO_RESET_SECRET = "e2e-demo-reset-secret-at-least-32-chars-long";
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "docs/screenshots");
 
@@ -188,12 +187,12 @@ export async function main() {
       stdio: "inherit",
     });
 
-    console.log("🌱 Seeding disposable local database (DEMO_MODE=true)...");
+    console.log("🌱 Seeding disposable local database...");
     execSync("npx tsx src/server/db/seed.ts", {
       env: {
         ...process.env,
         DATABASE_URL: cleanDbUrl,
-        DEMO_MODE: "true",
+        DEV_TABLE_TOKEN: "demo-table-7",
         SEED_KITCHEN_PASSWORD: "kitchen123",
         SEED_MANAGER_PASSWORD: "manager123",
         NODE_ENV: "development",
@@ -205,19 +204,19 @@ export async function main() {
     const commonEnv: NodeJS.ProcessEnv = {
       ...process.env,
       NODE_ENV: "development",
-      DEMO_MODE: "true",
       DATABASE_URL: cleanDbUrl,
       NEXT_PUBLIC_CUSTOMER_SITE_URL: CUSTOMER_URL,
       NEXT_PUBLIC_KITCHEN_SITE_URL: KITCHEN_URL,
       NEXT_PUBLIC_MANAGER_SITE_URL: MANAGER_URL,
       FRAME_ANCESTORS: CUSTOMER_URL,
       SESSION_SECRET: FIXED_SESSION_SECRET,
-      DEMO_RESET_SECRET: FIXED_DEMO_RESET_SECRET,
       NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
       SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",
       RAZORPAY_KEY_ID: "rzp_test_placeholder_key",
       RAZORPAY_KEY_SECRET: "placeholder_secret",
+      PAYMENTS_MODE: "online",
+      DEV_TABLE_TOKEN: "demo-table-7",
     };
 
     console.log("🚀 Spawning 3 Next.js development servers...");

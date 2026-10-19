@@ -30,6 +30,8 @@ import { UpiQrModal } from "./upi-qr-modal";
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
   token: string;
+  paymentsEnabled?: boolean;
+  paymentsTestMode?: boolean;
 }
 
 const statusHeadlines: Record<
@@ -68,7 +70,12 @@ const statusHeadlines: Record<
   },
 };
 
-export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps) {
+export function OrderLiveTracker({
+  initialOrder,
+  token,
+  paymentsEnabled = true,
+  paymentsTestMode = false,
+}: OrderLiveTrackerProps) {
   const [order, setOrder] = React.useState<OrderDetails>(initialOrder);
   const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
 
@@ -358,39 +365,63 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
             )}
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              {paymentsEnabled ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    isLoading={isPaying}
+                    onClick={() => setIsUpiQrOpen(true)}
+                    className="flex-1 justify-center shadow-xs"
+                    leftIcon={<QrCode className="h-4 w-4" />}
+                  >
+                    Scan UPI QR • {formatPaiseToINR(order.totalPaise)}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    isLoading={isPaying}
+                    onClick={handleRetryOnlinePayment}
+                    className="flex-1 justify-center bg-white"
+                    leftIcon={<CreditCard className="h-4 w-4" />}
+                  >
+                    Cards / Netbanking
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    isLoading={isPaying}
+                    onClick={handleSwitchToCounter}
+                    className="flex-1 justify-center bg-white"
+                    leftIcon={<Banknote className="h-4 w-4" />}
+                  >
+                    Pay at Counter
+                  </Button>
+                </>
+              ) : (
                 <Button
                   size="sm"
                   variant="primary"
                   isLoading={isPaying}
-                  onClick={() => setIsUpiQrOpen(true)}
-                  className="flex-1 justify-center shadow-xs"
-                  leftIcon={<QrCode className="h-4 w-4" />}
-                >
-                  Scan UPI QR • {formatPaiseToINR(order.totalPaise)}
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  isLoading={isPaying}
-                  onClick={handleRetryOnlinePayment}
-                  className="flex-1 justify-center bg-white"
-                  leftIcon={<CreditCard className="h-4 w-4" />}
-                >
-                  Cards / Netbanking
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  isLoading={isPaying}
                   onClick={handleSwitchToCounter}
-                  className="flex-1 justify-center bg-white"
+                  className="flex-1 justify-center shadow-xs"
                   leftIcon={<Banknote className="h-4 w-4" />}
                 >
                   Pay at Counter
                 </Button>
+              )}
             </div>
+
+            {paymentsEnabled && paymentsTestMode && (
+              <p
+                data-testid="payments-test-mode-notice"
+                className="text-[11px] text-[var(--text-muted)] italic text-center pt-1"
+              >
+                Test mode: no real money is charged.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
