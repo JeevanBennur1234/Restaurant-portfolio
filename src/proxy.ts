@@ -14,7 +14,8 @@ export function isAlwaysAllowed(pathname: string): boolean {
     pathname === "/sitemap.xml" ||
     pathname.startsWith("/media/") ||
     pathname.startsWith("/images/") ||
-    pathname === "/api/v1/health"
+    pathname === "/api/v1/health" ||
+    pathname === "/_not-found"
   ) {
     return true;
   }
@@ -36,7 +37,10 @@ export function routeDecisionForSite(
   if (site === "customer") {
     const isCustomerPath =
       pathname === "/" ||
+      pathname === "/order" ||
+      pathname === "/order/" ||
       pathname === "/t" ||
+      pathname === "/t/" ||
       pathname.startsWith("/t/") ||
       pathname === "/api/v1/customer" ||
       pathname.startsWith("/api/v1/customer/") ||

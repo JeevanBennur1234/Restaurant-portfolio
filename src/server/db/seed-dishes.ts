@@ -323,6 +323,16 @@ export const SEEDED_DISHES: SeedMenuItem[] = [
     isVeg: true,
     prepTimeMinutes: 5,
   },
+  {
+    categorySlug: "artisanal-breads-sides",
+    name: "Roasted Masala Papad (₹1 Test Item)",
+    slug: "roasted-masala-papad",
+    imageUrl: "/images/dishes/roasted-masala-papad.jpg",
+    description: "Crisp lentil wafer sprinkled with chaat masala, toasted cumin, and fresh coriander. Specially priced for live payment testing.",
+    pricePaise: 100, // ₹1
+    isVeg: true,
+    prepTimeMinutes: 3,
+  },
 
   // Category 6: Desserts & Beverages
   {

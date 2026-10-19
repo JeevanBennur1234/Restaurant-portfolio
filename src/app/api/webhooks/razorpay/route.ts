@@ -13,6 +13,7 @@ interface RazorpayWebhookPayload {
         id?: string;
         order_id?: string;
         amount?: number;
+        currency?: string;
         status?: string;
       };
     };
@@ -21,6 +22,16 @@ interface RazorpayWebhookPayload {
         id?: string;
         amount?: number;
         status?: string;
+      };
+    };
+    qr_code?: {
+      entity?: {
+        id?: string;
+        status?: string;
+        notes?: {
+          orderId?: string;
+          tableNumber?: string;
+        };
       };
     };
   };
@@ -52,8 +63,12 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(rawBody) as RazorpayWebhookPayload;
     const event = data.event;
 
-    // We process successful payment events: payment.captured or order.paid
-    if (event !== "payment.captured" && event !== "order.paid") {
+    // We process successful payment events: payment.captured, order.paid, or qr_code.credited
+    if (
+      event !== "payment.captured" &&
+      event !== "order.paid" &&
+      event !== "qr_code.credited"
+    ) {
       return NextResponse.json({
         received: true,
         ignored: true,
@@ -64,7 +79,8 @@ export async function POST(req: NextRequest) {
     const razorpayPaymentId = data.payload?.payment?.entity?.id;
     const razorpayOrderId =
       data.payload?.payment?.entity?.order_id ||
-      data.payload?.order?.entity?.id;
+      data.payload?.order?.entity?.id ||
+      data.payload?.qr_code?.entity?.id;
 
     if (!razorpayOrderId) {
       return NextResponse.json(
@@ -75,19 +91,75 @@ export async function POST(req: NextRequest) {
 
     // 3. Idempotent Database handling
     try {
-      const existingPayment = await db.query.payments.findFirst({
+      let existingPayment = await db.query.payments.findFirst({
         where: eq(payments.razorpayOrderId, razorpayOrderId),
         with: { order: { with: { table: true } } },
       });
 
+      if (!existingPayment && data.payload?.qr_code?.entity?.notes?.orderId) {
+        existingPayment = await db.query.payments.findFirst({
+          where: eq(payments.orderId, data.payload.qr_code.entity.notes.orderId),
+          with: { order: { with: { table: true } } },
+        });
+      }
+
+
       if (existingPayment) {
         // Idempotency check: if payment already completed, return 200 OK immediately
-        if (existingPayment.status === "completed") {
+        if (existingPayment.status === "completed" && existingPayment.order.paymentStatus === "paid") {
           return NextResponse.json({
             received: true,
             status: "already_processed",
             orderId: existingPayment.orderId,
           });
+        }
+
+        const paymentEntity = data.payload?.payment?.entity;
+
+        // Verify payment status is captured
+        if (paymentEntity?.status && paymentEntity.status !== "captured") {
+          console.warn(
+            `[Webhook] Ignored payment event with non-captured status: ${paymentEntity.status}`
+          );
+          return NextResponse.json({
+            received: true,
+            ignored: true,
+            reason: `Payment status is ${paymentEntity.status}, not captured`,
+          });
+        }
+
+        // Verify currency is INR
+        if (paymentEntity?.currency && paymentEntity.currency !== "INR") {
+          console.error(
+            `[Security Alert] Webhook currency mismatch for order ${existingPayment.orderId}: expected INR, got ${paymentEntity.currency}`
+          );
+          return NextResponse.json(
+            { error: "Payment currency mismatch" },
+            { status: 400 }
+          );
+        }
+
+        // For real QR payments: validate incoming QR ID exactly matches persisted payment record
+        if (event === "qr_code.credited") {
+          const qrId = data.payload?.qr_code?.entity?.id;
+          if (!qrId) {
+            return NextResponse.json(
+              { error: "Missing QR code identifier in webhook payload" },
+              { status: 400 }
+            );
+          }
+          if (
+            !existingPayment.razorpayOrderId ||
+            existingPayment.razorpayOrderId !== qrId
+          ) {
+            console.error(
+              `[Security Alert] Webhook QR ID mismatch for order ${existingPayment.orderId}: expected persisted '${existingPayment.razorpayOrderId}', got incoming '${qrId}'`
+            );
+            return NextResponse.json(
+              { error: "QR code ID does not match persisted payment record" },
+              { status: 400 }
+            );
+          }
         }
 
         const payloadAmount =

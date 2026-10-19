@@ -19,10 +19,16 @@ import {
   verifyPaymentSchema,
   switchPaymentMethodSchema,
   orderStatusParamSchema,
+  createUpiQrSchema,
+  paymentStatusSchema,
+  verifyTestUpiPaymentSchema,
   type PlaceOrderInput,
   type CreateRazorpayOrderInput,
   type VerifyPaymentInput,
   type SwitchPaymentMethodInput,
+  type CreateUpiQrInput,
+  type PaymentStatusInput,
+  type VerifyTestUpiPaymentInput,
 } from "@/lib/validations/order";
 import { tokenParamSchema } from "@/lib/validations/guest";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
@@ -30,9 +36,16 @@ import {
   createRazorpayOrder as createRzpOrder,
   verifyRazorpaySignature,
   isRazorpayConfigured,
+  isRazorpayTestMode,
+  createRazorpayQrCode,
+  fetchRazorpayQrCode,
+  fetchRazorpayQrCodePayments,
+  fetchRazorpayOrder,
 } from "@/server/razorpay";
+import { isIsolatedLocalTestDatabase } from "@/server/db/safe-test-db";
 import { env } from "@/server/env";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
+
 
 export interface GuestModifier {
   id: string;
@@ -138,6 +151,29 @@ export interface CreateRazorpayOrderData {
 export interface VerifyPaymentData {
   paymentStatus: "paid" | "failed";
 }
+
+export interface CreateUpiQrData {
+  qrAvailable: boolean;
+  qrImageUrl: string | null;
+  qrCodeId: string | null;
+  qrString: string | null;
+  amountPaise: number;
+  orderNumber: string;
+  tableNumber: string;
+  expiresAt: string;
+  isLiveRazorpayQr: boolean;
+  isTestMode: boolean;
+  testSimulationAvailable: boolean;
+  message?: string;
+}
+
+export interface PaymentStatusData {
+  orderId: string;
+  status: "pending" | "paid" | "counter" | "failed" | "expired";
+  amountPaise: number;
+  paymentMethod: string | null;
+}
+
 
 /**
  * Resolves QR token to table and menu data
@@ -913,3 +949,505 @@ export async function switchOrderToCounter(
     return fail("INTERNAL", "Service temporarily unavailable", 500);
   }
 }
+
+/**
+ * Creates dynamic UPI QR Code payment for an order
+ */
+export async function createUpiQrPayment(
+  ctx: Ctx,
+  rawInput: CreateUpiQrInput
+): Promise<ServiceResult<CreateUpiQrData>> {
+  const validation = createUpiQrSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return fail("VALIDATION", "Invalid order parameters", 400);
+  }
+
+  const { orderId, token } = validation.data;
+
+  try {
+    const rateLimit = await checkRateLimit({
+      key: `razorpay_upi_qr:${token}`,
+      limit: 15,
+      windowMs: 60 * 1000,
+    });
+    if (!rateLimit.allowed) {
+      return fail(
+        "RATE_LIMITED",
+        `Too many requests. Please wait ${rateLimit.retryAfterSeconds} seconds.`,
+        429
+      );
+    }
+
+    const dbOrder = await ctx.db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: { table: true, restaurant: true },
+    });
+
+    if (!dbOrder) {
+      return fail("NOT_FOUND", "Order not found", 404);
+    }
+
+    if (dbOrder.table.qrToken !== token) {
+      return fail("FORBIDDEN", "Unauthorized access to order", 403);
+    }
+
+    if (dbOrder.paymentStatus === "paid") {
+      return fail("CONFLICT", "Order is already paid", 409);
+    }
+
+    if (!isRazorpayConfigured()) {
+      return fail("PAYMENT", "Payment gateway is not configured", 503);
+    }
+
+    // Attempt to create dynamic UPI QR Code via Razorpay official API
+    const rzpQr = await createRazorpayQrCode(
+      dbOrder.totalPaise,
+      dbOrder.orderNumber,
+      {
+        orderId: dbOrder.id,
+        tableNumber: dbOrder.table.tableNumber,
+      }
+    );
+
+    if (rzpQr) {
+      // Find or insert pending payment record
+      const existingPayment = await ctx.db.query.payments.findFirst({
+        where: and(
+          eq(payments.orderId, dbOrder.id),
+          eq(payments.status, "pending")
+        ),
+      });
+
+      if (existingPayment) {
+        await ctx.db
+          .update(payments)
+          .set({
+            razorpayOrderId: rzpQr.id,
+            amountPaise: dbOrder.totalPaise,
+            updatedAt: new Date(),
+          })
+          .where(eq(payments.id, existingPayment.id));
+      } else {
+        await ctx.db.insert(payments).values({
+          orderId: dbOrder.id,
+          restaurantId: dbOrder.restaurantId,
+          amountPaise: dbOrder.totalPaise,
+          status: "pending",
+          provider: "razorpay",
+          razorpayOrderId: rzpQr.id,
+        });
+      }
+
+      const expiresAt = rzpQr.closeBy
+        ? new Date(rzpQr.closeBy * 1000).toISOString()
+        : new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      return ok<CreateUpiQrData>({
+        qrAvailable: true,
+        qrImageUrl: rzpQr.imageUrl,
+        qrCodeId: rzpQr.id,
+        qrString: null,
+        amountPaise: dbOrder.totalPaise,
+        orderNumber: dbOrder.orderNumber,
+        tableNumber: dbOrder.table.tableNumber,
+        expiresAt,
+        isLiveRazorpayQr: true,
+        isTestMode: isRazorpayTestMode(),
+        testSimulationAvailable: false,
+      });
+    }
+
+    // Dynamic QR creation unavailable via Razorpay API (e.g. Test Mode or dynamic QR feature unactivated)
+    // NEVER generate a fake QR with razorpay.test@icici or placeholder VPA!
+    const testMode = isRazorpayTestMode();
+    const isDevDb = isIsolatedLocalTestDatabase(
+      process.env.DATABASE_URL || env.DATABASE_URL
+    ).safe;
+    const testSimulationAllowed =
+      testMode &&
+      process.env.NODE_ENV !== "production" &&
+      env.NODE_ENV !== "production" &&
+      (process.env.ALLOW_TEST_PAYMENT_SIMULATION === "true" ||
+        env.ALLOW_TEST_PAYMENT_SIMULATION === "true") &&
+      isDevDb;
+
+    return ok<CreateUpiQrData>({
+      qrAvailable: false,
+      qrImageUrl: null,
+      qrCodeId: null,
+      qrString: null,
+      amountPaise: dbOrder.totalPaise,
+      orderNumber: dbOrder.orderNumber,
+      tableNumber: dbOrder.table.tableNumber,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      isLiveRazorpayQr: false,
+      isTestMode: testMode,
+      testSimulationAvailable: testSimulationAllowed,
+      message: testMode
+        ? "Dynamic UPI QR codes are not available in Razorpay Test Mode. In Test Mode, mobile UPI apps cannot scan test QRs. Please use Razorpay Test Checkout with simulated success@razorpay VPA, or Pay at Counter."
+        : "Live UPI QR payments are not currently active on this account. Please use Cards/Netbanking Checkout or Pay at Counter.",
+    });
+  } catch (err) {
+    console.error("Database error in createUpiQrPayment service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+/**
+ * Checks payment status server-side, querying Razorpay directly if necessary
+ */
+export async function getPaymentStatus(
+  ctx: Ctx,
+  rawInput: PaymentStatusInput
+): Promise<ServiceResult<PaymentStatusData>> {
+  const validation = paymentStatusSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return fail("VALIDATION", "Invalid order parameters", 400);
+  }
+
+  const { orderId, token } = validation.data;
+
+  try {
+    const dbOrder = await ctx.db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: { table: true },
+    });
+
+    if (!dbOrder) {
+      return fail("NOT_FOUND", "Order not found", 404);
+    }
+
+    if (dbOrder.table.qrToken !== token) {
+      return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    if (dbOrder.paymentStatus === "paid") {
+      return ok<PaymentStatusData>({
+        orderId: dbOrder.id,
+        status: "paid",
+        amountPaise: dbOrder.totalPaise,
+        paymentMethod: dbOrder.paymentMethod,
+      });
+    }
+
+    // Check payment records for this order
+    const pendingPayment = await ctx.db.query.payments.findFirst({
+      where: and(
+        eq(payments.orderId, dbOrder.id),
+        eq(payments.status, "pending")
+      ),
+    });
+
+    // If there is an active Razorpay QR or Order, query Razorpay server status
+    if (pendingPayment?.razorpayOrderId) {
+      const rzpId = pendingPayment.razorpayOrderId;
+
+      if (rzpId.startsWith("qr_") && !rzpId.startsWith("qr_sim_")) {
+        const qrStatus = await fetchRazorpayQrCode(rzpId);
+        const qrPayments = await fetchRazorpayQrCodePayments(rzpId);
+
+        // Explicitly confirm that Razorpay's QR resource ID strictly matches persisted razorpayOrderId
+        const qrIdMatches = qrStatus !== null && qrStatus.id === pendingPayment.razorpayOrderId;
+
+        // Find verified captured payment for this exact QR matching amount and INR currency
+        const verifiedQrPayment = qrPayments.find(
+          (p) =>
+            p.status === "captured" &&
+            p.currency === "INR" &&
+            p.amount === dbOrder.totalPaise
+        );
+
+        const isQrPaid =
+          qrIdMatches &&
+          (verifiedQrPayment !== undefined ||
+            (qrStatus.status === "closed" &&
+              qrStatus.paymentsAmountReceived >= dbOrder.totalPaise));
+
+        if (isQrPaid && pendingPayment.amountPaise === dbOrder.totalPaise) {
+          const paymentIdToRecord =
+            verifiedQrPayment?.id ??
+            `pay_qr_${rzpId.replace(/^qr_/, "")}`;
+
+          await ctx.db.transaction(async (tx) => {
+            await tx
+              .update(orders)
+              .set({
+                paymentStatus: "paid",
+                paymentMethod: "pay_now",
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, dbOrder.id));
+
+            await tx
+              .update(payments)
+              .set({
+                status: "completed",
+                razorpayPaymentId: paymentIdToRecord,
+                updatedAt: new Date(),
+              })
+              .where(eq(payments.id, pendingPayment.id));
+
+            await tx.insert(orderEvents).values({
+              orderId: dbOrder.id,
+              fromStatus: dbOrder.status,
+              toStatus: dbOrder.status,
+              note: `Payment verified via Razorpay QR Code (${rzpId})`,
+            });
+          });
+
+          await publishRealtimeEvent(
+            getRestaurantChannel(dbOrder.restaurantId),
+            "order.created",
+            {
+              orderId: dbOrder.id,
+              status: dbOrder.status,
+              paymentStatus: "paid",
+            }
+          );
+
+          await publishRealtimeEvent(`order:${dbOrder.id}`, "order.paid", {
+            orderId: dbOrder.id,
+            status: dbOrder.status,
+            paymentStatus: "paid",
+          });
+
+          return ok<PaymentStatusData>({
+            orderId: dbOrder.id,
+            status: "paid",
+            amountPaise: dbOrder.totalPaise,
+            paymentMethod: "pay_now",
+          });
+        }
+      } else if (rzpId.startsWith("order_")) {
+        const orderStatus = await fetchRazorpayOrder(rzpId);
+        if (
+          orderStatus &&
+          (orderStatus.status === "paid" ||
+            orderStatus.amountPaid >= dbOrder.totalPaise) &&
+          pendingPayment.amountPaise === dbOrder.totalPaise
+        ) {
+          await ctx.db.transaction(async (tx) => {
+            await tx
+              .update(orders)
+              .set({
+                paymentStatus: "paid",
+                paymentMethod: "pay_now",
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, dbOrder.id));
+
+            await tx
+              .update(payments)
+              .set({
+                status: "completed",
+                updatedAt: new Date(),
+              })
+              .where(eq(payments.id, pendingPayment.id));
+
+            await tx.insert(orderEvents).values({
+              orderId: dbOrder.id,
+              fromStatus: dbOrder.status,
+              toStatus: dbOrder.status,
+              note: `Payment verified via Razorpay Order status check (${rzpId})`,
+            });
+          });
+
+          await publishRealtimeEvent(
+            getRestaurantChannel(dbOrder.restaurantId),
+            "order.created",
+            {
+              orderId: dbOrder.id,
+              status: dbOrder.status,
+              paymentStatus: "paid",
+            }
+          );
+
+          await publishRealtimeEvent(`order:${dbOrder.id}`, "order.paid", {
+            orderId: dbOrder.id,
+            status: dbOrder.status,
+            paymentStatus: "paid",
+          });
+
+          return ok<PaymentStatusData>({
+            orderId: dbOrder.id,
+            status: "paid",
+            amountPaise: dbOrder.totalPaise,
+            paymentMethod: "pay_now",
+          });
+        }
+      }
+    }
+
+    // Check expiration: unpaid after 15 minutes
+    const orderAgeMs = Date.now() - new Date(dbOrder.createdAt).getTime();
+    if (orderAgeMs > 15 * 60 * 1000 && dbOrder.paymentStatus === "pending") {
+      return ok<PaymentStatusData>({
+        orderId: dbOrder.id,
+        status: "expired",
+        amountPaise: dbOrder.totalPaise,
+        paymentMethod: dbOrder.paymentMethod,
+      });
+    }
+
+    return ok<PaymentStatusData>({
+      orderId: dbOrder.id,
+      status: (dbOrder.paymentStatus as PaymentStatusData["status"]) || "pending",
+      amountPaise: dbOrder.totalPaise,
+      paymentMethod: dbOrder.paymentMethod,
+    });
+  } catch (err) {
+    console.error("Database error in getPaymentStatus service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+/**
+ * Simulates a successful test UPI payment (ONLY permitted in Razorpay Test Mode with explicit opt-in and local test DB)
+ */
+export async function verifyTestUpiPayment(
+  ctx: Ctx,
+  rawInput: VerifyTestUpiPaymentInput
+): Promise<ServiceResult<{ success: true; paymentStatus: "paid" }>> {
+  // Gate 1: Reject production requests even if RAZORPAY_KEY_ID begins with rzp_test_
+  if (
+    process.env.NODE_ENV === "production" ||
+    env.NODE_ENV === "production"
+  ) {
+    return fail(
+      "FORBIDDEN",
+      "Test payment simulation is strictly prohibited in production.",
+      403
+    );
+  }
+
+  // Gate 2: Require explicit test-simulation opt-in
+  if (
+    process.env.ALLOW_TEST_PAYMENT_SIMULATION !== "true" &&
+    env.ALLOW_TEST_PAYMENT_SIMULATION !== "true"
+  ) {
+    return fail(
+      "FORBIDDEN",
+      "Test payment simulation is disabled. ALLOW_TEST_PAYMENT_SIMULATION must be set to 'true'.",
+      403
+    );
+  }
+
+  // Gate 3: Require Razorpay Test Mode
+  if (!isRazorpayTestMode()) {
+    return fail(
+      "FORBIDDEN",
+      "Test payment simulation is only permitted in Razorpay Test Mode.",
+      403
+    );
+  }
+
+  // Gate 4: Restrict to isolated local test database (strictly reject Supabase or remote DBs)
+  const dbCheck = isIsolatedLocalTestDatabase(
+    process.env.DATABASE_URL || env.DATABASE_URL
+  );
+  if (!dbCheck.safe) {
+    return fail(
+      "FORBIDDEN",
+      dbCheck.reason ||
+        "Test payment simulation is only permitted with an isolated local test database.",
+      403
+    );
+  }
+
+  const validation = verifyTestUpiPaymentSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return fail("VALIDATION", "Invalid parameters", 400);
+  }
+
+  const { orderId, token } = validation.data;
+
+  try {
+    const dbOrder = await ctx.db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: { table: true },
+    });
+
+    if (!dbOrder) {
+      return fail("NOT_FOUND", "Order not found", 404);
+    }
+
+    if (dbOrder.table.qrToken !== token) {
+      return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    // Idempotent: if already paid, return ok immediately
+    if (dbOrder.paymentStatus === "paid") {
+      return ok({ success: true, paymentStatus: "paid" });
+    }
+
+    const testPaymentId = `pay_test_upi_${Math.random().toString(36).substring(2, 10)}`;
+
+    await ctx.db.transaction(async (tx) => {
+      await tx
+        .update(orders)
+        .set({
+          paymentStatus: "paid",
+          paymentMethod: "pay_now",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+
+      const existingPayment = await tx.query.payments.findFirst({
+        where: and(
+          eq(payments.orderId, orderId),
+          eq(payments.status, "pending")
+        ),
+      });
+
+      if (existingPayment) {
+        await tx
+          .update(payments)
+          .set({
+            status: "completed",
+            razorpayPaymentId: testPaymentId,
+            updatedAt: new Date(),
+          })
+          .where(eq(payments.id, existingPayment.id));
+      } else {
+        await tx.insert(payments).values({
+          orderId,
+          restaurantId: dbOrder.restaurantId,
+          amountPaise: dbOrder.totalPaise,
+          status: "completed",
+          provider: "razorpay",
+          razorpayPaymentId: testPaymentId,
+        });
+      }
+
+      await tx.insert(orderEvents).values({
+        orderId,
+        fromStatus: dbOrder.status,
+        toStatus: dbOrder.status,
+        note: `Payment verified via Razorpay Test Simulation (${testPaymentId})`,
+      });
+    });
+
+    // Notify kitchen and guest tracker
+    await publishRealtimeEvent(
+      getRestaurantChannel(dbOrder.restaurantId),
+      "order.created",
+      {
+        orderId: dbOrder.id,
+        status: dbOrder.status,
+        paymentStatus: "paid",
+      }
+    );
+
+    await publishRealtimeEvent(`order:${dbOrder.id}`, "order.paid", {
+      orderId: dbOrder.id,
+      status: dbOrder.status,
+      paymentStatus: "paid",
+    });
+
+    return ok({ success: true, paymentStatus: "paid" });
+  } catch (err) {
+    console.error("Database error in verifyTestUpiPayment service:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+

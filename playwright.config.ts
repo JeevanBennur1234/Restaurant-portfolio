@@ -18,6 +18,8 @@ const safeE2EDefaults: Record<string, string> = {
   SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",
   RAZORPAY_KEY_ID: "rzp_test_placeholder_key",
   RAZORPAY_KEY_SECRET: "placeholder_secret",
+  DEV_TABLE_TOKEN: "demo-table-7",
+  ALLOW_TEST_PAYMENT_SIMULATION: "true",
 };
 
 for (const [key, value] of Object.entries(safeE2EDefaults)) {
@@ -46,6 +48,9 @@ const commonEnv = {
   SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",
   RAZORPAY_KEY_ID: "rzp_test_placeholder_key",
   RAZORPAY_KEY_SECRET: "placeholder_secret",
+  DEV_TABLE_TOKEN: "demo-table-7",
+  ENABLE_DEV_TABLE_LAUNCHER: "true",
+  ALLOW_TEST_PAYMENT_SIMULATION: "true",
 };
 
 export default defineConfig({

@@ -23,7 +23,9 @@ import {
   AlertTriangle,
   CreditCard,
   Banknote,
+  QrCode,
 } from "lucide-react";
+import { UpiQrModal } from "./upi-qr-modal";
 
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
@@ -73,6 +75,7 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
   // Payment retry states
   const [isPaying, setIsPaying] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
+  const [isUpiQrOpen, setIsUpiQrOpen] = React.useState(false);
 
   const refreshOrder = React.useCallback(async () => {
     try {
@@ -195,6 +198,36 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
         name: "Masala Lane",
         description: `Order #${order.orderNumber} • ${order.tableNumber}`,
         order_id: rzpRes.data.razorpayOrderId,
+        prefill: {
+          contact: "9876543210",
+        },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay using UPI",
+                instruments: [
+                  {
+                    method: "upi",
+                    flows: ["qr", "intent"],
+                  },
+                ],
+              },
+              other: {
+                name: "Cards, Netbanking & Wallets",
+                instruments: [
+                  { method: "card" },
+                  { method: "netbanking" },
+                  { method: "wallet" },
+                ],
+              },
+            },
+            sequence: ["block.upi", "block.other"],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         handler: async (response: RazorpaySuccessResponse) => {
           setIsPaying(true);
           const verifyRes = await customerApi.verifyRazorpayPayment({
@@ -329,11 +362,22 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
                   size="sm"
                   variant="primary"
                   isLoading={isPaying}
-                  onClick={handleRetryOnlinePayment}
+                  onClick={() => setIsUpiQrOpen(true)}
                   className="flex-1 justify-center shadow-xs"
+                  leftIcon={<QrCode className="h-4 w-4" />}
+                >
+                  Scan UPI QR • {formatPaiseToINR(order.totalPaise)}
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  isLoading={isPaying}
+                  onClick={handleRetryOnlinePayment}
+                  className="flex-1 justify-center bg-white"
                   leftIcon={<CreditCard className="h-4 w-4" />}
                 >
-                  Pay Now • {formatPaiseToINR(order.totalPaise)}
+                  Cards / Netbanking
                 </Button>
 
                 <Button
@@ -344,7 +388,7 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
                   className="flex-1 justify-center bg-white"
                   leftIcon={<Banknote className="h-4 w-4" />}
                 >
-                  Pay at Counter Instead
+                  Pay at Counter
                 </Button>
             </div>
           </CardContent>
@@ -469,6 +513,30 @@ export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps)
           </Button>
         </Link>
       </div>
+
+      {order.paymentStatus === "pending" && (
+        <UpiQrModal
+          isOpen={isUpiQrOpen}
+          orderId={order.id}
+          orderNumber={order.orderNumber}
+          tableNumber={order.tableNumber}
+          totalPaise={order.totalPaise}
+          token={token}
+          onClose={() => setIsUpiQrOpen(false)}
+          onSuccess={() => {
+            setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
+            setIsUpiQrOpen(false);
+          }}
+          onSwitchToStandardCheckout={() => {
+            setIsUpiQrOpen(false);
+            handleRetryOnlinePayment();
+          }}
+          onSwitchToCounter={() => {
+            setIsUpiQrOpen(false);
+            handleSwitchToCounter();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -105,7 +105,7 @@ Every project requires environment variables configured under **Project Settings
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Yes | Supabase API URL (`https://<project-ref>.supabase.co`). |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Yes | Yes | Supabase public anonymous API key. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Yes | Yes | Supabase private service role key for storage and broadcasts. |
-| `DEMO_MODE` | `"true"` or `"false"` | `"true"` or `"false"` | `"true"` or `"false"` | Controls demo accounts, `/demo` page, and simulation buttons. |
+| `DEMO_MODE` | `"true"` or `"false"` | `"true"` or `"false"` | `"true"` or `"false"` | Controls demo account, `/demo` page, and simulation buttons. |
 | `DEMO_RESET_SECRET` | If Demo | No | No | Secret required to authorize `/api/demo/reset`. |
 | `NEXT_PUBLIC_KITCHEN_SITE_URL` | If Demo | No | No | Kitchen URL for demo navigation (`https://kitchen.foo.com`). |
 | `NEXT_PUBLIC_MANAGER_SITE_URL` | If Demo | No | No | Manager URL for demo navigation (`https://manager.foo.com`). |

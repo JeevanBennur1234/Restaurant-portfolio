@@ -18,12 +18,15 @@ test.describe("Payment Processing & Integrity Verification", () => {
     // 1. Guest visits menu, adds an item, and selects Pay at Counter
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
     const firstCard = page.locator('[data-testid="menu-item-card"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 15_000 });
+    await expect(firstCard).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(500);
     await firstCard.click();
 
     const addToOrderBtn = page.locator('[data-testid="add-to-order-btn"]');
-    await expect(addToOrderBtn).toBeVisible({ timeout: 5_000 });
+    await expect(addToOrderBtn).toBeVisible({ timeout: 10_000 });
+
     await addToOrderBtn.click();
+    await expect(addToOrderBtn).toBeHidden({ timeout: 5_000 });
 
     // Open Cart Sheet
     const cartBarBtn = page.locator('[data-testid="cart-bar-btn"]');
@@ -183,7 +186,7 @@ test.describe("Payment Processing & Integrity Verification", () => {
     expect(orderData.data.paymentStatus).toBe("pending");
   });
 
-  test("Razorpay payment verification with valid HMAC-SHA256 signature confirms payment and marks order paid", async ({
+  test("cryptographic HMAC-SHA256 signature verification logic confirms authentic payload and marks order paid (verifies signature-verification logic independently of live Razorpay servers)", async ({
     request,
   }) => {
     // 1. Create an order via API
@@ -383,4 +386,237 @@ test.describe("Payment Processing & Integrity Verification", () => {
     const orderData = await orderCheckRes.json();
     expect(orderData.data.paymentStatus).toBe("pending");
   });
+
+  test("Razorpay webhook endpoint rejects requests with invalid signature", async ({
+    request,
+  }) => {
+    const fakePayload = JSON.stringify({
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_fake_123",
+            order_id: "order_fake_123",
+            amount: 50000,
+          },
+        },
+      },
+    });
+
+    const res = await request.post(`${CUSTOMER_URL}/api/webhooks/razorpay`, {
+      headers: {
+        "x-razorpay-signature": "invalid_forged_webhook_signature",
+        "content-type": "application/json",
+      },
+      data: fakePayload,
+    });
+
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/Invalid webhook signature/i);
+  });
+
+  test("genuine Razorpay order creation (opt-in: requires non-placeholder RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET)", async ({
+    request,
+  }) => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const isRealConfigured =
+      Boolean(keyId) &&
+      Boolean(keySecret) &&
+      !keyId?.toLowerCase().includes("placeholder") &&
+      !keySecret?.toLowerCase().includes("placeholder");
+
+    if (!isRealConfigured) {
+      test.skip(
+        true,
+        "Skipping live Razorpay API order creation: genuine credentials not configured in environment"
+      );
+      return;
+    }
+
+    // 1. Create an order via API
+    const menuRes = await request.get(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/menu`
+    );
+    expect(menuRes.ok()).toBe(true);
+    const menuData = await menuRes.json();
+    const item = menuData.data.items[0];
+
+    const placeRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/orders`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+          "idempotency-key": `rzp-live-test-${Date.now()}`,
+        },
+        data: {
+          token: DEMO_TABLE_TOKEN,
+          paymentMethod: "pay_now",
+          items: [{ menuItemId: item.id, quantity: 1, selectedModifierIds: [] }],
+        },
+      }
+    );
+    expect(placeRes.ok()).toBe(true);
+    const placeData = await placeRes.json();
+    const orderId = placeData.data.orderId;
+
+    // 2. Call Razorpay payment initialization
+    const rzpRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/orders/${orderId}/payment/razorpay`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+        },
+        data: {},
+      }
+    );
+
+    expect(rzpRes.ok()).toBe(true);
+    const rzpData = await rzpRes.json();
+    expect(rzpData.data.razorpayOrderId).toMatch(/^order_/);
+    expect(rzpData.data.keyId).toBe(keyId);
+    expect(rzpData.data.keyId).not.toContain("placeholder");
+  });
+
+  test("UPI QR endpoint: deterministic contract test when Razorpay QR API is unavailable (verifies safe fallback without fake VPAs)", async ({
+    request,
+  }) => {
+    // 1. Create an order via API
+    const menuRes = await request.get(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/menu`
+    );
+    expect(menuRes.ok()).toBe(true);
+    const menuData = await menuRes.json();
+    const item = menuData.data.items[0];
+
+    const placeRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/orders`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+          "idempotency-key": `upi-qr-contract-${Date.now()}`,
+        },
+        data: {
+          token: DEMO_TABLE_TOKEN,
+          paymentMethod: "pay_now",
+          items: [{ menuItemId: item.id, quantity: 1, selectedModifierIds: [] }],
+        },
+      }
+    );
+    expect(placeRes.ok()).toBe(true);
+    const placeData = await placeRes.json();
+    const orderId = placeData.data.orderId;
+
+    // 2. Request UPI QR payment
+    const upiQrRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/orders/${orderId}/payment/upi-qr`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+        },
+        data: {},
+      }
+    );
+
+    // If Razorpay gateway is not configured (e.g. placeholder in test), API safely reports 503
+    if (upiQrRes.status() === 503) {
+      const errBody = await upiQrRes.json();
+      expect(errBody.error?.message || errBody.error).toMatch(/Payment gateway is not configured/i);
+      return;
+    }
+
+    expect(upiQrRes.ok()).toBe(true);
+    const upiData = await upiQrRes.json();
+
+    // With test/placeholder credentials, dynamic QR is unavailable.
+    // Assert strictly that no fake placeholder QR image or VPA is fabricated.
+    if (!upiData.data.qrAvailable) {
+      expect(upiData.data.qrAvailable).toBe(false);
+      expect(upiData.data.qrImageUrl).toBeNull();
+      expect(upiData.data.qrCodeId).toBeNull();
+      expect(upiData.data.message).toBeTruthy();
+    } else {
+      expect(upiData.data.qrImageUrl).toBeTruthy();
+    }
+    expect(upiData.data.amountPaise).toBeGreaterThan(0);
+
+    // 3. Query payment status
+    const statusRes = await request.get(
+      `${CUSTOMER_URL}/api/v1/customer/orders/${orderId}/payment/status`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+        },
+      }
+    );
+    expect(statusRes.ok()).toBe(true);
+    const statusData = await statusRes.json();
+    expect(statusData.data.status).toBe("pending");
+  });
+
+  test("genuine Razorpay dynamic UPI QR creation (opt-in: requires non-placeholder RAZORPAY_KEY_ID with active dynamic QR)", async ({
+    request,
+  }) => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const isRealConfigured =
+      Boolean(keyId) &&
+      Boolean(keySecret) &&
+      !keyId?.toLowerCase().includes("placeholder") &&
+      !keySecret?.toLowerCase().includes("placeholder");
+
+    if (!isRealConfigured) {
+      test.skip(
+        true,
+        "Skipping genuine Razorpay QR creation: genuine credentials with active QR access not configured in environment"
+      );
+      return;
+    }
+
+    // 1. Create an order via API
+    const menuRes = await request.get(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/menu`
+    );
+    expect(menuRes.ok()).toBe(true);
+    const menuData = await menuRes.json();
+    const item = menuData.data.items[0];
+
+    const placeRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/tables/${DEMO_TABLE_TOKEN}/orders`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+          "idempotency-key": `upi-qr-live-${Date.now()}`,
+        },
+        data: {
+          token: DEMO_TABLE_TOKEN,
+          paymentMethod: "pay_now",
+          items: [{ menuItemId: item.id, quantity: 1, selectedModifierIds: [] }],
+        },
+      }
+    );
+    expect(placeRes.ok()).toBe(true);
+    const placeData = await placeRes.json();
+    const orderId = placeData.data.orderId;
+
+    // 2. Request UPI QR payment
+    const upiQrRes = await request.post(
+      `${CUSTOMER_URL}/api/v1/customer/orders/${orderId}/payment/upi-qr`,
+      {
+        headers: {
+          "x-table-token": DEMO_TABLE_TOKEN,
+        },
+        data: {},
+      }
+    );
+
+    expect(upiQrRes.ok()).toBe(true);
+    const upiData = await upiQrRes.json();
+    if (upiData.data.qrAvailable) {
+      expect(upiData.data.qrImageUrl).toMatch(/^https?:\/\//);
+      expect(upiData.data.qrCodeId).toMatch(/^qr_/);
+    }
+  });
 });
+

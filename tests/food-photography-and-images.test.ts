@@ -48,7 +48,7 @@ describe("Food Photography, Media Assets & Image Config", () => {
   });
 
   it("Requirement 2: every seeded menu item has an imageUrl pointing at /images/dishes/<slug>.jpg", () => {
-    expect(SEEDED_DISHES.length).toBe(30);
+    expect(SEEDED_DISHES.length).toBe(31);
 
     for (const dish of SEEDED_DISHES) {
       expect(dish.imageUrl).toBe(`/images/dishes/${dish.slug}.jpg`);
@@ -63,17 +63,26 @@ describe("Food Photography, Media Assets & Image Config", () => {
     const paneerTikka = SEEDED_DISHES.find((d) => d.name.includes("Paneer Tikka"));
     expect(paneerTikka).toBeDefined();
     expect(paneerTikka?.imageUrl).toBe("/images/dishes/paneer-tikka.jpg");
+
+    const testItem = SEEDED_DISHES.find((d) => d.slug === "roasted-masala-papad");
+    expect(testItem).toBeDefined();
+    expect(testItem?.pricePaise).toBe(100);
+    expect(testItem?.imageUrl).toBe("/images/dishes/roasted-masala-papad.jpg");
   });
 
   it("Requirement 2: scripts/check-images.ts accurately audits referenced images", () => {
     const report = checkReferencedImages();
-    expect(report.totalCount).toBeGreaterThanOrEqual(35); // 4 marketing + 5 placeholders + 30 dishes
+    expect(report.totalCount).toBeGreaterThanOrEqual(36); // 4 marketing + 5 placeholders + 31 dishes
 
     const dishResults = report.results.filter((r) => r.category === "dish");
-    expect(dishResults.length).toBe(30);
+    expect(dishResults.length).toBe(31);
 
     const butterChickenResult = dishResults.find((r) => r.expectedPath === "public/images/dishes/butter-chicken.jpg");
     expect(butterChickenResult).toBeDefined();
+
+    const testDishResult = dishResults.find((r) => r.expectedPath === "public/images/dishes/roasted-masala-papad.jpg");
+    expect(testDishResult).toBeDefined();
+    expect(testDishResult?.exists).toBe(true);
 
     const placeholderResults = report.results.filter((r) => r.category === "placeholder");
     expect(placeholderResults.length).toBe(5);

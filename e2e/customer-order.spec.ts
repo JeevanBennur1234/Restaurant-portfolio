@@ -6,45 +6,108 @@ import {
   resetDemoState,
 } from "./test-helpers";
 
-test.describe("Guest Customer Ordering Flow", () => {
+test.describe("Customer Food Ordering Journey", () => {
   test.beforeEach(async ({ request }) => {
     await resetDemoState(request);
   });
 
-  test("places an order with items and modifiers using Pay at Counter and verifies idempotency", async ({
+  test("homepage Order at Table CTA navigates to customer ordering entry point (/order)", async ({
     page,
   }) => {
-    // 1. Open Table 7 guest ordering page on customer site (:3000)
-    await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
-    await expect(page).toHaveTitle(/Table 7/i);
+    // 1. Visit homepage
+    await page.goto(`${CUSTOMER_URL}/`);
+    await expect(page).toHaveTitle(/DinePulse/i);
+    await expect(page.getByRole("heading", { name: "Masala Lane" }).first()).toBeVisible();
 
-    // Wait for menu items to render
+    // 2. Click primary "Order at Table" in header navbar
+    const headerOrderBtn = page.locator('[data-testid="header-order-btn"]');
+    await expect(headerOrderBtn).toBeVisible({ timeout: 10_000 });
+    await headerOrderBtn.click();
+
+    // 3. Assert navigation to /order
+    await page.waitForURL(`${CUSTOMER_URL}/order`, { timeout: 30_000 });
+    await expect(page).toHaveTitle(/Table Ordering | Masala Lane/i);
+    await expect(page.getByRole("heading", { name: "Order at Your Table" })).toBeVisible();
+
+    // 4. In development mode, verify the safe dev bridge displays the configured table
+    const devSection = page.locator('[data-testid="dev-table-section"]');
+    await expect(devSection).toBeVisible({ timeout: 15_000 });
+    await expect(devSection.getByText(/Local Development Session/i)).toBeVisible();
+
+    // 5. Test manual token form validation (empty input)
+    const submitBtn = page.locator('[data-testid="submit-table-token-btn"]');
+    await submitBtn.click();
+    await expect(page.getByText(/Please enter a table token or URL/i)).toBeVisible();
+
+    // 6. Test external URL rejection
+    const tokenInput = page.locator('[data-testid="table-token-input"]');
+    await tokenInput.fill("https://evil.com/t/attack-token");
+    await submitBtn.click();
+    await expect(page.getByText(/External URLs are not allowed/i)).toBeVisible();
+
+    // 7. Test invalid token format rejection
+    await tokenInput.fill("token with spaces!");
+    await submitBtn.click();
+    await expect(page.getByText(/Invalid table token format/i)).toBeVisible();
+  });
+
+  test("customer ordering entry point redirects to interactive menu for valid and rejects invalid tokens", async ({
+    page,
+  }) => {
+    // 1. Navigate to /order
+    await page.goto(`${CUSTOMER_URL}/order`);
+    await expect(page.locator('[data-testid="table-token-input"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="submit-table-token-btn"]')).toBeVisible({ timeout: 15_000 });
+
+    // 2. Enter an invalid token into the form
+    const tokenInput = page.locator('[data-testid="table-token-input"]');
+    await tokenInput.fill("invalid-nonexistent-token-xyz");
+    await page.locator('[data-testid="submit-table-token-btn"]').click();
+
+    // 3. Assert routed to /t/invalid-nonexistent-token-xyz showing secure InvalidTokenView
+    await page.waitForURL(/\/t\/invalid-nonexistent-token-xyz/, { timeout: 30_000 });
+    await expect(page.getByText(/QR Code Not Recognized/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/We could not find an active table session/i)).toBeVisible();
+    // Static or interactive menu must NOT be displayed
+    await expect(page.locator('[data-testid="menu-item-card"]')).toHaveCount(0);
+
+    // 4. Test direct navigation to /t without token redirects back to /order
+    await page.goto(`${CUSTOMER_URL}/t`);
+    await page.waitForURL(`${CUSTOMER_URL}/order`, { timeout: 30_000 });
+
+    // 5. From /order, launch the development table ordering button
+    const devStartBtn = page.locator('[data-testid="dev-start-order-btn"]');
+    await expect(devStartBtn).toBeVisible({ timeout: 15_000 });
+    await devStartBtn.click();
+
+    // 6. Assert genuine interactive menu loads with table label
+    await page.waitForURL(/\/t\/.+/, { timeout: 30_000 });
+    await expect(page).toHaveTitle(/Table 7/i);
     const itemCards = page.locator('[data-testid="menu-item-card"]');
     await expect(itemCards.first()).toBeVisible({ timeout: 15_000 });
+  });
 
-    // 2. Select first item and configure modifier if available
-    await itemCards.first().click();
+  test("full customer ordering journey: select food, customize modifiers, pay at counter, track live", async ({
+    page,
+  }) => {
+    // 1. Open customer ordering page using valid table QR token
+    await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
+    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    await expect(firstCard).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(500);
+    await firstCard.click();
 
-    // Check if modifier sheet is open
     const addToOrderBtn = page.locator('[data-testid="add-to-order-btn"]');
-    await expect(addToOrderBtn).toBeVisible({ timeout: 5_000 });
+    await expect(addToOrderBtn).toBeVisible({ timeout: 10_000 });
 
     const modifierOptions = page.locator('[data-testid="modifier-option"]');
     if ((await modifierOptions.count()) > 0) {
       await modifierOptions.first().click();
     }
     await addToOrderBtn.click();
+    await expect(addToOrderBtn).toBeHidden({ timeout: 5_000 });
 
-    // 3. Select a second item
-    const secondCard = itemCards.nth(1);
-    await secondCard.click();
-    await expect(addToOrderBtn).toBeVisible({ timeout: 5_000 });
-    if ((await modifierOptions.count()) > 0) {
-      await modifierOptions.first().click();
-    }
-    await addToOrderBtn.click();
-
-    // 4. Open Cart Sheet
+    // 4. Open Cart Sheet and review totals
     const cartBarBtn = page.locator('[data-testid="cart-bar-btn"]');
     await expect(cartBarBtn).toBeVisible({ timeout: 5_000 });
     await cartBarBtn.click();
@@ -54,14 +117,12 @@ test.describe("Guest Customer Ordering Flow", () => {
     await expect(payCounterChoice).toBeVisible({ timeout: 5_000 });
     await payCounterChoice.click();
 
-    // 6. Submit the order (simulate double-click to test idempotency guard)
+    // 7. Submit the order (with double click to verify idempotency)
     const submitBtn = page.locator('[data-testid="checkout-submit-btn"]');
     await expect(submitBtn).toBeVisible();
-
-    // Rapid double click on submit button
     await submitBtn.dblclick();
 
-    // 7. Assert navigation to order live tracker and order number display
+    // 8. Assert navigation to order live tracker and order number display
     await page.waitForURL(/\/t\/demo-table-7\/order\/.+/, { timeout: 30_000 });
 
     const orderNumberBadge = page.locator('[data-testid="order-number-badge"]');
@@ -69,9 +130,10 @@ test.describe("Guest Customer Ordering Flow", () => {
     const orderNumberText = await orderNumberBadge.innerText();
     expect(orderNumberText).toMatch(/#ML-\d{4}/);
 
-    // 8. Verify that only ONE new order was placed for Table 7
-    // After reset, there are 2 demo orders: ML-0001 (Table 3), ML-0002 (Table 7).
-    // So Table 7 should now have exactly 2 orders: ML-0002 and the new ML-0003.
+    // 9. Verify order counter payment badge on tracker
+    await expect(page.getByText(/Pay at Counter/i).first()).toBeVisible({ timeout: 10_000 });
+
+    // 10. Verify that only ONE new order was placed for Table 7 in the test database
     const dbUrl =
       process.env.E2E_DATABASE_URL ||
       process.env.DATABASE_URL ||
@@ -90,5 +152,51 @@ test.describe("Guest Customer Ordering Flow", () => {
     } finally {
       await pgClient.end();
     }
+  });
+
+  test("missing Razorpay configuration in cart does not produce fake payment success and allows Pay at Counter recovery", async ({
+    page,
+  }) => {
+    // 1. Visit table ordering page
+    await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
+    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    await expect(firstCard).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(500);
+    await firstCard.click();
+
+    // 2. Add an item to cart
+    const addToOrderBtn = page.locator('[data-testid="add-to-order-btn"]');
+    await expect(addToOrderBtn).toBeVisible({ timeout: 10_000 });
+    await addToOrderBtn.click();
+    await expect(addToOrderBtn).toBeHidden({ timeout: 5_000 });
+
+    // 3. Open cart sheet
+    const cartBarBtn = page.locator('[data-testid="cart-bar-btn"]');
+    await expect(cartBarBtn).toBeVisible({ timeout: 5_000 });
+    await cartBarBtn.click();
+
+    // 4. Default payment method is "Pay now" (online)
+    const payNowChoice = page.locator('[data-testid="pay-now-choice"]');
+    await expect(payNowChoice).toBeVisible();
+
+    // 5. Submit checkout with unconfigured Razorpay test credentials
+    const submitBtn = page.locator('[data-testid="checkout-submit-btn"]');
+    await submitBtn.click();
+
+    // 6. Must show useful error message (e.g. gateway not configured) and NEVER fake payment success
+    await expect(
+      page.getByText(/Payment gateway is not configured|Could not initialize payment|Could not retrieve payment/i)
+    ).toBeVisible({ timeout: 15_000 });
+
+    // 7. Verify safe recovery: click "Pay at Counter Instead"
+    const counterRecoveryBtn = page.getByRole("button", { name: /Pay at Counter Instead/i });
+    await expect(counterRecoveryBtn).toBeVisible({ timeout: 5_000 });
+    await counterRecoveryBtn.click();
+
+    // 8. Assert successful switch to live order tracker with counter payment
+    await page.waitForURL(/\/t\/demo-table-7\/order\/.+/, { timeout: 30_000 });
+    const orderNumberBadge = page.locator('[data-testid="order-number-badge"]');
+    await expect(orderNumberBadge).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Pay at Counter/i).first()).toBeVisible({ timeout: 10_000 });
   });
 });

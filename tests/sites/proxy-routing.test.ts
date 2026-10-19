@@ -21,6 +21,7 @@ describe("Multi-Site Proxy Routing", () => {
     it("allows customer routes and public endpoints without rewriting", () => {
       const allowedPaths = [
         "/",
+        "/order",
         "/t/demo-table-7",
         "/t/demo-table-7/order/ord_123",
         "/api/v1/customer/tables/demo-table-7/menu",

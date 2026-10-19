@@ -6,6 +6,8 @@ import type {
   CreateRazorpayOrderData,
   VerifyPaymentData,
   PlaceOrderInput,
+  CreateUpiQrData,
+  PaymentStatusData,
 } from "./types";
 
 export interface PlaceOrderOptions {
@@ -231,12 +233,112 @@ export async function payAtCounter(
   );
 }
 
+/**
+ * Creates dynamic UPI QR Code payment for an order.
+ */
+export async function createUpiQrPayment(
+  orderIdOrObj: string | { orderId: string; token: string },
+  tokenOrOpts?: string | { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<CreateUpiQrData>> {
+  let orderId: string;
+  let token: string;
+  let signal: AbortSignal | undefined;
+
+  if (typeof orderIdOrObj === "string") {
+    orderId = orderIdOrObj;
+    token = tokenOrOpts as string;
+    signal = opts?.signal;
+  } else {
+    orderId = orderIdOrObj.orderId;
+    token = orderIdOrObj.token;
+    signal = (tokenOrOpts as { signal?: AbortSignal })?.signal;
+  }
+
+  return apiFetch<CreateUpiQrData>(
+    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/payment/upi-qr`,
+    {
+      method: "POST",
+      tableToken: token,
+      signal,
+    }
+  );
+}
+
+/**
+ * Checks payment status server-side for an order.
+ */
+export async function getPaymentStatus(
+  orderIdOrObj: string | { orderId: string; token: string },
+  tokenOrOpts?: string | { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<PaymentStatusData>> {
+  let orderId: string;
+  let token: string;
+  let signal: AbortSignal | undefined;
+
+  if (typeof orderIdOrObj === "string") {
+    orderId = orderIdOrObj;
+    token = tokenOrOpts as string;
+    signal = opts?.signal;
+  } else {
+    orderId = orderIdOrObj.orderId;
+    token = orderIdOrObj.token;
+    signal = (tokenOrOpts as { signal?: AbortSignal })?.signal;
+  }
+
+  return apiFetch<PaymentStatusData>(
+    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/payment/status`,
+    {
+      method: "GET",
+      tableToken: token,
+      signal,
+    }
+  );
+}
+
+/**
+ * Simulates test UPI payment approval (allowed in Razorpay Test Mode only).
+ */
+export async function verifyTestUpiPayment(
+  orderIdOrObj: string | { orderId: string; token: string },
+  tokenOrOpts?: string | { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{ success: true; paymentStatus: "paid" }>> {
+  let orderId: string;
+  let token: string;
+  let signal: AbortSignal | undefined;
+
+  if (typeof orderIdOrObj === "string") {
+    orderId = orderIdOrObj;
+    token = tokenOrOpts as string;
+    signal = opts?.signal;
+  } else {
+    orderId = orderIdOrObj.orderId;
+    token = orderIdOrObj.token;
+    signal = (tokenOrOpts as { signal?: AbortSignal })?.signal;
+  }
+
+  return apiFetch<{ success: true; paymentStatus: "paid" }>(
+    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/payment/test-verify`,
+    {
+      method: "POST",
+      tableToken: token,
+      signal,
+    }
+  );
+}
+
 export const customerApi = {
   getMenu,
   placeOrder,
   getOrder,
   createRazorpayOrder,
   verifyRazorpayPayment,
+  createUpiQrPayment,
+  getPaymentStatus,
+  verifyTestUpiPayment,
   payAtCounter,
   switchOrderToCounter: payAtCounter,
 };
+
