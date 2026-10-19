@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { db } from "@/server/db";
 import { getMenuForTable } from "@/server/services/customer";
 import { GuestHeader } from "@/components/guest/guest-header";
@@ -15,6 +16,8 @@ interface GuestPageProps {
 export async function generateMetadata({
   params,
 }: GuestPageProps): Promise<Metadata> {
+  // Menu metadata reads the live database, so defer it until a real request.
+  await connection();
   const { token } = await params;
   const result = await getMenuForTable({ db }, token);
 
@@ -32,6 +35,8 @@ export async function generateMetadata({
 }
 
 export default async function GuestTablePage({ params }: GuestPageProps) {
+  // This route reads the live menu database and must not be prerendered as a static shell.
+  await connection();
   const { token } = await params;
   const result = await getMenuForTable({ db }, token);
 

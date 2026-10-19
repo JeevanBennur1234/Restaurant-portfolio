@@ -155,9 +155,9 @@ export function AdminNavbar({
               </Link>
             )}
 
-            {(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/t/demo-table-7")) && (
+            {(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/")) && (
               <Link
-                href={(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/t/demo-table-7"))!}
+                href={(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/"))!}
                 target="_blank"
                 className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 title="Open Guest Ordering preview"

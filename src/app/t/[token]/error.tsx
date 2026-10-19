@@ -46,14 +46,14 @@ export default function GuestTableError({
             Retry Loading Menu
           </Button>
 
-          <Link href="/demo" className="w-full">
+          <Link href="/" className="w-full">
             <Button
               variant="outline"
               size="sm"
               className="w-full justify-center text-xs"
               leftIcon={<QrCode className="h-3.5 w-3.5" />}
             >
-              Back to Demo Launch
+              Return to Homepage
             </Button>
           </Link>
         </div>

@@ -102,31 +102,6 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
       return;
     }
 
-    if (rzpOrderRes.data.simulated) {
-      setStatusMessage("Confirming demo payment...");
-      const confirmRes = await customerApi.simulatePayment({ orderId, token });
-      if (confirmRes.ok) {
-        clearCart();
-        setIsCartOpen(false);
-        showToast({
-          title: "Payment Verified",
-          message: `Order #${orderNumber} sent to kitchen!`,
-          variant: "success",
-          duration: 3500,
-        });
-        router.push(`/t/${token}/order/${orderId}`);
-      } else {
-        setPaymentError(
-          userMessageFor(
-            confirmRes.code,
-            confirmRes.message || "Payment confirmation failed."
-          )
-        );
-      }
-      setIsSubmitting(false);
-      setStatusMessage(null);
-      return;
-    }
 
     if (!rzpOrderRes.data.razorpayOrderId) {
       setPaymentError(
@@ -209,7 +184,8 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
   };
 
   const handleCheckoutSubmit = async () => {
-    if (items.length === 0 || isSubmitting || isSubmittingRef.current) return;
+    // An unpaid order already exists; retries must target it instead of creating a duplicate.
+    if (items.length === 0 || isSubmitting || isSubmittingRef.current || pendingOrderId) return;
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
@@ -389,37 +365,39 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               </div>
             )}
 
-            {/* Action Buttons (min 48px height) */}
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="md"
-                disabled={isSubmitting}
-                onClick={clearCart}
-                className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0 min-h-[48px] h-12 px-4"
-              >
-                Clear
-              </Button>
-              <Button
-                data-testid="checkout-submit-btn"
-                size="md"
-                variant="primary"
-                isLoading={isSubmitting}
-                disabled={isSubmitting}
-                onClick={handleCheckoutSubmit}
-                className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
-              >
-                <span className="truncate pr-1">
-                  {statusMessage ||
-                    (paymentMethod === "pay_now"
-                      ? "Pay Now"
-                      : "Pay at Counter")}
-                </span>
-                <span className="font-mono font-bold shrink-0">
-                  {formatPaiseToINR(grandTotalPaise)}
-                </span>
-              </Button>
-            </div>
+            {/* Do not allow a second order while this order is awaiting payment. */}
+            {!pendingOrderId && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={isSubmitting}
+                  onClick={clearCart}
+                  className="text-xs text-[var(--destructive)] border-[var(--destructive-border)] hover:bg-[var(--destructive-subtle)] shrink-0 min-h-[48px] h-12 px-4"
+                >
+                  Clear
+                </Button>
+                <Button
+                  data-testid="checkout-submit-btn"
+                  size="md"
+                  variant="primary"
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
+                  onClick={handleCheckoutSubmit}
+                  className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
+                >
+                  <span className="truncate pr-1">
+                    {statusMessage ||
+                      (paymentMethod === "pay_now"
+                        ? "Pay Now"
+                        : "Pay at Counter")}
+                  </span>
+                  <span className="font-mono font-bold shrink-0">
+                    {formatPaiseToINR(grandTotalPaise)}
+                  </span>
+                </Button>
+              </div>
+            )}
 
             <p className="text-[10px] text-center text-[var(--text-muted)]">
               {paymentMethod === "pay_now"
@@ -520,6 +498,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                     <div className="flex items-center border border-[var(--border-strong)] rounded-[var(--radius-sm)] bg-[var(--bg-surface)]">
                       <button
                         type="button"
+                        disabled={Boolean(pendingOrderId)}
                         onClick={() => updateQuantity(cartItem.id, -1)}
                         className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Decrease quantity"
@@ -531,6 +510,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
                       </span>
                       <button
                         type="button"
+                        disabled={Boolean(pendingOrderId)}
                         onClick={() => updateQuantity(cartItem.id, 1)}
                         className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
                         aria-label="Increase quantity"
@@ -541,6 +521,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
 
                     <button
                       type="button"
+                      disabled={Boolean(pendingOrderId)}
                       onClick={() => removeItem(cartItem.id)}
                       className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-muted)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
                       aria-label="Remove item"
@@ -564,6 +545,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               <button
                 type="button"
                 data-testid="pay-now-choice"
+                disabled={Boolean(pendingOrderId)}
                 onClick={() => setPaymentMethod("pay_now")}
                 className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "pay_now"
@@ -589,6 +571,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
               <button
                 type="button"
                 data-testid="pay-counter-choice"
+                disabled={Boolean(pendingOrderId)}
                 onClick={() => setPaymentMethod("counter")}
                 className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
                   paymentMethod === "counter"
@@ -623,6 +606,7 @@ export function CartSheet({ tableLabel, token }: CartSheetProps) {
             <input
               id="order-kitchen-notes"
               type="text"
+              disabled={Boolean(pendingOrderId)}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Less spicy, serve water with lemon, no onions"

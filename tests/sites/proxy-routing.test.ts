@@ -21,14 +21,11 @@ describe("Multi-Site Proxy Routing", () => {
     it("allows customer routes and public endpoints without rewriting", () => {
       const allowedPaths = [
         "/",
-        "/demo",
-        "/demo/view",
         "/t/demo-table-7",
         "/t/demo-table-7/order/ord_123",
         "/api/v1/customer/tables/demo-table-7/menu",
         "/api/v1/openapi.json",
         "/api/webhooks/razorpay",
-        "/api/demo/reset",
         "/api/v1/health",
         "/favicon.ico",
         "/robots.txt",
@@ -57,6 +54,9 @@ describe("Multi-Site Proxy Routing", () => {
         "/api/v1/kitchen/tickets",
         "/api/v1/admin/orders",
         "/api/v1/auth/login",
+        "/demo",
+        "/demo/view",
+        "/api/demo/reset",
       ];
 
       for (const path of blockedPaths) {
@@ -210,7 +210,7 @@ describe("Multi-Site Proxy Routing", () => {
         "/",
         "/kitchen",
         "/admin",
-        "/demo",
+        "/t/table-1",
         "/t/demo-table-7",
         "/api/v1/customer/tables/demo-table-7/menu",
         "/api/v1/kitchen/tickets",

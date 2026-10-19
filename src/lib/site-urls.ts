@@ -98,11 +98,6 @@ export function resolveSiteUrl(
   const activeSite = currentSite || (process.env.SITE as SiteIdentifier) || "all";
 
   if (activeSite === "all") {
-    // Special case for demo-enter on unified mode
-    if (path === "/demo-enter" || path.startsWith("/demo-enter?")) {
-      return `/demo-enter?role=${target}`;
-    }
-
     const defaultRoots: Record<"customer" | "kitchen" | "manager", string> = {
       customer: "/",
       kitchen: "/kitchen",

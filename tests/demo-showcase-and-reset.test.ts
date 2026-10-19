@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import fs from "node:fs";
+import robots from "@/app/robots";
+import sitemap from "@/app/sitemap";
 
 // Mock env
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "test",
-    DEMO_MODE: "true",
-    DEMO_RESET_SECRET: "test_demo_reset_secret_key_12345",
-    CRON_SECRET: "test_cron_secret_key_67890",
+    DEMO_MODE: "false",
     DATABASE_URL: "postgres://mock",
     NEXT_PUBLIC_APP_URL: "https://dinepulse.example.com",
     SESSION_SECRET: "test-session-secret-at-least-32-chars-long-123456",
@@ -21,7 +21,7 @@ const mockStaffUsers = [
     username: "kitchen",
     restaurantId: "rest_1",
     isActive: true,
-    isDemo: true,
+    isDemo: false,
     sessionVersion: 1,
   },
   {
@@ -30,7 +30,7 @@ const mockStaffUsers = [
     username: "manager",
     restaurantId: "rest_1",
     isActive: true,
-    isDemo: true,
+    isDemo: false,
     sessionVersion: 1,
   },
 ];
@@ -42,7 +42,7 @@ const mockCurrentSession = {
     role: "manager" as const,
     restaurantId: "rest_1",
     restaurantName: "Masala Lane",
-    isDemo: true,
+    isDemo: false,
   },
 };
 
@@ -60,7 +60,7 @@ vi.mock("@/server/db", () => ({
   db: {
     query: {
       staffUsers: {
-        findFirst: vi.fn(async () => mockStaffUsers[0]),
+        findFirst: vi.fn(async () => mockStaffUsers[1]),
       },
       restaurants: {
         findFirst: vi.fn(async () => ({ id: "rest_1", slug: "masala-lane", name: "Masala Lane" })),
@@ -73,9 +73,18 @@ vi.mock("@/server/db", () => ({
         findFirst: vi.fn(async () => ({ id: "tbl_1", restaurantId: "rest_1" })),
         findMany: vi.fn(async () => [{ id: "tbl_1", tableNumber: "Table 1" }]),
       },
+      categories: {
+        findFirst: vi.fn(async () => null),
+      },
       menuItems: {
         findFirst: vi.fn(async () => null),
         findMany: vi.fn(async () => [{ id: "item_1", name: "Butter Chicken", pricePaise: 45000 }]),
+      },
+      payments: {
+        findFirst: vi.fn(async () => null),
+      },
+      orderItems: {
+        findFirst: vi.fn(async () => null),
       },
     },
     insert: vi.fn(() => ({
@@ -99,9 +108,6 @@ vi.mock("@/server/db", () => ({
         insert: vi.fn(() => ({
           values: vi.fn(() => ({
             returning: vi.fn().mockResolvedValue([{ id: "o_new_1" }]),
-            onConflictDoUpdate: vi.fn(() => ({
-              returning: vi.fn().mockResolvedValue([{ count: 1 }]),
-            })),
           })),
         })),
         update: vi.fn(() => ({
@@ -124,233 +130,69 @@ vi.mock("@/server/db", () => ({
   },
 }));
 
-import { env } from "@/server/env";
 import { db } from "@/server/db";
-import { POST as handleDemoLogin } from "@/app/api/v1/auth/demo-login/route";
 import {
   deleteTable,
   deleteCategory,
   deleteMenuItem,
   cancelOrder,
 } from "@/server/services/manager";
-import { POST as handleUpload } from "@/app/api/admin/upload/route";
-import { POST as handleDemoReset, GET as handleDemoResetGet } from "@/app/api/demo/reset/route";
-import robots from "@/app/robots";
-import sitemap from "@/app/sitemap";
 
-async function demoLoginAction(role: string) {
-  const req = new NextRequest("http://localhost:3000/api/v1/auth/demo-login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: "http://localhost:3000",
-    },
-    body: JSON.stringify({ role }),
-  });
-  const res = await handleDemoLogin(req);
-  const json = await res.json();
-  if (json.success && json.data) {
-    return { success: true, redirectTo: json.data.redirectTo };
-  }
-  return { success: false, error: json.error?.message || "Demo login failed" };
-}
-
-describe("Demo Login Action (demoLoginAction)", () => {
+describe("Manager Operations & Security", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (env as { DEMO_MODE: string }).DEMO_MODE = "true";
   });
 
-  it("fails if DEMO_MODE is false", async () => {
-    (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    const result = await demoLoginAction("kitchen");
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/not found/i);
-  });
-
-  it("fails on invalid role", async () => {
-    const result = await demoLoginAction("superadmin");
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/invalid demo role/i);
-  });
-
-  it("successfully logs in demo kitchen user and redirects to /kitchen", async () => {
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockStaffUsers[0] as never);
-
-    const result = await demoLoginAction("kitchen");
-    expect(result.success).toBe(true);
-    expect(result.redirectTo).toBe("/kitchen");
-  });
-
-  it("fails if demo user does not exist or isDemo is not true in database", async () => {
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(null as never);
-
-    const result = await demoLoginAction("kitchen");
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Demo user for role 'kitchen' not found/i);
-  });
-});
-
-describe("Demo Manager Restrictions", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockCurrentSession.value = {
-      userId: "usr_manager",
-      username: "manager",
-      role: "manager",
-      restaurantId: "rest_1",
-      restaurantName: "Masala Lane",
-      isDemo: true,
-    };
-  });
-
-  it("blocks demo manager from deleting tables", async () => {
-    const res = await deleteTable({ db, actor: mockCurrentSession.value }, { id: "tbl_1" });
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.message).toMatch(/cannot delete tables/i);
-    }
-  });
-
-  it("blocks demo manager from deleting categories", async () => {
-    const res = await deleteCategory({ db, actor: mockCurrentSession.value }, { id: "cat_1" });
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.message).toMatch(/cannot delete categories/i);
-    }
-  });
-
-  it("blocks demo manager from deleting menu items", async () => {
-    const res = await deleteMenuItem({ db, actor: mockCurrentSession.value }, { id: "item_1" });
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.message).toMatch(/cannot delete menu items/i);
-    }
-  });
-
-  it("blocks demo manager from uploading images", async () => {
-    const req = new NextRequest("http://localhost:3000/api/admin/upload", {
-      method: "POST",
-    });
-
-    const res = await handleUpload(req);
-    expect(res.status).toBe(403);
-    const json = await res.json();
-    expect(json.error).toMatch(/cannot upload images/i);
-  });
-
-  it("blocks demo manager from cancelling a paid order", async () => {
+  it("manager can cancel unpaid order", async () => {
     vi.mocked(db.query.orders.findFirst).mockResolvedValueOnce({
-      id: "ord_paid_1",
+      id: "ord_101",
       restaurantId: "rest_1",
-      status: "accepted",
-      paymentStatus: "paid",
-      payments: [{ status: "completed" }],
+      status: "placed",
+      paymentStatus: "pending",
+      payments: [],
+      table: { tableNumber: "T-1" },
     } as never);
 
     const res = await cancelOrder(
       { db, actor: mockCurrentSession.value },
-      {
-        orderId: "ord_paid_1",
-        reason: "Customer changed mind",
-      }
+      { orderId: "ord_101", reason: "Customer changed mind" }
     );
+    expect(res.ok).toBe(true);
+  });
 
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.message).toMatch(/cannot cancel paid orders/i);
-    }
+  it("manager can delete empty category", async () => {
+    vi.mocked(db.query.menuItems.findFirst).mockResolvedValueOnce(null as never);
+
+    const res = await deleteCategory(
+      { db, actor: mockCurrentSession.value },
+      { id: "cat_empty_1" }
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("manager can delete inactive table", async () => {
+    vi.mocked(db.query.orders.findFirst).mockResolvedValueOnce(null as never);
+
+    const res = await deleteTable(
+      { db, actor: mockCurrentSession.value },
+      { id: "tbl_1" }
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("manager can delete menu item with no active orders", async () => {
+    vi.mocked(db.query.orderItems.findFirst).mockResolvedValueOnce(null as never);
+
+    const res = await deleteMenuItem(
+      { db, actor: mockCurrentSession.value },
+      { id: "item_1" }
+    );
+    expect(res.ok).toBe(true);
   });
 });
 
-describe("GET & POST /api/demo/reset with DEMO_RESET_SECRET and CRON_SECRET", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (env as { DEMO_MODE: string }).DEMO_MODE = "true";
-  });
-
-  it("rejects when DEMO_MODE is false", async () => {
-    (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer test_demo_reset_secret_key_12345`,
-      },
-    });
-
-    const res = await handleDemoReset(req);
-    expect(res.status).toBe(403);
-  });
-
-  it("rejects request missing Authorization header", async () => {
-    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "POST",
-    });
-
-    const res = await handleDemoReset(req);
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects request with invalid secret", async () => {
-    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "POST",
-      headers: {
-        authorization: "Bearer wrong_secret_here",
-      },
-    });
-
-    const res = await handleDemoReset(req);
-    expect(res.status).toBe(401);
-  });
-
-  it("POST accepts Bearer token matching DEMO_RESET_SECRET", async () => {
-    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer test_demo_reset_secret_key_12345`,
-      },
-    });
-
-    const res = await handleDemoReset(req);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-    // Verifies wrap in single db.transaction
-    expect(db.transaction).toHaveBeenCalled();
-  });
-
-  it("POST accepts Bearer token matching CRON_SECRET", async () => {
-    const req = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer test_cron_secret_key_67890`,
-      },
-    });
-
-    const res = await handleDemoReset(req);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-  });
-
-  it("GET handler works identically and accepts CRON_SECRET or DEMO_RESET_SECRET", async () => {
-    const getReq = new NextRequest("http://localhost:3000/api/demo/reset", {
-      method: "GET",
-      headers: {
-        authorization: `Bearer test_cron_secret_key_67890`,
-      },
-    });
-
-    const res = await handleDemoResetGet(getReq);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-  });
-});
-
-describe("Client Login Security (No Hardcoded Credentials in UI)", () => {
-  it("kitchen-login.tsx and admin-login.tsx contain zero hardcoded passwords or handleQuickLogin", async () => {
-    const fs = await import("fs");
+describe("Client Login Security (Authentic Credentials Only)", () => {
+  it("kitchen-login.tsx and admin-login.tsx contain zero hardcoded credentials and no demo shortcuts", () => {
     const kitchenLoginCode = fs.readFileSync("src/components/kitchen/kitchen-login.tsx", "utf-8");
     const adminLoginCode = fs.readFileSync("src/components/admin/admin-login.tsx", "utf-8");
 
@@ -363,29 +205,29 @@ describe("Client Login Security (No Hardcoded Credentials in UI)", () => {
     expect(adminLoginCode).not.toContain("manager123");
     expect(adminLoginCode).not.toContain("handleQuickLogin");
 
-    // Must call demoLoginAction when isDemoMode is true
-    expect(kitchenLoginCode).toContain("demoLoginAction");
-    expect(adminLoginCode).toContain("demoLoginAction");
-    expect(kitchenLoginCode).toContain("isDemoMode");
-    expect(adminLoginCode).toContain("isDemoMode");
+    // Must not contain demo login shortcuts
+    expect(kitchenLoginCode).not.toContain("demoLoginAction");
+    expect(adminLoginCode).not.toContain("demoLoginAction");
+    expect(kitchenLoginCode).not.toContain("kitchen-demo-login-btn");
+    expect(adminLoginCode).not.toContain("admin-demo-login-btn");
   });
 });
 
 describe("SEO Metadata: robots and sitemap", () => {
-  it("robots.ts allows / and /demo, disallows /admin, /kitchen, and /t/", () => {
+  it("robots.ts allows / and disallows /admin, /kitchen, and /t/", () => {
     const res = robots();
     const rules = Array.isArray(res.rules) ? res.rules[0] : res.rules;
 
     expect(rules.disallow).toEqual(["/admin", "/kitchen", "/t/"]);
-    expect(rules.allow).toEqual(["/", "/demo"]);
+    expect(rules.allow).toEqual(["/"]);
     expect(res.sitemap).toContain("/sitemap.xml");
   });
 
-  it("sitemap.ts indexes / and /demo with priority", () => {
+  it("sitemap.ts indexes / without demo route", () => {
     const res = sitemap();
     const urls = res.map((item) => item.url);
 
     expect(urls).toContain("https://dinepulse.example.com");
-    expect(urls).toContain("https://dinepulse.example.com/demo");
+    expect(urls).not.toContain("https://dinepulse.example.com/demo");
   });
 });

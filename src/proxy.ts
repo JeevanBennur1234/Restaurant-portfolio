@@ -36,15 +36,12 @@ export function routeDecisionForSite(
   if (site === "customer") {
     const isCustomerPath =
       pathname === "/" ||
-      pathname === "/demo" ||
-      pathname.startsWith("/demo/") ||
       pathname === "/t" ||
       pathname.startsWith("/t/") ||
       pathname === "/api/v1/customer" ||
       pathname.startsWith("/api/v1/customer/") ||
       pathname === "/api/v1/openapi.json" ||
-      pathname === "/api/webhooks/razorpay" ||
-      pathname === "/api/demo/reset";
+      pathname === "/api/webhooks/razorpay";
 
     return { allowed: isCustomerPath };
   }
@@ -56,7 +53,6 @@ export function routeDecisionForSite(
     const isKitchenPath =
       pathname === "/kitchen" ||
       pathname.startsWith("/kitchen/") ||
-      pathname === "/demo-enter" ||
       pathname === "/api/v1/kitchen" ||
       pathname.startsWith("/api/v1/kitchen/") ||
       pathname === "/api/v1/auth" ||
@@ -72,7 +68,6 @@ export function routeDecisionForSite(
     const isManagerPath =
       pathname === "/admin" ||
       pathname.startsWith("/admin/") ||
-      pathname === "/demo-enter" ||
       pathname === "/api/v1/admin" ||
       pathname.startsWith("/api/v1/admin/") ||
       pathname === "/api/admin" ||
@@ -98,7 +93,7 @@ export function proxy(request?: NextRequest) {
   let response: NextResponse;
   if (!decision.allowed) {
     const notFoundUrl = new URL("/_not-found", request.url);
-    response = NextResponse.rewrite(notFoundUrl);
+    response = NextResponse.rewrite(notFoundUrl, { status: 404 });
   } else if (decision.rewriteTo) {
     const rewriteUrl = new URL(decision.rewriteTo, request.url);
     response = NextResponse.rewrite(rewriteUrl);

@@ -19,12 +19,10 @@ import {
   verifyPaymentSchema,
   switchPaymentMethodSchema,
   orderStatusParamSchema,
-  confirmSimulatedPaymentSchema,
   type PlaceOrderInput,
   type CreateRazorpayOrderInput,
   type VerifyPaymentInput,
   type SwitchPaymentMethodInput,
-  type ConfirmSimulatedPaymentInput,
 } from "@/lib/validations/order";
 import { tokenParamSchema } from "@/lib/validations/guest";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
@@ -129,7 +127,6 @@ export interface OrderDetails {
 }
 
 export interface CreateRazorpayOrderData {
-  simulated?: boolean;
   razorpayOrderId?: string;
   amountPaise: number;
   currency: string;
@@ -664,43 +661,16 @@ export async function createRazorpayOrder(
       return fail("CONFLICT", "Order is already paid", 409);
     }
 
-    const isSimulated =
-      env.DEMO_MODE === "true" &&
-      (!isRazorpayConfigured() ||
-        env.RAZORPAY_KEY_ID?.includes("placeholder") ||
-        env.RAZORPAY_KEY_SECRET?.includes("placeholder"));
+    if (!isRazorpayConfigured()) {
+      return fail("PAYMENT", "Payment gateway is not configured", 503);
+    }
 
-    // Check for existing pending payment for this order to reuse
     const existingPayment = await ctx.db.query.payments.findFirst({
       where: and(
         eq(payments.orderId, dbOrder.id),
         eq(payments.status, "pending")
       ),
     });
-
-    if (isSimulated) {
-      if (!existingPayment || existingPayment.provider !== "simulated") {
-        await ctx.db.insert(payments).values({
-          orderId: dbOrder.id,
-          restaurantId: dbOrder.restaurantId,
-          amountPaise: dbOrder.totalPaise,
-          status: "pending",
-          provider: "simulated",
-        });
-      }
-
-      return ok({
-        simulated: true,
-        amountPaise: dbOrder.totalPaise,
-        currency: "INR",
-        orderNumber: dbOrder.orderNumber,
-        tableNumber: dbOrder.table.tableNumber,
-      });
-    }
-
-    if (!isRazorpayConfigured()) {
-      return fail("PAYMENT", "Payment gateway is not configured", 503);
-    }
 
     // Reuse existing pending payment if it already has a razorpayOrderId and matching amount
     if (
@@ -748,109 +718,6 @@ export async function createRazorpayOrder(
     });
   } catch (err) {
     console.error("Database error in createRazorpayOrder service:", err);
-    return fail("INTERNAL", "Service temporarily unavailable", 500);
-  }
-}
-
-/**
- * Confirms a simulated payment when in DEMO_MODE.
- */
-export async function confirmSimulatedPayment(
-  ctx: Ctx,
-  rawInput: ConfirmSimulatedPaymentInput
-): Promise<ServiceResult<VerifyPaymentData>> {
-  if (env.DEMO_MODE !== "true") {
-    return fail("FORBIDDEN", "Simulated payments are only allowed in demo mode", 403);
-  }
-
-  const validation = confirmSimulatedPaymentSchema.safeParse(rawInput);
-  if (!validation.success) {
-    const errorMsg =
-      validation.error.issues[0]?.message ?? "Invalid simulated payment payload";
-    return fail("VALIDATION", errorMsg, 400);
-  }
-
-  const { orderId, token } = validation.data;
-
-  try {
-    const dbOrder = await ctx.db.query.orders.findFirst({
-      where: eq(orders.id, orderId),
-      with: { table: true },
-    });
-
-    if (!dbOrder) {
-      return fail("NOT_FOUND", "Order not found", 404);
-    }
-
-    if (dbOrder.table.qrToken !== token) {
-      return fail("FORBIDDEN", "Unauthorized access", 403);
-    }
-
-    if (dbOrder.paymentStatus === "paid") {
-      return ok({ paymentStatus: "paid" });
-    }
-
-    const pendingPayment = await ctx.db.query.payments.findFirst({
-      where: and(
-        eq(payments.orderId, orderId),
-        eq(payments.status, "pending"),
-        eq(payments.provider, "simulated")
-      ),
-    });
-
-    if (!pendingPayment) {
-      return fail("NOT_FOUND", "No pending simulated payment found for this order", 404);
-    }
-
-    if (pendingPayment.amountPaise !== dbOrder.totalPaise) {
-      return fail("CONFLICT", "Payment amount mismatch", 400);
-    }
-
-    await ctx.db.transaction(async (tx) => {
-      await tx
-        .update(orders)
-        .set({
-          paymentStatus: "paid",
-          paymentMethod: "pay_now",
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, orderId));
-
-      await tx
-        .update(payments)
-        .set({
-          status: "completed",
-          updatedAt: new Date(),
-        })
-        .where(eq(payments.id, pendingPayment.id));
-
-      await tx.insert(orderEvents).values({
-        orderId,
-        fromStatus: dbOrder.status,
-        toStatus: dbOrder.status,
-        note: "Payment confirmed (Demo Simulated Payment)",
-      });
-    });
-
-    // RULE: Orders are only sent to the kitchen once paid!
-    await publishRealtimeEvent(
-      getRestaurantChannel(dbOrder.restaurantId),
-      "order.created",
-      {
-        orderId: dbOrder.id,
-        status: dbOrder.status,
-        paymentStatus: "paid",
-      }
-    );
-
-    await publishRealtimeEvent(`order:${dbOrder.id}`, "order.paid", {
-      orderId: dbOrder.id,
-      paymentStatus: "paid",
-    });
-
-    return ok({ paymentStatus: "paid" });
-  } catch (err) {
-    console.error("Database error in confirmSimulatedPayment service:", err);
     return fail("INTERNAL", "Service temporarily unavailable", 500);
   }
 }

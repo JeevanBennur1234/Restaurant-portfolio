@@ -161,13 +161,13 @@ describe("Multi-Site Security Headers & SEO Policies", () => {
       process.env.SITE = "customer";
       const customerRobots = robots();
       expect(customerRobots.sitemap).toBeDefined();
-      expect((customerRobots.rules as { allow: string[] }).allow).toEqual(["/", "/demo"]);
+      expect((customerRobots.rules as { allow: string[] }).allow).toEqual(["/"]);
       expect(sitemap().length).toBeGreaterThan(0);
 
       process.env.SITE = "all";
       const allRobots = robots();
       expect(allRobots.sitemap).toBeDefined();
-      expect((allRobots.rules as { allow: string[] }).allow).toEqual(["/", "/demo"]);
+      expect((allRobots.rules as { allow: string[] }).allow).toEqual(["/"]);
       expect(sitemap().length).toBeGreaterThan(0);
     });
   });

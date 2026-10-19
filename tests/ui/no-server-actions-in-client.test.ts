@@ -4,6 +4,7 @@ import * as path from "node:path";
 
 describe("Architecture Guardrail: No server actions in client components", () => {
   function getFiles(dir: string): string[] {
+    if (!fs.existsSync(dir)) return [];
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     let files: string[] = [];
     for (const entry of entries) {
@@ -24,7 +25,6 @@ describe("Architecture Guardrail: No server actions in client components", () =>
     ...getFiles("src/components/guest"),
     ...getFiles("src/components/kitchen"),
     ...getFiles("src/components/admin"),
-    ...getFiles("src/components/demo"),
   ];
 
   it("ensures client components do not import from server actions or queries", () => {

@@ -1,20 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
+const playfair = localFont({
+  src: "./fonts/PlayfairDisplay-Variable.ttf",
   variable: "--font-playfair",
   display: "swap",
-  weight: ["400", "600", "700"],
+  weight: "400 900",
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
+const plusJakarta = localFont({
+  src: "./fonts/PlusJakartaSans-Variable.ttf",
   variable: "--font-plus-jakarta",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: "200 800",
 });
 
 import { env } from "@/server/env";

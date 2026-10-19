@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export interface SignatureDishItem {
@@ -156,13 +155,10 @@ export function SignatureCarousel({ dishes }: SignatureCarouselProps) {
                   </p>
                 </div>
 
-                <Link
-                  href="/demo"
-                  className="inline-flex items-center justify-between w-full pt-3.5 border-t border-[var(--border-subtle)] text-xs font-semibold uppercase tracking-wider text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors min-h-[44px]"
-                >
-                  <span>Order at Table 7</span>
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
+                <div className="flex items-center justify-between w-full pt-3.5 border-t border-[var(--border-subtle)] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <span>Dine-In Signature</span>
+                  <span className="text-[var(--primary)] font-medium">Scan Table QR to Order</span>
+                </div>
               </div>
             </article>
           );

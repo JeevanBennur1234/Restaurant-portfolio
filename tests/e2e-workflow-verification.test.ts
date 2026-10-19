@@ -35,7 +35,13 @@ vi.mock("@/server/auth", () => ({
   createSessionToken: vi.fn(),
 }));
 
-import { confirmSimulatedPayment } from "@/server/services/customer";
+vi.mock("@/server/razorpay", () => ({
+  verifyRazorpaySignature: vi.fn(() => true),
+  isRazorpayConfigured: vi.fn(() => true),
+  createRazorpayOrder: vi.fn(),
+}));
+
+import { verifyRazorpayPayment } from "@/server/services/customer";
 import { transitionOrderStatus } from "@/server/services/kitchen";
 import { cancelOrder } from "@/server/services/manager";
 import { GET as qrPdfGet } from "@/app/api/admin/tables/qr-pdf/route";
@@ -206,7 +212,7 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
     expect(kitchenOrders[0].status).toBe("placed");
   });
 
-  it("Step 2 & 3: Pay-now simulated order is hidden from kitchen until confirmed, then appears", async () => {
+  it("Step 2 & 3: Pay-now online order is hidden from kitchen until verified, then appears", async () => {
     // 1. Create a pay-now order with pending payment
     const payNowOrder: MockDbOrder = {
       id: "order_paynow_1",
@@ -223,10 +229,11 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
     store.orders.set(payNowOrder.id, payNowOrder);
 
     const pendingPayment = {
-      id: "pay_sim_1",
+      id: "pay_rzp_1",
       orderId: "order_paynow_1",
       status: "pending",
-      provider: "simulated",
+      provider: "razorpay",
+      razorpayOrderId: "order_rzp_123",
       amountPaise: 42000,
     };
     store.payments.set(pendingPayment.id, pendingPayment);
@@ -236,7 +243,7 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
     let kitchenOrders = await db.query.orders.findMany();
     expect(kitchenOrders.length).toBe(0);
 
-    // 3. Confirm simulated payment
+    // 3. Verify Razorpay payment
     vi.mocked(db.query.orders.findFirst).mockResolvedValueOnce({
       ...payNowOrder,
       table: payNowOrder.table,
@@ -244,11 +251,14 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
     } as never);
     vi.mocked(db.query.payments.findFirst).mockResolvedValueOnce(pendingPayment as never);
 
-    const paymentResult = await confirmSimulatedPayment(
+    const paymentResult = await verifyRazorpayPayment(
       { db },
       {
         orderId: payNowOrder.id,
         token: payNowOrder.table.qrToken,
+        razorpayOrderId: "order_rzp_123",
+        razorpayPaymentId: "pay_rzp_456",
+        razorpaySignature: "valid_signature",
       }
     );
 
@@ -273,7 +283,7 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
       paymentMethod: "pay_now",
       totalPaise: 29900,
       table: { qrToken: "token_t1", tableNumber: "T-01" },
-      payments: [{ id: "p1", status: "completed", provider: "simulated", amountPaise: 29900 }],
+      payments: [{ id: "p1", status: "completed", provider: "razorpay", amountPaise: 29900 }],
     };
     store.orders.set(order.id, order);
 
@@ -334,7 +344,7 @@ describe("End-to-End Restaurant Order Flow Verification", () => {
       paymentMethod: "pay_now",
       totalPaise: 55000,
       table: { qrToken: "token_t1", tableNumber: "T-01" },
-      payments: [{ id: "pay_1", status: "completed", provider: "simulated", amountPaise: 55000 }],
+      payments: [{ id: "pay_1", status: "completed", provider: "razorpay", amountPaise: 55000 }],
     };
     store.orders.set(paidOrder.id, paidOrder);
 

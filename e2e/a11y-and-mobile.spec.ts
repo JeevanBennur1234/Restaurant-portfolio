@@ -102,8 +102,11 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     );
     expect(managerViolations).toEqual([]);
 
-    // 3. Accessibility Scan: Kitchen Board (signed in via demo-enter)
-    await page.goto(`${KITCHEN_URL}/demo-enter`);
+    // 3. Accessibility Scan: Kitchen Board (signed in with staff credentials)
+    await page.goto(`${KITCHEN_URL}/kitchen`);
+    await page.fill('[data-testid="kitchen-username-input"]', "kitchen");
+    await page.fill('[data-testid="kitchen-password-input"]', "kitchen123");
+    await page.click('[data-testid="kitchen-login-btn"]');
     await expect(page.locator("header")).toBeVisible({ timeout: 15_000 });
 
     const kitchenAxeResults = await new AxeBuilder({ page })

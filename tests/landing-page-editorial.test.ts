@@ -19,12 +19,12 @@ describe("Editorial Landing Page (src/app/page.tsx)", () => {
     expect(pageContent).toContain("Masala Lane");
     // Tagline
     expect(pageContent).toContain("Fired by charcoal, steeped in regional heritage");
-    // Button 1: Order at your table to /demo
-    expect(pageContent).toContain('href="/demo"');
-    expect(pageContent).toContain("Order at your table");
-    // Button 2: View signature dishes to #signature-dishes anchor
+    // Button 1: View signature dishes to #signature-dishes anchor
     expect(pageContent).toContain('href="#signature-dishes"');
     expect(pageContent).toContain("View signature dishes");
+    // Button 2: Dine-In QR Ordering to #table-ordering anchor
+    expect(pageContent).toContain('href="#table-ordering"');
+    expect(pageContent).toContain("Dine-In QR Ordering");
     // Scroll cue
     expect(pageContent).toContain("Scroll");
   });
