@@ -65,12 +65,12 @@ describe("smoke Script (scripts/smoke.ts)", () => {
         });
       }
 
-      if (urlStr.endsWith("/api/v1/auth/demo-login")) {
-        const demoHeaders = new Headers(headers);
-        demoHeaders.set("set-cookie", "dinepulse_demo_session=sample-cookie; Path=/; HttpOnly");
-        return new Response(JSON.stringify({ success: true, data: { success: true, redirectTo: "/kitchen" } }), {
+      if (urlStr.endsWith("/api/v1/auth/login")) {
+        const authHeaders = new Headers(headers);
+        authHeaders.set("set-cookie", "dinepulse_kitchen_session=sample-cookie; Path=/; HttpOnly");
+        return new Response(JSON.stringify({ success: true, data: { user: { role: "kitchen" } } }), {
           status: 200,
-          headers: demoHeaders,
+          headers: authHeaders,
         });
       }
 
@@ -99,19 +99,19 @@ describe("smoke Script (scripts/smoke.ts)", () => {
     expect(summary.results.every((r) => r.status === "PASS")).toBe(true);
   });
 
-  it("checks demo endpoints when demo is enabled", async () => {
+  it("checks staff auth endpoints when demo is enabled", async () => {
     const mockFetch = createMockFetch();
     const summary = await runSmokeTests({ ...config, demo: true }, mockFetch);
 
     expect(summary.passed).toBe(true);
     const kitchenDemoCheck = summary.results.find(
-      (r) => r.site === "kitchen" && r.name.includes("demo-login")
+      (r) => r.site === "kitchen" && r.name.includes("/api/v1/auth/login")
     );
     expect(kitchenDemoCheck).toBeDefined();
     expect(kitchenDemoCheck?.status).toBe("PASS");
 
     const managerDemoCheck = summary.results.find(
-      (r) => r.site === "manager" && r.name.includes("demo-login")
+      (r) => r.site === "manager" && r.name.includes("/api/v1/auth/login")
     );
     expect(managerDemoCheck).toBeDefined();
     expect(managerDemoCheck?.status).toBe("PASS");
@@ -250,13 +250,13 @@ describe("smoke Script (scripts/smoke.ts)", () => {
     expect(kitchenSecCheck?.message).toContain("Expected CSP frame-ancestors to include customer origin");
   });
 
-  it("fails if demo-login returns 200 but lacks set-cookie header", async () => {
+  it("fails if login returns 200 but lacks set-cookie header", async () => {
     const noCookieHeaders = new Headers();
     noCookieHeaders.set("content-security-policy", "default-src 'self'");
     noCookieHeaders.set("x-content-type-options", "nosniff");
 
     const mockFetch = createMockFetch({
-      "POST http://localhost:3001/api/v1/auth/demo-login": {
+      "POST http://localhost:3001/api/v1/auth/login": {
         status: 200,
         headers: noCookieHeaders, // missing set-cookie
       },
@@ -265,7 +265,7 @@ describe("smoke Script (scripts/smoke.ts)", () => {
     const summary = await runSmokeTests({ ...config, demo: true }, mockFetch);
     expect(summary.passed).toBe(false);
     const loginCheck = summary.results.find(
-      (r) => r.site === "kitchen" && r.name.includes("demo-login")
+      (r) => r.site === "kitchen" && r.name.includes("/api/v1/auth/login")
     );
     expect(loginCheck?.status).toBe("FAIL");
     expect(loginCheck?.message).toContain("missing set-cookie");

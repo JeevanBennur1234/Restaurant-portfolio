@@ -50,19 +50,14 @@ export function InvalidTokenView({ reason = "NOT_FOUND" }: InvalidTokenViewProps
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-2">
-          <Link href="/t/demo-table-7" className="block w-full">
+          <Link href="/" className="block w-full">
             <Button
               variant="primary"
               size="md"
               className="w-full justify-between shadow-xs"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
-              Open Masala Lane Demo (Table 7)
-            </Button>
-          </Link>
-          <Link href="/" className="block w-full">
-            <Button variant="ghost" size="md" className="w-full text-xs">
-              Return to DinePulse Overview
+              Return to Masala Lane
             </Button>
           </Link>
         </CardContent>

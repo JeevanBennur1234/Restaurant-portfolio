@@ -30,7 +30,6 @@ describe("OpenAPI Specification Generator", () => {
       "/api/v1/customer/orders/{id}/payment/razorpay",
       "/api/v1/customer/orders/{id}/payment/verify",
       "/api/v1/customer/orders/{id}/payment/counter",
-      "/api/v1/customer/orders/{id}/payment/simulate",
       "/api/v1/kitchen/tickets",
       "/api/v1/kitchen/orders/{id}/transition",
       "/api/v1/admin/orders",

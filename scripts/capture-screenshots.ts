@@ -5,6 +5,7 @@ import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { chromium, expect, type Browser, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { validateSafeE2EDatabaseUrl } from "../e2e/global-setup";
+import { resetDemoState } from "../e2e/test-helpers";
 
 const CUSTOMER_PORT = 3000;
 const KITCHEN_PORT = 3001;
@@ -18,6 +19,24 @@ const FIXED_SESSION_SECRET = "e2e-fixed-test-session-secret-at-least-32-chars-lo
 const FIXED_DEMO_RESET_SECRET = "e2e-demo-reset-secret-at-least-32-chars-long";
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "docs/screenshots");
+
+async function loginKitchen(page: Page) {
+  const usernameInput = page.locator('[data-testid="kitchen-username-input"]');
+  if (await usernameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await usernameInput.fill("kitchen");
+    await page.locator('[data-testid="kitchen-password-input"]').fill("kitchen123");
+    await page.locator('[data-testid="kitchen-login-btn"]').click();
+  }
+}
+
+async function loginManager(page: Page) {
+  const usernameInput = page.locator('[data-testid="admin-username-input"]');
+  if (await usernameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await usernameInput.fill("manager");
+    await page.locator('[data-testid="admin-password-input"]').fill("manager123");
+    await page.locator('[data-testid="admin-login-btn"]').click();
+  }
+}
 
 function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -243,18 +262,10 @@ export async function main() {
     ]);
     console.log("✅ All three servers responded healthy.");
 
-    // 5. Reset demo state via API
-    console.log("🔄 Resetting demo dataset via POST /api/demo/reset...");
-    const resetRes = await fetch(`${CUSTOMER_URL}/api/demo/reset`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${FIXED_DEMO_RESET_SECRET}`,
-      },
-    });
-    if (!resetRes.ok) {
-      throw new Error(`Demo reset failed with status ${resetRes.status}`);
-    }
-    console.log("✅ Demo state reset successfully.");
+    // 5. Reset baseline state directly in test database
+    console.log("🔄 Resetting baseline orders and tickets...");
+    await resetDemoState();
+    console.log("✅ Baseline orders and tickets reset successfully.");
 
     // 6. Pre-warm key Next.js routes to trigger on-demand compilation before browser automation
     console.log("🔥 Pre-warming Next.js routes...");
@@ -262,7 +273,6 @@ export async function main() {
       fetch(`${CUSTOMER_URL}/t/demo-table-7`).catch(() => {}),
       fetch(`${KITCHEN_URL}/kitchen`).catch(() => {}),
       fetch(`${MANAGER_URL}/admin`).catch(() => {}),
-      fetch(`${CUSTOMER_URL}/demo`).catch(() => {}),
     ]);
 
     // 7. Launch browser to prepare realistic order workflow and capture views
@@ -315,10 +325,7 @@ export async function main() {
     });
     const kitchenPage = await kitchenContext.newPage();
     await kitchenPage.goto(`${KITCHEN_URL}/kitchen`, { waitUntil: "networkidle" });
-    const kDemoBtn = kitchenPage.locator('[data-testid="kitchen-demo-login-btn"]');
-    if (await kDemoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await kDemoBtn.click();
-    }
+    await loginKitchen(kitchenPage);
     await kitchenPage.locator("header").waitFor({ state: "visible", timeout: 30_000 });
 
     const ticket3 = kitchenPage.locator(
@@ -373,10 +380,7 @@ export async function main() {
     });
     const managerPage = await managerContext.newPage();
     await managerPage.goto(`${MANAGER_URL}/admin`, { waitUntil: "networkidle" });
-    const mDemoBtn = managerPage.locator('[data-testid="admin-demo-login-btn"]');
-    if (await mDemoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await mDemoBtn.click();
-    }
+    await loginManager(managerPage);
     const navOrders = managerPage.locator('[data-testid="admin-nav-orders"]');
     await navOrders.waitFor({ state: "visible", timeout: 30_000 });
     await navOrders.click();
@@ -527,10 +531,7 @@ export async function main() {
           const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
           const p = await ctx.newPage();
           await p.goto(`${KITCHEN_URL}/kitchen`, { waitUntil: "networkidle" });
-          const btn = p.locator('[data-testid="kitchen-demo-login-btn"]');
-          if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await btn.click();
-          }
+          await loginKitchen(p);
           await p.locator('[data-testid="kitchen-ticket"]').first().waitFor({ state: "visible", timeout: 30_000 });
           const readyCol = p.locator('section:has(h2:has-text("Ready to Serve"))');
           await expect(readyCol.locator(`[data-testid="kitchen-ticket"]:has-text("${order3Number}")`)).toBeVisible({
@@ -552,10 +553,7 @@ export async function main() {
           const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
           const p = await ctx.newPage();
           await p.goto(`${MANAGER_URL}/admin`, { waitUntil: "networkidle" });
-          const btn = p.locator('[data-testid="admin-demo-login-btn"]');
-          if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await btn.click();
-          }
+          await loginManager(p);
           const nav = p.locator('[data-testid="admin-nav-orders"]');
           await nav.waitFor({ state: "visible", timeout: 30_000 });
           await nav.click();
@@ -577,10 +575,7 @@ export async function main() {
           const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
           const p = await ctx.newPage();
           await p.goto(`${MANAGER_URL}/admin`, { waitUntil: "networkidle" });
-          const btn = p.locator('[data-testid="admin-demo-login-btn"]');
-          if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await btn.click();
-          }
+          await loginManager(p);
           const nav = p.locator('[data-testid="admin-nav-menu"]');
           await nav.waitFor({ state: "visible", timeout: 30_000 });
           await nav.click();
@@ -601,10 +596,7 @@ export async function main() {
           const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
           const p = await ctx.newPage();
           await p.goto(`${MANAGER_URL}/admin`, { waitUntil: "networkidle" });
-          const btn = p.locator('[data-testid="admin-demo-login-btn"]');
-          if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await btn.click();
-          }
+          await loginManager(p);
           const nav = p.locator('[data-testid="admin-nav-tables"]');
           await nav.waitFor({ state: "visible", timeout: 30_000 });
           await nav.click();
@@ -625,10 +617,7 @@ export async function main() {
           const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
           const p = await ctx.newPage();
           await p.goto(`${MANAGER_URL}/admin`, { waitUntil: "networkidle" });
-          const btn = p.locator('[data-testid="admin-demo-login-btn"]');
-          if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await btn.click();
-          }
+          await loginManager(p);
           const nav = p.locator('[data-testid="admin-nav-reports"]');
           await nav.waitFor({ state: "visible", timeout: 30_000 });
           await nav.click();
@@ -637,23 +626,6 @@ export async function main() {
             .first()
             .waitFor({ state: "visible", timeout: 15_000 });
           await p.waitForTimeout(500);
-          await hideOverlays(p);
-          const buf = await p.screenshot({ type: "png" });
-          await ctx.close();
-          return buf;
-        },
-      },
-      // 10. demo-page.webp (1440 x 900) - Honest capture of real dual-pane showcase UI
-      {
-        filename: "demo-page.webp",
-        width: 1440,
-        height: 900,
-        capture: async (b) => {
-          const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
-          const p = await ctx.newPage();
-          await p.goto(`${CUSTOMER_URL}/demo`, { waitUntil: "networkidle" });
-          await p.locator("iframe").first().waitFor({ state: "attached", timeout: 30_000 });
-          await p.waitForTimeout(2000);
           await hideOverlays(p);
           const buf = await p.screenshot({ type: "png" });
           await ctx.close();

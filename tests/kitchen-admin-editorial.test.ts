@@ -85,15 +85,17 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
     expect(adminTablesCode).toContain("focus-visible:ring-[var(--primary)]");
   });
 
-  it("Login screens: styled to match design system with demo login gated on isDemoMode", () => {
-    // Kitchen login styling and demo gating
+  it("Login screens: styled to match design system with authentic credential authentication", () => {
+    // Kitchen login styling and credential inputs
     expect(kitchenLoginCode).toContain("Masala Lane Kitchen");
-    expect(kitchenLoginCode).toContain("isDemoMode &&");
-    expect(kitchenLoginCode).toContain("demoLoginAction(\"kitchen\")");
+    expect(kitchenLoginCode).toContain('data-testid="kitchen-username-input"');
+    expect(kitchenLoginCode).toContain('data-testid="kitchen-password-input"');
+    expect(kitchenLoginCode).toContain('data-testid="kitchen-login-btn"');
 
-    // Admin login styling and demo gating
+    // Admin login styling and credential inputs
     expect(adminLoginCode).toContain("Masala Lane Hub");
-    expect(adminLoginCode).toContain("isDemoMode &&");
-    expect(adminLoginCode).toContain("demoLoginAction(\"manager\")");
+    expect(adminLoginCode).toContain('data-testid="admin-username-input"');
+    expect(adminLoginCode).toContain('data-testid="admin-password-input"');
+    expect(adminLoginCode).toContain('data-testid="admin-login-btn"');
   });
 });

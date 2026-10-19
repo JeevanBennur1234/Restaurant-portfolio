@@ -218,19 +218,22 @@ export async function runSmokeTests(
     });
   }
 
-  // 6. With --demo: POST /api/v1/auth/demo-login on kitchen and manager -> 200 and set-cookie
+  // 6. With --demo: POST /api/v1/auth/login on kitchen and manager -> 200 and set-cookie
   if (isDemo) {
     await checkEndpoint(
       "kitchen",
-      "POST /api/v1/auth/demo-login (kitchen)",
-      `${kitchen}/api/v1/auth/demo-login`,
+      "POST /api/v1/auth/login (kitchen)",
+      `${kitchen}/api/v1/auth/login`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Origin: kitchen,
         },
-        body: JSON.stringify({ role: "kitchen" }),
+        body: JSON.stringify({
+          username: "kitchen",
+          password: process.env.SEED_KITCHEN_PASSWORD || "kitchen123",
+        }),
       },
       (res, text) => {
         const setCookie = res.headers.get("set-cookie");
@@ -249,15 +252,18 @@ export async function runSmokeTests(
 
     await checkEndpoint(
       "manager",
-      "POST /api/v1/auth/demo-login (manager)",
-      `${manager}/api/v1/auth/demo-login`,
+      "POST /api/v1/auth/login (manager)",
+      `${manager}/api/v1/auth/login`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Origin: manager,
         },
-        body: JSON.stringify({ role: "manager" }),
+        body: JSON.stringify({
+          username: "manager",
+          password: process.env.SEED_MANAGER_PASSWORD || "manager123",
+        }),
       },
       (res, text) => {
         const setCookie = res.headers.get("set-cookie");

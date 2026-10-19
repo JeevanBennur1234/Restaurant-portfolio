@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Sparkles } from "lucide-react";
+import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
@@ -19,26 +19,15 @@ export default function NotFound() {
           The requested page, dining table, or dashboard view could not be found. It may have been moved or the table link has expired.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-          <Link href="/" className="flex-1">
+        <div className="pt-2">
+          <Link href="/" className="w-full">
             <Button
-              variant="outline"
+              variant="primary"
               size="md"
               className="w-full justify-center"
               leftIcon={<Home className="h-4 w-4" />}
             >
               Return Home
-            </Button>
-          </Link>
-
-          <Link href="/demo" className="flex-1">
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full justify-center"
-              leftIcon={<Sparkles className="h-4 w-4" />}
-            >
-              Live Demo
             </Button>
           </Link>
         </div>

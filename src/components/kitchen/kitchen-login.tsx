@@ -4,25 +4,23 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { ChefHat, AlertCircle, ArrowRight, Sparkles } from "lucide-react";
-import { authApi, demoLoginAction } from "@/lib/api/auth";
+import { ChefHat, AlertCircle, ArrowRight } from "lucide-react";
+import { authApi } from "@/lib/api/auth";
 import { resolveSiteUrl } from "@/lib/site-urls";
 
 export interface KitchenLoginProps {
-  isDemoMode?: boolean;
   managerUrl?: string | null;
 }
 
-export function KitchenLogin({ isDemoMode = false, managerUrl }: KitchenLoginProps) {
+export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isDemoLoading, setIsDemoLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!username || !password || isLoading || isDemoLoading) return;
+    if (!username || !password || isLoading) return;
 
     setIsLoading(true);
     setError(null);
@@ -38,24 +36,6 @@ export function KitchenLogin({ isDemoMode = false, managerUrl }: KitchenLoginPro
       setError((err as Error).message ?? "Authentication failed");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    if (isLoading || isDemoLoading) return;
-    setIsDemoLoading(true);
-    setError(null);
-    try {
-      const res = await demoLoginAction("kitchen");
-      if (res.success) {
-        window.location.reload();
-      } else {
-        setError(res.error ?? "Demo login failed");
-      }
-    } catch (err) {
-      setError((err as Error).message ?? "Authentication failed");
-    } finally {
-      setIsDemoLoading(false);
     }
   };
 
@@ -134,34 +114,12 @@ export function KitchenLogin({ isDemoMode = false, managerUrl }: KitchenLoginPro
               size="lg"
               variant="primary"
               isLoading={isLoading}
-              disabled={isDemoLoading}
               className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-sm"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
               Sign In to KDS Board
             </Button>
           </form>
-
-          {/* Demo Mode Button (only rendered when isDemoMode is true from server, no client credentials) */}
-          {isDemoMode && (
-            <div className="pt-3 border-t border-[#2C2825] space-y-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block text-center">
-                Demo Preview Access
-              </span>
-              <Button
-                type="button"
-                data-testid="kitchen-demo-login-btn"
-                variant="outline"
-                isLoading={isDemoLoading}
-                disabled={isLoading}
-                onClick={handleDemoLogin}
-                className="w-full h-11 min-h-[44px] border-[#38332D] bg-[#231F1C] hover:bg-[#2c2723] hover:border-[var(--primary)] text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
-                <span>Continue as demo kitchen</span>
-              </Button>
-            </div>
-          )}
 
           {/* Conditional Manager Console Link */}
           {(managerUrl !== undefined ? managerUrl : resolveSiteUrl("manager", "/admin")) && (

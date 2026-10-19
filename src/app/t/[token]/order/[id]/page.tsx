@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/server/db";
 import { getOrder } from "@/server/services/customer";
-import { env } from "@/server/env";
 import { GuestHeader } from "@/components/guest/guest-header";
 import { OrderLiveTracker } from "@/components/guest/order-live-tracker";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -19,6 +19,8 @@ interface OrderPageProps {
 export async function generateMetadata({
   params,
 }: OrderPageProps): Promise<Metadata> {
+  // The tracker title depends on live order data; render this metadata at request time.
+  await connection();
   const { id, token } = await params;
   const result = await getOrder({ db }, { orderId: id, token });
 
@@ -38,6 +40,7 @@ export async function generateMetadata({
 }
 
 export default async function GuestOrderTrackerPage({ params }: OrderPageProps) {
+  await connection();
   const { id, token } = await params;
   const result = await getOrder({ db }, { orderId: id, token });
 
@@ -70,7 +73,6 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
   }
 
   const order = result.data;
-  const isDemoMode = env.DEMO_MODE === "true";
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)]">
@@ -81,7 +83,6 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
       <OrderLiveTracker
         initialOrder={order}
         token={token}
-        isDemoMode={isDemoMode}
       />
     </div>
   );

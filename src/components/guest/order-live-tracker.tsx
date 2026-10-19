@@ -28,7 +28,6 @@ import {
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
   token: string;
-  isDemoMode?: boolean;
 }
 
 const statusHeadlines: Record<
@@ -67,13 +66,8 @@ const statusHeadlines: Record<
   },
 };
 
-export function OrderLiveTracker({
-  initialOrder,
-  token,
-  isDemoMode = false,
-}: OrderLiveTrackerProps) {
+export function OrderLiveTracker({ initialOrder, token }: OrderLiveTrackerProps) {
   const [order, setOrder] = React.useState<OrderDetails>(initialOrder);
-  const [isAdvancing, setIsAdvancing] = React.useState(false);
   const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
 
   // Payment retry states
@@ -156,28 +150,6 @@ export function OrderLiveTracker({
 
   const currentHeadline = statusHeadlines[order.status] ?? statusHeadlines.placed;
 
-  // Next status for test simulation
-  const nextStatusMap: Partial<Record<OrderStatus, OrderStatus>> = {
-    placed: "preparing",
-    accepted: "preparing",
-    preparing: "ready",
-    ready: "served",
-  };
-  const nextStatus = nextStatusMap[order.status];
-
-  const handleSimulateAdvance = async () => {
-    if (!nextStatus || isAdvancing) return;
-    setIsAdvancing(true);
-    try {
-      const res = await customerApi.advanceOrder({ orderId: order.id, token });
-      if (res.ok && res.data?.newStatus) {
-        setOrder((prev) => ({ ...prev, status: res.data.newStatus }));
-      }
-    } finally {
-      setIsAdvancing(false);
-    }
-  };
-
   // Online Payment Retry handler
   const handleRetryOnlinePayment = async () => {
     setIsPaying(true);
@@ -196,26 +168,6 @@ export function OrderLiveTracker({
             rzpRes.message || "Failed to initialize payment gateway"
           )
         );
-        setIsPaying(false);
-        return;
-      }
-
-      if (rzpRes.data.simulated) {
-        const confirmRes = await customerApi.simulatePayment({
-          orderId: order.id,
-          token,
-        });
-
-        if (confirmRes.ok) {
-          setOrder((prev) => ({ ...prev, paymentStatus: "paid" }));
-        } else {
-          setPaymentError(
-            userMessageFor(
-              confirmRes.code,
-              confirmRes.message || "Payment confirmation failed"
-            )
-          );
-        }
         setIsPaying(false);
         return;
       }
@@ -286,7 +238,6 @@ export function OrderLiveTracker({
     }
   };
 
-  // Switch to Counter handler
   const handleSwitchToCounter = async () => {
     setIsPaying(true);
     setPaymentError(null);
@@ -374,27 +325,27 @@ export function OrderLiveTracker({
             )}
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Button
-                size="sm"
-                variant="primary"
-                isLoading={isPaying}
-                onClick={handleRetryOnlinePayment}
-                className="flex-1 justify-center shadow-xs"
-                leftIcon={<CreditCard className="h-4 w-4" />}
-              >
-                Pay Now • {formatPaiseToINR(order.totalPaise)}
-              </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  isLoading={isPaying}
+                  onClick={handleRetryOnlinePayment}
+                  className="flex-1 justify-center shadow-xs"
+                  leftIcon={<CreditCard className="h-4 w-4" />}
+                >
+                  Pay Now • {formatPaiseToINR(order.totalPaise)}
+                </Button>
 
-              <Button
-                size="sm"
-                variant="outline"
-                isLoading={isPaying}
-                onClick={handleSwitchToCounter}
-                className="flex-1 justify-center bg-white"
-                leftIcon={<Banknote className="h-4 w-4" />}
-              >
-                Pay at Counter Instead
-              </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  isLoading={isPaying}
+                  onClick={handleSwitchToCounter}
+                  className="flex-1 justify-center bg-white"
+                  leftIcon={<Banknote className="h-4 w-4" />}
+                >
+                  Pay at Counter Instead
+                </Button>
             </div>
           </CardContent>
         </Card>
@@ -436,28 +387,6 @@ export function OrderLiveTracker({
           </div>
         </CardContent>
       </Card>
-
-      {/* Demo Simulation Advance Pill */}
-      {isDemoMode && nextStatus && (
-        <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--primary)] bg-[var(--primary-subtle)]/30 p-3 flex items-center justify-between">
-          <div className="text-xs">
-            <span className="font-bold text-[var(--primary)]">Demo Preview: </span>
-            <span className="text-[var(--text-secondary)]">
-              Simulate kitchen advancing order to{" "}
-              <b className="capitalize">{nextStatus}</b>
-            </span>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            isLoading={isAdvancing}
-            onClick={handleSimulateAdvance}
-            className="text-xs h-7 px-3 border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"
-          >
-            Advance Step
-          </Button>
-        </div>
-      )}
 
       {/* Itemized Order Summary */}
       <Card className="shadow-xs">

@@ -1,390 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { NextRequest } from "next/server";
-import { POST as handleDemoLogin } from "@/app/api/v1/auth/demo-login/route";
-import { POST as handleDemoAdvance } from "@/app/api/v1/customer/orders/[id]/demo/advance/route";
-import { GET as handleDemoEnter } from "@/app/demo-enter/route";
+import { describe, it, expect, afterEach } from "vitest";
 import { getSiteUrls, resolveSiteUrl, validateSiteUrlOrigin } from "@/lib/site-urls";
 import manifest from "@/app/manifest";
-
-// Mock environment
-vi.mock("@/server/env", () => ({
-  env: {
-    NODE_ENV: "test",
-    DEMO_MODE: "true",
-    DATABASE_URL: "postgres://mock",
-    NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-    SESSION_SECRET: "test-session-secret-at-least-32-chars-long-123456",
-  },
-}));
-
-vi.mock("@/server/auth", () => ({
-  setStaffSessionCookie: vi.fn(
-    async (
-      _userId: string,
-      _sessionVersion?: number,
-      response?: { cookies: { set: (name: string, val: string, opts?: unknown) => void } }
-    ) => {
-      if (response) {
-        const site = process.env.SITE;
-        const cookieName =
-          site === "manager"
-            ? "dinepulse_manager_session"
-            : "dinepulse_kitchen_session";
-        response.cookies.set(cookieName, "mock-jwt-token", {
-          httpOnly: true,
-          secure: false,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 43200,
-        });
-      }
-      return undefined;
-    }
-  ),
-  getStaffSession: vi.fn(async () => null),
-  signSessionPayload: vi.fn(() => "mock-jwt-token"),
-}));
-
-vi.mock("@/server/realtime", () => ({
-  publishRealtimeEvent: vi.fn().mockResolvedValue(undefined),
-  getRestaurantChannel: vi.fn((id: string) => `restaurant:${id}`),
-}));
-
-// Mock DB
-const mockDemoKitchenUser = {
-  id: "usr_demo_kitchen",
-  role: "kitchen",
-  username: "kitchen",
-  isActive: true,
-  isDemo: true,
-  sessionVersion: 1,
-};
-
-const mockDemoManagerUser = {
-  id: "usr_demo_manager",
-  role: "manager",
-  username: "manager",
-  isActive: true,
-  isDemo: true,
-  sessionVersion: 1,
-};
-
-vi.mock("@/server/db", () => ({
-  db: {
-    query: {
-      staffUsers: {
-        findFirst: vi.fn(async () => mockDemoKitchenUser),
-      },
-      tables: {
-        findFirst: vi.fn(async () => ({
-          id: "tbl_1",
-          tableNumber: "Table 7",
-          qrToken: "tok_table_7",
-          isActive: true,
-          restaurantId: "rest_1",
-          restaurant: { id: "rest_1", name: "Masala Lane" },
-        })),
-      },
-      orders: {
-        findFirst: vi.fn(async () => ({
-          id: "ord_101",
-          status: "placed",
-          restaurantId: "rest_1",
-          table: {
-            qrToken: "tok_table_7",
-          },
-        })),
-      },
-    },
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        onConflictDoUpdate: vi.fn(() => ({
-          returning: vi.fn().mockResolvedValue([{ count: 1 }]),
-        })),
-      })),
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn().mockResolvedValue(undefined),
-    })),
-    transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
-      const txMock = {
-        update: vi.fn(() => ({
-          set: vi.fn(() => ({
-            where: vi.fn().mockResolvedValue(undefined),
-          })),
-        })),
-        insert: vi.fn(() => ({
-          values: vi.fn().mockResolvedValue(undefined),
-        })),
-      };
-      return cb(txMock);
-    }),
-  },
-}));
-
-import { env } from "@/server/env";
-import { db } from "@/server/db";
-import { setStaffSessionCookie } from "@/server/auth";
-
-describe("Demo Login API (POST /api/v1/auth/demo-login)", () => {
-  const originalSite = process.env.SITE;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (env as { DEMO_MODE: string }).DEMO_MODE = "true";
-    process.env.SITE = "kitchen";
-  });
-
-  afterEach(() => {
-    if (originalSite === undefined) {
-      delete process.env.SITE;
-    } else {
-      process.env.SITE = originalSite;
-    }
-  });
-
-  it("rejects demo login when DEMO_MODE is not true", async () => {
-    (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: "http://localhost:3001" },
-      body: JSON.stringify({ role: "kitchen" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(404);
-    const json = await res.json();
-    expect(json.success).toBe(false);
-    expect(json.error.message).toMatch(/not found/i);
-  });
-
-  it("rejects demo login with 403 when Origin header is missing", async () => {
-    process.env.SITE = "kitchen";
-    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "kitchen" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(403);
-    const json = await res.json();
-    expect(json.success).toBe(false);
-    expect(json.error.message).toMatch(/Invalid origin/i);
-  });
-
-  it("returns 429 RATE_LIMITED on the 21st request within 10 minutes", async () => {
-    process.env.SITE = "kitchen";
-    vi.mocked(db.insert).mockReturnValueOnce({
-      values: vi.fn(() => ({
-        onConflictDoUpdate: vi.fn(() => ({
-          returning: vi.fn().mockResolvedValue([{ count: 21, windowStart: new Date() }]),
-        })),
-      })),
-    } as never);
-
-    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Origin: "http://localhost:3001",
-      },
-      body: JSON.stringify({ role: "kitchen" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(429);
-    expect(res.headers.get("Retry-After")).toBeDefined();
-    const json = await res.json();
-    expect(json.success).toBe(false);
-    expect(json.error.code).toBe("RATE_LIMITED");
-  });
-
-  it("rejects demo login when role is not allowed on site", async () => {
-    process.env.SITE = "manager";
-    const req = new NextRequest("http://localhost:3002/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: "http://localhost:3002" },
-      body: JSON.stringify({ role: "kitchen" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(403);
-    const json = await res.json();
-    expect(json.success).toBe(false);
-    expect(json.error.message).toMatch(/This account can't sign in on this site/i);
-  });
-
-  it("successfully signs in demo kitchen user and sets session cookie", async () => {
-    process.env.SITE = "kitchen";
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoKitchenUser as never);
-
-    const req = new NextRequest("http://localhost:3001/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: "http://localhost:3001" },
-      body: JSON.stringify({ role: "kitchen" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.data.success).toBe(true);
-    expect(json.data.redirectTo).toBe("/kitchen");
-    expect(setStaffSessionCookie).toHaveBeenCalledWith(
-      mockDemoKitchenUser.id,
-      mockDemoKitchenUser.sessionVersion
-    );
-  });
-
-  it("successfully signs in demo manager user on manager site", async () => {
-    process.env.SITE = "manager";
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoManagerUser as never);
-
-    const req = new NextRequest("http://localhost:3002/api/v1/auth/demo-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: "http://localhost:3002" },
-      body: JSON.stringify({ role: "manager" }),
-    });
-
-    const res = await handleDemoLogin(req);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.data.success).toBe(true);
-    expect(json.data.redirectTo).toBe("/admin");
-    expect(setStaffSessionCookie).toHaveBeenCalledWith(
-      mockDemoManagerUser.id,
-      mockDemoManagerUser.sessionVersion
-    );
-  });
-});
-
-describe("Customer Order Advance API (POST /api/v1/customer/orders/[id]/demo/advance)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (env as { DEMO_MODE: string }).DEMO_MODE = "true";
-  });
-
-  it("returns 404 when DEMO_MODE is false", async () => {
-    (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
-      method: "POST",
-      headers: { "x-table-token": "tok_table_7" },
-    });
-
-    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 400 when table token is missing", async () => {
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
-      method: "POST",
-    });
-
-    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
-    expect(res.status).toBe(400);
-  });
-
-  it("advances order to preparing and returns newStatus", async () => {
-    const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/ord_101/demo/advance", {
-      method: "POST",
-      headers: { "x-table-token": "tok_table_7" },
-    });
-
-    const res = await handleDemoAdvance(req, { params: Promise.resolve({ id: "ord_101" }) });
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.data.newStatus).toBe("preparing");
-  });
-});
-
-describe("Demo Enter Route (GET /demo-enter)", () => {
-  const originalSite = process.env.SITE;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (env as { DEMO_MODE: string }).DEMO_MODE = "true";
-  });
-
-  afterEach(() => {
-    if (originalSite === undefined) {
-      delete process.env.SITE;
-    } else {
-      process.env.SITE = originalSite;
-    }
-  });
-
-  it("returns 404 when DEMO_MODE is false", async () => {
-    (env as { DEMO_MODE: string }).DEMO_MODE = "false";
-    process.env.SITE = "kitchen";
-    const req = new NextRequest("http://localhost:3001/demo-enter");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 on customer site", async () => {
-    process.env.SITE = "customer";
-    const req = new NextRequest("http://localhost:3000/demo-enter");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 429 on the 21st demo-enter request within 10 minutes", async () => {
-    process.env.SITE = "kitchen";
-    vi.mocked(db.insert).mockReturnValueOnce({
-      values: vi.fn(() => ({
-        onConflictDoUpdate: vi.fn(() => ({
-          returning: vi.fn().mockResolvedValue([{ count: 21, windowStart: new Date() }]),
-        })),
-      })),
-    } as never);
-
-    const req = new NextRequest("http://localhost:3001/demo-enter");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(429);
-    expect(res.headers.get("Retry-After")).toBeDefined();
-    const text = await res.text();
-    expect(text).toMatch(/Too many requests/i);
-  });
-
-  it("logs in demo kitchen user and redirects to / on kitchen site", async () => {
-    process.env.SITE = "kitchen";
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoKitchenUser as never);
-
-    const req = new NextRequest("http://localhost:3001/demo-enter");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost:3001/");
-    const setCookie = res.headers.get("set-cookie");
-    expect(setCookie).toContain("dinepulse_kitchen_session");
-  });
-
-  it("logs in demo manager user and redirects to / on manager site", async () => {
-    process.env.SITE = "manager";
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoManagerUser as never);
-
-    const req = new NextRequest("http://localhost:3002/demo-enter");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost:3002/");
-    const setCookie = res.headers.get("set-cookie");
-    expect(setCookie).toContain("dinepulse_manager_session");
-  });
-
-  it("redirects to role path when site is all", async () => {
-    process.env.SITE = "all";
-    vi.mocked(db.query.staffUsers.findFirst).mockResolvedValueOnce(mockDemoKitchenUser as never);
-
-    const req = new NextRequest("http://localhost:3000/demo-enter?role=kitchen");
-    const res = await handleDemoEnter(req);
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://localhost:3000/kitchen");
-  });
-});
 
 describe("Site URL Origin Validation (validateSiteUrlOrigin)", () => {
   it("accepts valid http and https origins without paths", () => {
@@ -447,9 +65,7 @@ describe("Site URL Resolution (src/lib/site-urls.ts)", () => {
 
     expect(resolveSiteUrl("kitchen", "/kitchen", "all")).toBe("/kitchen");
     expect(resolveSiteUrl("manager", "/admin", "all")).toBe("/admin");
-    expect(resolveSiteUrl("customer", "/t/demo-table-7", "all")).toBe("/t/demo-table-7");
-    expect(resolveSiteUrl("kitchen", "/demo-enter", "all")).toBe("/demo-enter?role=kitchen");
-    expect(resolveSiteUrl("manager", "/demo-enter", "all")).toBe("/demo-enter?role=manager");
+    expect(resolveSiteUrl("customer", "/t/table-1", "all")).toBe("/t/table-1");
   });
 
   it("returns null when site URLs are unconfigured in multi-site mode (no silent fallback to ports)", () => {
@@ -464,7 +80,7 @@ describe("Site URL Resolution (src/lib/site-urls.ts)", () => {
 
     expect(resolveSiteUrl("kitchen", "/kitchen", "customer")).toBeNull();
     expect(resolveSiteUrl("manager", "/admin", "customer")).toBeNull();
-    expect(resolveSiteUrl("customer", "/t/demo-table-7", "customer")).toBeNull();
+    expect(resolveSiteUrl("customer", "/t/table-1", "customer")).toBeNull();
   });
 
   it("resolves absolute URLs when site URLs are configured in multi-site mode", () => {
@@ -478,10 +94,8 @@ describe("Site URL Resolution (src/lib/site-urls.ts)", () => {
     expect(urls.manager).toBe("http://localhost:3002");
 
     expect(resolveSiteUrl("kitchen", "/kitchen", "customer")).toBe("http://localhost:3001/kitchen");
-    expect(resolveSiteUrl("kitchen", "/demo-enter", "customer")).toBe("http://localhost:3001/demo-enter");
     expect(resolveSiteUrl("manager", "/admin", "customer")).toBe("http://localhost:3002/admin");
-    expect(resolveSiteUrl("manager", "/demo-enter", "customer")).toBe("http://localhost:3002/demo-enter");
-    expect(resolveSiteUrl("customer", "/t/demo-table-7", "manager")).toBe("http://localhost:3000/t/demo-table-7");
+    expect(resolveSiteUrl("customer", "/t/table-1", "manager")).toBe("http://localhost:3000/t/table-1");
   });
 });
 
@@ -554,11 +168,9 @@ describe("PWA Icons (public/icons/)", () => {
   function readPngDimensions(filePath: string): { width: number; height: number } {
     const fullPath = path.resolve(process.cwd(), filePath);
     const buf = fs.readFileSync(fullPath);
-    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
     expect(buf.slice(0, 8)).toEqual(
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
     );
-    // IHDR chunk begins at offset 12
     expect(buf.slice(12, 16).toString("ascii")).toBe("IHDR");
     const width = buf.readUInt32BE(16);
     const height = buf.readUInt32BE(20);

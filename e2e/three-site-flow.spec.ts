@@ -56,11 +56,11 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     const kitchenContext = await browser.newContext();
     const kitchenPage = await kitchenContext.newPage();
 
-    // 2. Kitchen logs in via demo button
+    // 2. Kitchen logs in with credentials
     await kitchenPage.goto(`${KITCHEN_URL}/kitchen`);
-    const demoLoginBtn = kitchenPage.locator('[data-testid="kitchen-demo-login-btn"]');
-    await expect(demoLoginBtn).toBeVisible({ timeout: 15_000 });
-    await demoLoginBtn.click();
+    await kitchenPage.fill('[data-testid="kitchen-username-input"]', "kitchen");
+    await kitchenPage.fill('[data-testid="kitchen-password-input"]', "kitchen123");
+    await kitchenPage.click('[data-testid="kitchen-login-btn"]');
 
     // Wait for KDS board to load
     await expect(kitchenPage.locator("header")).toBeVisible({ timeout: 15_000 });

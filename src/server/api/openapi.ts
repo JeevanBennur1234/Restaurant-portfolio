@@ -225,36 +225,6 @@ export function generateOpenApiDocument() {
           },
         },
       },
-      "/api/v1/auth/demo-login": {
-        post: {
-          summary: "Sign in using pre-seeded demo credentials (demo mode only)",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    role: {
-                      type: "string",
-                      enum: ["kitchen", "manager"],
-                      description: "Target staff role for demo sign in",
-                    },
-                  },
-                  required: ["role"],
-                },
-              },
-            },
-          },
-          responses: {
-            "200": {
-              description: "Demo session established",
-              content: { "application/json": { schema: envelopeSuccessRef } },
-            },
-            ...standardResponses,
-          },
-        },
-      },
       "/api/v1/customer/tables/{token}/menu": {
         get: {
           summary: "Guest menu for table",
@@ -395,54 +365,6 @@ export function generateOpenApiDocument() {
           responses: {
             "200": {
               description: "Order switched to counter payment",
-              content: { "application/json": { schema: envelopeSuccessRef } },
-            },
-            ...standardResponses,
-          },
-        },
-      },
-      "/api/v1/customer/orders/{id}/payment/simulate": {
-        post: {
-          summary: "Simulate payment confirmation (demo mode only)",
-          security: [{ tableToken: [] }],
-          parameters: [
-            {
-              name: "id",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": {
-              description: "Simulated payment accepted",
-              content: { "application/json": { schema: envelopeSuccessRef } },
-            },
-            ...standardResponses,
-          },
-        },
-      },
-      "/api/v1/customer/orders/{id}/demo/advance": {
-        post: {
-          summary: "Advance order to next kitchen station (demo simulation)",
-          security: [{ tableToken: [] }],
-          parameters: [
-            {
-              name: "id",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-            {
-              name: "x-table-token",
-              in: "header",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": {
-              description: "Order successfully advanced to next status",
               content: { "application/json": { schema: envelopeSuccessRef } },
             },
             ...standardResponses,
