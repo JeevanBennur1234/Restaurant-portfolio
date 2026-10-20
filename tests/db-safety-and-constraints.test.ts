@@ -8,6 +8,7 @@ describe("Database Pool & TLS Configuration (pool-config)", () => {
   const envMap = process.env as Record<string, string | undefined>;
   const originalEnv = envMap.NODE_ENV;
   const originalSslReject = envMap.DATABASE_SSL_REJECT_UNAUTHORIZED;
+  const originalCaCert = envMap.DATABASE_CA_CERT;
   const originalPoolMax = envMap.DB_POOL_MAX;
   const originalConnTimeout = envMap.DB_CONNECTION_TIMEOUT_MS;
   const originalIdleTimeout = envMap.DB_IDLE_TIMEOUT_MS;
@@ -18,6 +19,9 @@ describe("Database Pool & TLS Configuration (pool-config)", () => {
 
     if (originalSslReject !== undefined) envMap.DATABASE_SSL_REJECT_UNAUTHORIZED = originalSslReject;
     else delete envMap.DATABASE_SSL_REJECT_UNAUTHORIZED;
+
+    if (originalCaCert !== undefined) envMap.DATABASE_CA_CERT = originalCaCert;
+    else delete envMap.DATABASE_CA_CERT;
 
     if (originalPoolMax !== undefined) envMap.DB_POOL_MAX = originalPoolMax;
     else delete envMap.DB_POOL_MAX;
@@ -53,18 +57,23 @@ describe("Database Pool & TLS Configuration (pool-config)", () => {
     restoreEnv();
   });
 
-  it("enforces secure TLS certificate verification (rejectUnauthorized: true) in production for Supabase", () => {
+  it("uses TLS for Supabase and defaults to encryption without CA verification", () => {
     envMap.NODE_ENV = "production";
     delete envMap.DATABASE_SSL_REJECT_UNAUTHORIZED;
+    delete envMap.DATABASE_CA_CERT;
 
-    // Both direct supabase.co and pooler.supabase.com connections
+    // Supabase's standard sslmode=require behavior encrypts traffic but does not
+    // verify the certificate chain. A configured CA certificate enables verification.
     const directSupabase = getPoolConfig("postgres://postgres:secret@db.xyz.supabase.co:5432/postgres");
     expect(directSupabase.ssl).toBeDefined();
-    expect((directSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
+    expect((directSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(false);
 
     const poolerSupabase = getPoolConfig("postgres://postgres.xyz:secret@aws-0-ap-south-1.pooler.supabase.com:6543/postgres");
     expect(poolerSupabase.ssl).toBeDefined();
-    expect((poolerSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
+    expect((poolerSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(false);
+
+    const otherProductionDb = getPoolConfig("postgres://app:secret@db.example.com:5432/app");
+    expect((otherProductionDb.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
 
     restoreEnv();
   });

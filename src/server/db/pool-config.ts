@@ -31,12 +31,15 @@ export function getPoolConfig(
       !connectionString.includes("127.0.0.1") &&
       !connectionString.includes("mock"));
 
-  // In production, rejectUnauthorized defaults to true for secure TLS certificate verification.
-  // Can be explicitly overridden with DATABASE_SSL_REJECT_UNAUTHORIZED if needed.
+  // Supabase's standard connection guidance uses TLS encryption with sslmode=require,
+  // which does not verify the server certificate chain. Match that default for Supabase
+  // unless a root CA certificate is configured. Other production database hosts retain
+  // strict certificate verification by default. Operators can explicitly override this.
+  const hasDatabaseCaCert = Boolean(process.env.DATABASE_CA_CERT);
   const rejectUnauthorized =
     process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== undefined
       ? process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "true"
-      : isProduction;
+      : isProduction && (!isSupabase || hasDatabaseCaCert);
 
   const ssl = needsSsl
     ? {
