@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import * as dotenv from "dotenv";
-import { validateFrameAncestors, validateSiteUrlOrigin } from "../src/server/env";
+import { resolveAppUrlEnv, validateFrameAncestors, validateSiteUrlOrigin } from "../src/server/env";
 
 // Ensure .env.local and .env are loaded
 dotenv.config({ path: ".env.local" });
@@ -437,7 +437,8 @@ export function runCli(): void {
     return;
   }
 
-  const result = validateEnvForSite(process.env as Record<string, string | undefined>, {
+  const envForCheck = resolveAppUrlEnv(process.env as Record<string, string | undefined>);
+  const result = validateEnvForSite(envForCheck, {
     site: args.site,
     expectSecretHash: args.expectSecretHash,
   });

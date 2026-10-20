@@ -386,8 +386,30 @@ export const envSchema = rawEnvSchema.superRefine((data, ctx) => {
   }
 });
 
+/**
+ * Resolve the canonical application URL for Vercel deployments when APP_URL
+ * was not explicitly configured. Vercel exposes these system variables when
+ * "Automatically expose System Environment Variables" is enabled.
+ */
+export function resolveAppUrlEnv(
+  source: Record<string, string | undefined>
+): Record<string, string | undefined> {
+  const resolved = { ...source };
+  if (resolved.APP_URL?.trim()) return resolved;
+
+  const host =
+    resolved.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    resolved.VERCEL_URL?.trim();
+
+  if (host) {
+    resolved.APP_URL = /^https?:\/\//i.test(host) ? host : `https://${host}`;
+  }
+
+  return resolved;
+}
+
 function parseEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse(resolveAppUrlEnv(process.env));
 
   if (!parsed.success) {
     console.error("❌ Invalid environment variables:");

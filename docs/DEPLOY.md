@@ -111,6 +111,8 @@ Every project requires environment variables configured under **Project Settings
 | `RAZORPAY_WEBHOOK_SECRET` | If `online` | No | No | Razorpay Webhook Secret. |
 | `NEXT_PUBLIC_SITE_NAME` | Optional | Optional | Optional | Custom branding string (default: `"DinePulse"`). |
 
+**Vercel URL fallback:** The app uses `VERCEL_PROJECT_PRODUCTION_URL` (preferred) or `VERCEL_URL` to resolve `APP_URL` if it is not explicitly configured. In each Vercel project, enable **Settings → Environment Variables → Automatically expose System Environment Variables**. Explicitly setting `APP_URL` to the project's canonical URL is still recommended.
+
 ---
 
 ## 4. Supabase Connection Poolers & Database SSL Configuration

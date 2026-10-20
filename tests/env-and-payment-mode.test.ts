@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { validateEnv } from "@/server/env";
+import { validateEnv, resolveAppUrlEnv } from "@/server/env";
 import { isOnlinePaymentsEnabled } from "@/server/razorpay";
 
 // Mock rate-limit & realtime before imports
@@ -116,6 +116,37 @@ import {
 import { POST as razorpayWebhookPost } from "@/app/api/webhooks/razorpay/route";
 import { NextRequest } from "next/server";
 import { db } from "@/server/db";
+
+describe("Vercel APP_URL fallback", () => {
+  it("prefers an explicitly configured APP_URL", () => {
+    expect(
+      resolveAppUrlEnv({
+        APP_URL: "https://custom.example.com",
+        VERCEL_PROJECT_PRODUCTION_URL: "project.vercel.app",
+      }).APP_URL
+    ).toBe("https://custom.example.com");
+  });
+
+  it("uses the project production URL when APP_URL is missing", () => {
+    expect(
+      resolveAppUrlEnv({
+        VERCEL_PROJECT_PRODUCTION_URL: "dinepulse-customer.vercel.app",
+      }).APP_URL
+    ).toBe("https://dinepulse-customer.vercel.app");
+  });
+
+  it("falls back to the deployment URL if no production URL exists", () => {
+    expect(
+      resolveAppUrlEnv({
+        VERCEL_URL: "dinepulse-customer-git-main.vercel.app",
+      }).APP_URL
+    ).toBe("https://dinepulse-customer-git-main.vercel.app");
+  });
+
+  it("does not invent an APP_URL outside Vercel when none is configured", () => {
+    expect(resolveAppUrlEnv({}).APP_URL).toBeUndefined();
+  });
+});
 
 // Base valid production environment variables without any Razorpay keys
 const baseProdEnv: Record<string, string> = {
