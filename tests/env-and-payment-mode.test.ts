@@ -234,6 +234,65 @@ describe("Site-Aware Production Environment Validation", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("production rejects Supabase variables containing 'placeholder'", () => {
+    const badAnon = validateEnv({
+      ...baseProdEnv,
+      SITE: "customer",
+      PAYMENTS_MODE: "counter_only",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-anon-key-placeholder",
+    });
+    expect(badAnon.success).toBe(false);
+    if (!badAnon.success) {
+      expect(
+        badAnon.error.issues.some((i) =>
+          i.message.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY must not contain "placeholder"')
+        )
+      ).toBe(true);
+    }
+
+    const badService = validateEnv({
+      ...baseProdEnv,
+      SITE: "customer",
+      PAYMENTS_MODE: "counter_only",
+      SUPABASE_SERVICE_ROLE_KEY: "ci-service-role-key-placeholder",
+    });
+    expect(badService.success).toBe(false);
+    if (!badService.success) {
+      expect(
+        badService.error.issues.some((i) =>
+          i.message.includes('SUPABASE_SERVICE_ROLE_KEY must not contain "placeholder"')
+        )
+      ).toBe(true);
+    }
+
+    const badUrl = validateEnv({
+      ...baseProdEnv,
+      SITE: "customer",
+      PAYMENTS_MODE: "counter_only",
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder-project.supabase.co",
+    });
+    expect(badUrl.success).toBe(false);
+    if (!badUrl.success) {
+      expect(
+        badUrl.error.issues.some((i) =>
+          i.message.includes('NEXT_PUBLIC_SUPABASE_URL must not contain "placeholder"')
+        )
+      ).toBe(true);
+    }
+  });
+
+  it("production accepts non-placeholder CI build tokens for Supabase", () => {
+    const result = validateEnv({
+      ...baseProdEnv,
+      SITE: "customer",
+      PAYMENTS_MODE: "counter_only",
+      NEXT_PUBLIC_SUPABASE_URL: "https://mock-ci-project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-build-supabase-anon-key-token",
+      SUPABASE_SERVICE_ROLE_KEY: "ci-build-supabase-service-role-token",
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("Server-Side Payment Mode Enforcement & Service Behavior", () => {

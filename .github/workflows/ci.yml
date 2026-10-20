@@ -48,8 +48,8 @@ jobs:
           NEXT_PUBLIC_APP_URL: https://example.com
           SESSION_SECRET: ci-build-session-secret-at-least-32-characters-long
           NEXT_PUBLIC_SUPABASE_URL: https://mock-ci-project.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key-placeholder
-          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key-placeholder
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-supabase-anon-key-token
+          SUPABASE_SERVICE_ROLE_KEY: ci-build-supabase-service-role-token
 
   e2e:
     name: End-to-End Tests (Playwright)
