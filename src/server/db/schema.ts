@@ -9,8 +9,9 @@ import {
   uniqueIndex,
   primaryKey,
   jsonb,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /**
  * Order status lifecycle enum:
@@ -98,6 +99,10 @@ export const tables = pgTable(
   (table) => [
     index("tables_qr_token_idx").on(table.qrToken),
     index("tables_restaurant_id_idx").on(table.restaurantId),
+    uniqueIndex("tables_restaurant_active_table_number_idx")
+      .on(table.restaurantId, table.tableNumber)
+      .where(sql`${table.isActive} = true`),
+    check("tables_capacity_positive", sql`${table.capacity} > 0`),
   ]
 );
 
@@ -168,6 +173,7 @@ export const menuItems = pgTable(
   (table) => [
     index("menu_items_restaurant_id_idx").on(table.restaurantId),
     index("menu_items_category_id_idx").on(table.categoryId),
+    check("menu_items_price_paise_nonnegative", sql`${table.pricePaise} >= 0`),
   ]
 );
 
@@ -194,7 +200,10 @@ export const modifiers = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("modifiers_menu_item_id_idx").on(table.menuItemId)]
+  (table) => [
+    index("modifiers_menu_item_id_idx").on(table.menuItemId),
+    check("modifiers_price_paise_nonnegative", sql`${table.pricePaise} >= 0`),
+  ]
 );
 
 // ============================================================================
@@ -239,6 +248,9 @@ export const orders = pgTable(
       table.restaurantId,
       table.orderNumber
     ),
+    check("orders_subtotal_paise_nonnegative", sql`${table.subtotalPaise} >= 0`),
+    check("orders_tax_paise_nonnegative", sql`${table.taxPaise} >= 0`),
+    check("orders_total_paise_nonnegative", sql`${table.totalPaise} >= 0`),
   ]
 );
 
@@ -268,7 +280,12 @@ export const orderItems = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("order_items_order_id_idx").on(table.orderId)]
+  (table) => [
+    index("order_items_order_id_idx").on(table.orderId),
+    check("order_items_item_price_paise_nonnegative", sql`${table.itemPricePaise} >= 0`),
+    check("order_items_quantity_positive", sql`${table.quantity} > 0`),
+    check("order_items_total_paise_nonnegative", sql`${table.totalPaise} >= 0`),
+  ]
 );
 
 // ============================================================================
@@ -329,6 +346,7 @@ export const payments = pgTable(
     index("payments_order_id_idx").on(table.orderId),
     index("payments_restaurant_id_idx").on(table.restaurantId),
     uniqueIndex("payments_razorpay_order_id_unique_idx").on(table.razorpayOrderId),
+    check("payments_amount_paise_nonnegative", sql`${table.amountPaise} >= 0`),
   ]
 );
 

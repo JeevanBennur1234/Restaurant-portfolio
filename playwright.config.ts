@@ -12,17 +12,21 @@ const safeE2EDefaults: Record<string, string> = {
   NEXT_PUBLIC_KITCHEN_SITE_URL: "http://localhost:3001",
   NEXT_PUBLIC_MANAGER_SITE_URL: "http://localhost:3002",
   FRAME_ANCESTORS: "http://localhost:3000",
-  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
-  SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",
-  RAZORPAY_KEY_ID: "rzp_test_placeholder_key",
-  RAZORPAY_KEY_SECRET: "placeholder_secret",
+  NEXT_PUBLIC_SUPABASE_URL: "https://mock-ci-project.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-build-supabase-anon-key-token",
+  SUPABASE_SERVICE_ROLE_KEY: "ci-build-supabase-service-role-token",
+  RAZORPAY_KEY_ID: "rzp_test_e2e_test_key",
+  RAZORPAY_KEY_SECRET: "e2e_test_secret_32_characters_long",
+  RAZORPAY_WEBHOOK_SECRET: "e2e_test_webhook_secret_32_chars",
   DEV_TABLE_TOKEN: "demo-table-7",
   ALLOW_TEST_PAYMENT_SIMULATION: "true",
 };
 
 for (const [key, value] of Object.entries(safeE2EDefaults)) {
-  if (process.env[key] === undefined) {
+  if (
+    process.env[key] === undefined ||
+    process.env[key]?.toLowerCase().includes("placeholder")
+  ) {
     process.env[key] = value;
   }
 }
@@ -41,11 +45,14 @@ const commonEnv = {
   NEXT_PUBLIC_MANAGER_SITE_URL: "http://localhost:3002",
   FRAME_ANCESTORS: "http://localhost:3000",
   SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
-  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
-  SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key",
-  RAZORPAY_KEY_ID: "rzp_test_placeholder_key",
-  RAZORPAY_KEY_SECRET: "placeholder_secret",
+  NEXT_PUBLIC_SUPABASE_URL: "https://mock-ci-project.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-build-supabase-anon-key-token",
+  SUPABASE_SERVICE_ROLE_KEY: "ci-build-supabase-service-role-token",
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "rzp_test_e2e_test_key",
+  RAZORPAY_KEY_SECRET:
+    process.env.RAZORPAY_KEY_SECRET || "e2e_test_secret_32_characters_long",
+  RAZORPAY_WEBHOOK_SECRET:
+    process.env.RAZORPAY_WEBHOOK_SECRET || "e2e_test_webhook_secret_32_chars",
   DEV_TABLE_TOKEN: "demo-table-7",
   ENABLE_DEV_TABLE_LAUNCHER: "true",
   ALLOW_TEST_PAYMENT_SIMULATION: "true",

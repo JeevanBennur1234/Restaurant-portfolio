@@ -17,8 +17,22 @@ export type TableWithRestaurant = typeof tables.$inferSelect & {
 };
 
 /**
+ * Determines whether the current deployment is running behind a trusted reverse proxy
+ * (e.g. Vercel, AWS ALB, Nginx, Cloudflare, Traefik).
+ */
+export function isTrustedProxy(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+    process.env.TRUST_PROXY === "true" ||
+    process.env.TRUST_PROXY === "1" ||
+    process.env.TRUSTED_PROXY === "true" ||
+    process.env.TRUSTED_PROXY === "1"
+  );
+}
+
+/**
  * Validates Origin header for cookie-authenticated write requests.
- * Origin must match host (or x-forwarded-host) or an entry in ALLOWED_ORIGINS / NEXT_PUBLIC_APP_URL.
+ * Origin must match host (or verified x-forwarded-host behind trusted proxy) or an entry in ALLOWED_ORIGINS / NEXT_PUBLIC_APP_URL.
  */
 export function validateOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
@@ -34,20 +48,32 @@ export function validateOrigin(req: Request): boolean {
     return false;
   }
 
-  // 1. Check against Host, X-Forwarded-Host, or Request URL host
+  // 1. Check against Host or Request URL host
   let reqHost: string | undefined;
   try {
     reqHost = new URL(req.url).host.toLowerCase();
   } catch {}
 
-  const hostHeader =
-    req.headers.get("x-forwarded-host") ||
-    req.headers.get("host") ||
-    reqHost;
+  const hostHeader = req.headers.get("host");
   if (hostHeader) {
     const primaryHost = hostHeader.split(",")[0].trim().toLowerCase();
     if (originHost === primaryHost) {
       return true;
+    }
+  }
+
+  if (reqHost && originHost === reqHost) {
+    return true;
+  }
+
+  // Only trust x-forwarded-host if running behind a trusted proxy
+  if (isTrustedProxy()) {
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    if (forwardedHost) {
+      const primaryForwarded = forwardedHost.split(",")[0].trim().toLowerCase();
+      if (originHost === primaryForwarded) {
+        return true;
+      }
     }
   }
 
@@ -188,20 +214,37 @@ export async function requireTableToken(
 
 /**
  * Extracts client IP from incoming request.
- * Only trusts x-forwarded-for and x-real-ip when running on Vercel (process.env.VERCEL),
- * otherwise returns "127.0.0.1" to prevent IP spoofing in self-hosted environments.
+ * - In trusted proxy deployments (Vercel, or non-Vercel with TRUST_PROXY=true),
+ *   extracts the verified client IP from x-forwarded-for, x-real-ip, or cf-connecting-ip.
+ * - In non-proxy deployments, reads direct connection IP (req.ip / socket.remoteAddress).
+ * - Falls back to 127.0.0.1 when direct IP cannot be determined without a trusted proxy.
  */
 export function getClientIpFromRequest(req: Request): string {
-  if (process.env.VERCEL) {
+  if (isTrustedProxy()) {
     const forwardedFor = req.headers.get("x-forwarded-for");
     if (forwardedFor) {
-      return forwardedFor.split(",")[0].trim();
+      const clientIp = forwardedFor.split(",")[0].trim();
+      if (clientIp) return clientIp;
     }
     const realIp = req.headers.get("x-real-ip");
-    if (realIp) {
+    if (realIp && realIp.trim()) {
       return realIp.trim();
     }
+    const cfIp = req.headers.get("cf-connecting-ip");
+    if (cfIp && cfIp.trim()) {
+      return cfIp.trim();
+    }
   }
+
+  // Direct socket IP if provided by runtime (e.g. NextRequest or Node socket)
+  if ((req as { ip?: string }).ip) {
+    return (req as { ip?: string }).ip!;
+  }
+  const socketAddress = (req as unknown as { socket?: { remoteAddress?: string } }).socket?.remoteAddress;
+  if (socketAddress && typeof socketAddress === "string") {
+    return socketAddress;
+  }
+
   return "127.0.0.1";
 }
 

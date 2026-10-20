@@ -85,15 +85,19 @@ import {
   verifyRazorpayWebhookSignature,
   isRazorpayTestMode,
   createRazorpayQrCode,
+  createRazorpayOrder as createRzpOrderMock,
   fetchRazorpayQrCode,
   fetchRazorpayQrCodePayments,
 } from "@/server/razorpay";
 import {
+  createRazorpayOrder,
   verifyRazorpayPayment,
   createUpiQrPayment,
   getPaymentStatus,
   verifyTestUpiPayment,
+  switchOrderToCounter,
 } from "@/server/services/customer";
+import { publishRealtimeEvent } from "@/server/realtime";
 import { isIsolatedLocalTestDatabase } from "@/server/db/safe-test-db";
 import { POST as razorpayWebhookPost } from "@/app/api/webhooks/razorpay/route";
 import { NextRequest } from "next/server";
@@ -873,6 +877,537 @@ describe("Payment Security & Integrity", () => {
       expect(db.transaction).not.toHaveBeenCalled();
     });
   });
+
+  describe("Requirement 7: switchOrderToCounter state corruption protection", () => {
+    it("rejects switching to counter when order paymentStatus is 'paid'", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_already_paid",
+        restaurantId: "rest_1",
+        totalPaise: 45000,
+        orderNumber: "ML-5001",
+        status: "placed",
+        paymentStatus: "paid",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-1" },
+        payments: [
+          {
+            id: "pay_completed_1",
+            status: "completed",
+            amountPaise: 45000,
+          },
+        ],
+      } as never);
+
+      const result = await switchOrderToCounter(
+        { db },
+        { orderId: "order_already_paid", token: "valid_token", targetMethod: "counter" }
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe("CONFLICT");
+        expect(result.status).toBe(409);
+        expect(result.message).toContain("already paid");
+      }
+
+      // Assert database records remain unchanged (no transaction, no update)
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects switching to counter when related payments contain a completed payment", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_payment_completed",
+        restaurantId: "rest_1",
+        totalPaise: 30000,
+        orderNumber: "ML-5002",
+        status: "preparing",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-2" },
+        payments: [
+          {
+            id: "pay_completed_2",
+            status: "completed",
+            amountPaise: 30000,
+          },
+        ],
+      } as never);
+
+      const result = await switchOrderToCounter(
+        { db },
+        { orderId: "order_payment_completed", token: "valid_token", targetMethod: "counter" }
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe("CONFLICT");
+        expect(result.status).toBe(409);
+        expect(result.message).toContain("already paid");
+      }
+
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects switching to counter when order status is terminal 'cancelled'", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_cancelled",
+        restaurantId: "rest_1",
+        totalPaise: 25000,
+        orderNumber: "ML-5003",
+        status: "cancelled",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-3" },
+        payments: [],
+      } as never);
+
+      const result = await switchOrderToCounter(
+        { db },
+        { orderId: "order_cancelled", token: "valid_token", targetMethod: "counter" }
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe("CONFLICT");
+        expect(result.status).toBe(409);
+        expect(result.message).toContain("cancelled");
+      }
+
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects switching to counter when order status is terminal 'served'", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_served",
+        restaurantId: "rest_1",
+        totalPaise: 25000,
+        orderNumber: "ML-5004",
+        status: "served",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-4" },
+        payments: [],
+      } as never);
+
+      const result = await switchOrderToCounter(
+        { db },
+        { orderId: "order_served", token: "valid_token", targetMethod: "counter" }
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe("CONFLICT");
+        expect(result.status).toBe(409);
+        expect(result.message).toContain("served");
+      }
+
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("allows switching to counter when order is unpaid and in active placed status", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_active_unpaid",
+        restaurantId: "rest_1",
+        totalPaise: 20000,
+        orderNumber: "ML-5005",
+        status: "placed",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-5" },
+        payments: [],
+      } as never);
+
+      const result = await switchOrderToCounter(
+        { db },
+        { orderId: "order_active_unpaid", token: "valid_token", targetMethod: "counter" }
+      );
+
+      expect(result.ok).toBe(true);
+      expect(db.transaction).toHaveBeenCalled();
+    });
+  });
+  describe("Requirement 8: Prevention of payment record collisions & webhook idempotency", () => {
+    it("preserves checkout payment record when UPI QR payment is created, and matches checkout webhook", async () => {
+      vi.mocked(isRazorpayTestMode).mockReturnValue(false);
+      vi.mocked(verifyRazorpayWebhookSignature).mockReturnValue(true);
+
+      // Order in pending status
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_chk_and_qr",
+        restaurantId: "rest_1",
+        totalPaise: 50000,
+        orderNumber: "ML-6001",
+        status: "placed",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-10" },
+      } as never);
+
+      // Razorpay QR API returns a QR
+      vi.mocked(createRazorpayQrCode).mockResolvedValue({
+        id: "qr_rzp_upi_456",
+        entity: "qr_code",
+        name: "Order ML-6001",
+        usage: "single_use",
+        type: "upi_qr",
+        status: "active",
+        imageUrl: "https://api.razorpay.com/v1/qr_codes/qr_rzp_upi_456/image",
+        paymentsAmountReceived: 0,
+        paymentsCountReceived: 0,
+        closeBy: Math.floor(Date.now() / 1000) + 900,
+      } as never);
+
+      // No QR record exists yet for qr_rzp_upi_456
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue(null as never);
+
+      // 1. Customer creates UPI QR payment
+      const qrResult = await createUpiQrPayment(
+        { db },
+        { orderId: "order_chk_and_qr", token: "valid_token" }
+      );
+
+      expect(qrResult.ok).toBe(true);
+      // Crucial: createUpiQrPayment must NOT call db.update to overwrite existing checkout payments
+      expect(db.update).not.toHaveBeenCalled();
+      // Must call db.insert to record the new QR payment row
+      expect(db.insert).toHaveBeenCalled();
+
+      // 2. Webhook arrives for the original checkout payment
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue({
+        id: "pay_row_checkout",
+        orderId: "order_chk_and_qr",
+        restaurantId: "rest_1",
+        amountPaise: 50000,
+        status: "pending",
+        razorpayOrderId: "order_rzp_checkout_123",
+        order: {
+          id: "order_chk_and_qr",
+          orderNumber: "ML-6001",
+          totalPaise: 50000,
+          status: "placed",
+          paymentStatus: "pending",
+          createdAt: new Date(),
+          table: { tableNumber: "T-10" },
+        },
+      } as never);
+
+      const payload = {
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_chk_captured_789",
+              order_id: "order_rzp_checkout_123",
+              amount: 50000,
+              currency: "INR",
+              status: "captured",
+            },
+          },
+        },
+      };
+
+      const req = new NextRequest("http://localhost:3000/api/webhooks/razorpay", {
+        method: "POST",
+        headers: {
+          "x-razorpay-signature": "valid_signature",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await razorpayWebhookPost(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.status).toBe("processed");
+      expect(data.orderId).toBe("order_chk_and_qr");
+      expect(publishRealtimeEvent).toHaveBeenCalledWith(
+        "restaurant:rest_1",
+        "order.created",
+        expect.objectContaining({ orderId: "order_chk_and_qr", paymentStatus: "paid" })
+      );
+    });
+
+    it("refreshing a UPI QR preserves older QR payment records and matches incoming payment for the older QR", async () => {
+      vi.mocked(isRazorpayTestMode).mockReturnValue(false);
+      vi.mocked(verifyRazorpayWebhookSignature).mockReturnValue(true);
+
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_qr_refresh",
+        restaurantId: "rest_1",
+        totalPaise: 35000,
+        orderNumber: "ML-6002",
+        status: "placed",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-8" },
+      } as never);
+
+      // Customer generates a second QR (refresh)
+      vi.mocked(createRazorpayQrCode).mockResolvedValue({
+        id: "qr_refreshed_222",
+        entity: "qr_code",
+        name: "Order ML-6002",
+        usage: "single_use",
+        type: "upi_qr",
+        status: "active",
+        imageUrl: "https://api.razorpay.com/v1/qr_codes/qr_refreshed_222/image",
+        paymentsAmountReceived: 0,
+        paymentsCountReceived: 0,
+        closeBy: Math.floor(Date.now() / 1000) + 900,
+      } as never);
+
+      // No record yet for qr_refreshed_222
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue(null as never);
+
+      const qrResult = await createUpiQrPayment(
+        { db },
+        { orderId: "order_qr_refresh", token: "valid_token" }
+      );
+
+      expect(qrResult.ok).toBe(true);
+      // Older QR record is not updated/overwritten
+      expect(db.update).not.toHaveBeenCalled();
+      expect(db.insert).toHaveBeenCalled();
+
+      // Customer pays using the older QR: webhook arrives for qr_older_111
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue({
+        id: "pay_older_qr_row",
+        orderId: "order_qr_refresh",
+        restaurantId: "rest_1",
+        amountPaise: 35000,
+        status: "pending",
+        razorpayOrderId: "qr_older_111",
+        order: {
+          id: "order_qr_refresh",
+          orderNumber: "ML-6002",
+          totalPaise: 35000,
+          status: "placed",
+          paymentStatus: "pending",
+          createdAt: new Date(),
+          table: { tableNumber: "T-8" },
+        },
+      } as never);
+
+      const payload = {
+        event: "qr_code.credited",
+        payload: {
+          qr_code: {
+            entity: {
+              id: "qr_older_111",
+              status: "closed",
+              notes: {
+                orderId: "order_qr_refresh",
+              },
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_older_captured_333",
+              amount: 35000,
+              currency: "INR",
+              status: "captured",
+              method: "upi",
+            },
+          },
+        },
+      };
+
+      const req = new NextRequest("http://localhost:3000/api/webhooks/razorpay", {
+        method: "POST",
+        headers: {
+          "x-razorpay-signature": "valid_signature",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await razorpayWebhookPost(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.status).toBe("processed");
+      expect(data.orderId).toBe("order_qr_refresh");
+      expect(publishRealtimeEvent).toHaveBeenCalledWith(
+        "restaurant:rest_1",
+        "order.created",
+        expect.objectContaining({ orderId: "order_qr_refresh", paymentStatus: "paid" })
+      );
+    });
+
+    it("duplicate webhook delivery returns already_processed and does not re-emit order.created", async () => {
+      vi.mocked(verifyRazorpayWebhookSignature).mockReturnValue(true);
+
+      // Payment row is already 'completed' and order is already 'paid'
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue({
+        id: "pay_already_completed",
+        orderId: "order_duplicate_test",
+        restaurantId: "rest_1",
+        amountPaise: 40000,
+        status: "completed",
+        razorpayOrderId: "order_rzp_dup_999",
+        order: {
+          id: "order_duplicate_test",
+          orderNumber: "ML-6003",
+          totalPaise: 40000,
+          status: "placed",
+          paymentStatus: "paid",
+          createdAt: new Date(),
+          table: { tableNumber: "T-3" },
+        },
+      } as never);
+
+      const payload = {
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_captured_already",
+              order_id: "order_rzp_dup_999",
+              amount: 40000,
+              currency: "INR",
+              status: "captured",
+            },
+          },
+        },
+      };
+
+      const req = new NextRequest("http://localhost:3000/api/webhooks/razorpay", {
+        method: "POST",
+        headers: {
+          "x-razorpay-signature": "valid_signature",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await razorpayWebhookPost(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.received).toBe(true);
+      expect(data.status).toBe("already_processed");
+      expect(data.orderId).toBe("order_duplicate_test");
+
+      // Idempotency: Must NOT trigger a transaction and must NOT re-publish order.created to kitchen
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(publishRealtimeEvent).not.toHaveBeenCalled();
+    });
+
+    it("webhook for alternate payment when order is already paid marks payment completed and does not duplicate kitchen event", async () => {
+      vi.mocked(verifyRazorpayWebhookSignature).mockReturnValue(true);
+
+      // Order is already paid (e.g. customer paid via card checkout earlier),
+      // but this specific QR payment record is still pending
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue({
+        id: "pay_alt_pending",
+        orderId: "order_alt_payment",
+        restaurantId: "rest_1",
+        amountPaise: 40000,
+        status: "pending",
+        razorpayOrderId: "qr_alt_555",
+        order: {
+          id: "order_alt_payment",
+          orderNumber: "ML-6004",
+          totalPaise: 40000,
+          status: "placed",
+          paymentStatus: "paid", // Already paid
+          createdAt: new Date(),
+          table: { tableNumber: "T-5" },
+        },
+      } as never);
+
+      const payload = {
+        event: "qr_code.credited",
+        payload: {
+          qr_code: {
+            entity: {
+              id: "qr_alt_555",
+              status: "closed",
+              notes: {
+                orderId: "order_alt_payment",
+              },
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_captured_alt",
+              amount: 40000,
+              currency: "INR",
+              status: "captured",
+              method: "upi",
+            },
+          },
+        },
+      };
+
+      const req = new NextRequest("http://localhost:3000/api/webhooks/razorpay", {
+        method: "POST",
+        headers: {
+          "x-razorpay-signature": "valid_signature",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res = await razorpayWebhookPost(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.received).toBe(true);
+      expect(data.status).toBe("already_processed");
+      expect(data.orderId).toBe("order_alt_payment");
+
+      // Updates pending payment row to completed
+      expect(db.update).toHaveBeenCalled();
+      // Must NOT re-publish order.created to kitchen
+      expect(publishRealtimeEvent).not.toHaveBeenCalled();
+    });
+
+    it("createRazorpayOrder ignores existing pending UPI QR payments and creates a genuine checkout order", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue({
+        id: "order_with_existing_qr",
+        restaurantId: "rest_1",
+        totalPaise: 60000,
+        orderNumber: "ML-6005",
+        status: "placed",
+        paymentStatus: "pending",
+        paymentMethod: "pay_now",
+        createdAt: new Date(),
+        table: { qrToken: "valid_token", tableNumber: "T-6" },
+      } as never);
+
+      // Pending QR code payment exists
+      vi.mocked(db.query.payments.findFirst).mockResolvedValue(null as never);
+
+      // Razorpay API returns genuine checkout order
+      vi.mocked(createRzpOrderMock).mockResolvedValue({
+        id: "order_genuine_checkout_777",
+        entity: "order",
+        amount: 60000,
+        currency: "INR",
+        keyId: "rzp_test_placeholder",
+      } as never);
+
+      const result = await createRazorpayOrder(
+        { db },
+        { orderId: "order_with_existing_qr", token: "valid_token" }
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.razorpayOrderId).toBe("order_genuine_checkout_777");
+        expect(result.data.razorpayOrderId?.startsWith("order_")).toBe(true);
+      }
+      expect(createRzpOrderMock).toHaveBeenCalled();
+      expect(db.insert).toHaveBeenCalled();
+    });
+  });
 });
-
-

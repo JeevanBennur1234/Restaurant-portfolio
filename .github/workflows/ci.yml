@@ -97,6 +97,9 @@ jobs:
           SESSION_SECRET: e2e-fixed-test-session-secret-at-least-32-chars-long
           SITE: all
           PAYMENTS_MODE: online
+          RAZORPAY_KEY_ID: rzp_test_e2e_test_key
+          RAZORPAY_KEY_SECRET: e2e_test_secret_32_characters_long
+          RAZORPAY_WEBHOOK_SECRET: e2e_test_webhook_secret_32_chars
 
       - name: Upload Playwright Report & Traces on Failure
         if: failure()

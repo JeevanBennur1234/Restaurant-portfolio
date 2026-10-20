@@ -1,17 +1,10 @@
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { env } from "@/server/env";
+import { poolConfig } from "./pool-config";
 
 export async function runMigrations(): Promise<void> {
-  const pool = new pg.Pool({
-    connectionString: env.DATABASE_URL,
-    ssl:
-      env.DATABASE_URL.includes("supabase.co") ||
-      env.DATABASE_URL.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
+  const pool = new pg.Pool(poolConfig);
   const db = drizzle(pool);
 
   try {

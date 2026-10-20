@@ -113,8 +113,19 @@ export async function POST(req: NextRequest) {
 
 
       if (existingPayment) {
-        // Idempotency check: if payment already completed, return 200 OK immediately
-        if (existingPayment.status === "completed" && existingPayment.order.paymentStatus === "paid") {
+        // Idempotency check: if payment already completed or order already marked paid
+        if (existingPayment.status === "completed" || existingPayment.order.paymentStatus === "paid") {
+          if (existingPayment.status !== "completed") {
+            await db
+              .update(payments)
+              .set({
+                status: "completed",
+                razorpayPaymentId: razorpayPaymentId ?? existingPayment.razorpayPaymentId,
+                updatedAt: new Date(),
+              })
+              .where(eq(payments.id, existingPayment.id));
+          }
+
           return NextResponse.json({
             received: true,
             status: "already_processed",

@@ -157,11 +157,41 @@ export async function transitionOrderStatus(
       );
     }
 
+    // Kitchen Payment Security:
+    // Block pending/failed pay_now orders from advancing through kitchen states.
+    // Allow valid paid and pay-at-counter orders.
+    const isPaid = existing.paymentStatus === "paid";
+    const isCounter =
+      existing.paymentStatus === "counter" ||
+      existing.paymentMethod === "counter";
+
+    if (!isPaid && !isCounter) {
+      return fail(
+        "CONFLICT",
+        `Cannot transition order: payment is ${existing.paymentStatus}. Online pay_now orders must be paid before kitchen processing.`,
+        409
+      );
+    }
+
+    let concurrencyFailed = false;
+
     await ctx.db.transaction(async (tx) => {
-      await tx
+      const updateResult = await tx
         .update(orders)
         .set({ status: toStatus, updatedAt: new Date() })
-        .where(eq(orders.id, orderId));
+        .where(
+          and(
+            eq(orders.id, orderId),
+            eq(orders.status, existing.status)
+          )
+        );
+
+      const rowCount = (updateResult as unknown as { rowCount?: number })
+        ?.rowCount;
+      if (typeof rowCount === "number" && rowCount === 0) {
+        concurrencyFailed = true;
+        return;
+      }
 
       await tx.insert(orderEvents).values({
         orderId,
@@ -171,6 +201,14 @@ export async function transitionOrderStatus(
         note: `Kitchen ${ctx.actor!.username ?? ctx.actor!.role} moved ticket to ${toStatus}`,
       });
     });
+
+    if (concurrencyFailed) {
+      return fail(
+        "CONFLICT",
+        "Order status was modified concurrently by another request",
+        409
+      );
+    }
 
     // Broadcast realtime event
     await publishRealtimeEvent(

@@ -1,4 +1,4 @@
-import { eq, inArray, and, sql, gte, asc } from "drizzle-orm";
+import { eq, inArray, and, sql, gte, asc, desc, like } from "drizzle-orm";
 import {
   orders,
   orderItems,
@@ -722,15 +722,18 @@ export async function createRazorpayOrder(
     const existingPayment = await ctx.db.query.payments.findFirst({
       where: and(
         eq(payments.orderId, dbOrder.id),
-        eq(payments.status, "pending")
+        eq(payments.status, "pending"),
+        like(payments.razorpayOrderId, "order_%")
       ),
+      orderBy: [desc(payments.createdAt)],
     });
 
-    // Reuse existing pending payment if it already has a razorpayOrderId and matching amount
+    // Reuse existing pending payment if it already has a valid checkout razorpayOrderId and matching amount
     if (
       existingPayment &&
       existingPayment.provider === "razorpay" &&
       existingPayment.razorpayOrderId &&
+      existingPayment.razorpayOrderId.startsWith("order_") &&
       existingPayment.amountPaise === dbOrder.totalPaise
     ) {
       return ok({
@@ -919,7 +922,7 @@ export async function switchOrderToCounter(
   try {
     const dbOrder = await ctx.db.query.orders.findFirst({
       where: eq(orders.id, orderId),
-      with: { table: true },
+      with: { table: true, payments: true },
     });
 
     if (!dbOrder) {
@@ -928,6 +931,27 @@ export async function switchOrderToCounter(
 
     if (dbOrder.table.qrToken !== token) {
       return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    const isPaid =
+      dbOrder.paymentStatus === "paid" ||
+      (Array.isArray(dbOrder.payments) &&
+        dbOrder.payments.some((p: { status: string }) => p.status === "completed"));
+
+    if (isPaid) {
+      return fail(
+        "CONFLICT",
+        "Cannot switch payment method: order is already paid",
+        409
+      );
+    }
+
+    if (dbOrder.status === "cancelled" || dbOrder.status === "served") {
+      return fail(
+        "CONFLICT",
+        `Cannot switch payment method: order is already ${dbOrder.status}`,
+        409
+      );
     }
 
     await ctx.db.transaction(async (tx) => {
@@ -1040,24 +1064,12 @@ export async function createUpiQrPayment(
     );
 
     if (rzpQr) {
-      // Find or insert pending payment record
-      const existingPayment = await ctx.db.query.payments.findFirst({
-        where: and(
-          eq(payments.orderId, dbOrder.id),
-          eq(payments.status, "pending")
-        ),
+      // Ensure creating or refreshing a UPI QR payment never overwrites existing checkout or previous QR payment records
+      const existingQrPayment = await ctx.db.query.payments.findFirst({
+        where: eq(payments.razorpayOrderId, rzpQr.id),
       });
 
-      if (existingPayment) {
-        await ctx.db
-          .update(payments)
-          .set({
-            razorpayOrderId: rzpQr.id,
-            amountPaise: dbOrder.totalPaise,
-            updatedAt: new Date(),
-          })
-          .where(eq(payments.id, existingPayment.id));
-      } else {
+      if (!existingQrPayment) {
         await ctx.db.insert(payments).values({
           orderId: dbOrder.id,
           restaurantId: dbOrder.restaurantId,

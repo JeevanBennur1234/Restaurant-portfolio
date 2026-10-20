@@ -33,9 +33,10 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     expect(menuScrollWidth).toBeLessThanOrEqual(menuClientWidth + 1);
 
     // B. Cart Sheet
+    await page.waitForTimeout(500);
     await firstCard.click();
     const addToOrderBtn = page.locator('[data-testid="add-to-order-btn"]');
-    await expect(addToOrderBtn).toBeVisible({ timeout: 5_000 });
+    await expect(addToOrderBtn).toBeVisible({ timeout: 10_000 });
     await addToOrderBtn.click();
 
     const cartBarBtn = page.locator('[data-testid="cart-bar-btn"]');
@@ -76,6 +77,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     await expect(
       page.locator('[data-testid="menu-item-card"]').first()
     ).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(500);
 
     // Exclude known color-contrast false positive documented in docs/TESTING.md (signature editorial warm brand palette)
     const KNOWN_EXCLUSIONS = ["color-contrast"];

@@ -5,23 +5,33 @@ import { Pool } from "pg";
 import { eq, inArray } from "drizzle-orm";
 import * as schema from "./schema";
 import { env } from "@/server/env";
+import { poolConfig } from "./pool-config";
 import { SEEDED_DISHES } from "./seed-dishes";
 export { SEEDED_DISHES };
 
-const connectionString = env.DATABASE_URL;
-
-const pool = new Pool({
-  connectionString,
-  ssl:
-    connectionString.includes("supabase.co") ||
-    connectionString.includes("sslmode=require")
-      ? { rejectUnauthorized: false }
-      : undefined,
-});
+const pool = new Pool(poolConfig);
 const db = drizzle(pool, { schema });
 
 async function seed() {
   console.log("🌱 Starting DinePulse database seed for 'Masala Lane'...");
+
+  const isProduction =
+    process.env.NODE_ENV === "production" || env.NODE_ENV === "production";
+  const isRemote =
+    Boolean(env.DATABASE_URL.includes("supabase.co")) ||
+    Boolean(env.DATABASE_URL.includes("pooler.supabase")) ||
+    (!env.DATABASE_URL.includes("localhost") &&
+      !env.DATABASE_URL.includes("127.0.0.1") &&
+      !env.DATABASE_URL.includes("postgres:5432") &&
+      !env.DATABASE_URL.includes("mock"));
+
+  // Explicit safe-environment check: block accidental seed execution in production
+  if (isProduction && process.env.ALLOW_PRODUCTION_SEED !== "true") {
+    console.error(
+      "❌ FATAL: Database seed script cannot run in production environment (NODE_ENV=production) without explicit ALLOW_PRODUCTION_SEED=true."
+    );
+    process.exit(1);
+  }
 
   // 1. Check or insert Restaurant
   const restaurantSlug = "masala-lane";
@@ -34,6 +44,14 @@ async function seed() {
   if (existingRestaurant) {
     console.log(`ℹ️ Restaurant '${existingRestaurant.name}' already exists (ID: ${existingRestaurant.id}).`);
     restaurantId = existingRestaurant.id;
+
+    // Prevent destructive data deletion in production or remote databases
+    if ((isProduction || isRemote) && process.env.FORCE_SEED_CLEANUP !== "true") {
+      console.warn(
+        "⚠️ Restaurant 'Masala Lane' already exists in production/remote database. Refusing to delete existing data. Set FORCE_SEED_CLEANUP=true if you explicitly intend to purge data."
+      );
+      return;
+    }
 
     // Clean up existing child records in reverse foreign-key order
     console.log("🧹 Cleaning previous seed records for Masala Lane...");

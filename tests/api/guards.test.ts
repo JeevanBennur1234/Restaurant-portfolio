@@ -62,10 +62,44 @@ describe("API Guards", () => {
       });
       expect(validateOrigin(req)).toBe(true);
     });
+
+    it("rejects spoofed x-forwarded-host in cross-origin request when trusted proxy is unset", () => {
+      delete process.env.VERCEL;
+      delete process.env.TRUST_PROXY;
+      delete process.env.TRUSTED_PROXY;
+
+      const req = new Request("https://example.com/api/v1/auth/logout", {
+        method: "POST",
+        headers: {
+          host: "example.com",
+          "x-forwarded-host": "evil-attacker.com",
+          origin: "https://evil-attacker.com",
+        },
+      });
+      expect(validateOrigin(req)).toBe(false);
+    });
+
+    it("allows verified x-forwarded-host in non-Vercel deployment when TRUST_PROXY is enabled", () => {
+      process.env.TRUST_PROXY = "true";
+      try {
+        const req = new Request("http://internal-node-server:3000/api/v1/auth/logout", {
+          method: "POST",
+          headers: {
+            host: "internal-node-server:3000",
+            "x-forwarded-host": "myrestaurant.com",
+            origin: "https://myrestaurant.com",
+          },
+        });
+        expect(validateOrigin(req)).toBe(true);
+      } finally {
+        delete process.env.TRUST_PROXY;
+      }
+    });
   });
 
   describe("Client IP Extraction", () => {
     const originalVercel = process.env.VERCEL;
+    const originalTrustProxy = process.env.TRUST_PROXY;
 
     afterEach(() => {
       if (originalVercel === undefined) {
@@ -73,10 +107,16 @@ describe("API Guards", () => {
       } else {
         process.env.VERCEL = originalVercel;
       }
+      if (originalTrustProxy === undefined) {
+        delete process.env.TRUST_PROXY;
+      } else {
+        process.env.TRUST_PROXY = originalTrustProxy;
+      }
     });
 
-    it("ignores spoofed x-forwarded-for and x-real-ip when VERCEL is unset", () => {
+    it("ignores spoofed x-forwarded-for and x-real-ip when VERCEL and TRUST_PROXY are unset", () => {
       delete process.env.VERCEL;
+      delete process.env.TRUST_PROXY;
       const req = new Request("https://example.com/api/v1/auth/login", {
         headers: {
           "x-forwarded-for": "203.0.113.195, 70.41.3.18",
@@ -94,6 +134,50 @@ describe("API Guards", () => {
         },
       });
       expect(getClientIpFromRequest(req)).toBe("203.0.113.195");
+    });
+
+    it("honors x-forwarded-for and extracts distinct client IPs when TRUST_PROXY is set outside Vercel", () => {
+      delete process.env.VERCEL;
+      process.env.TRUST_PROXY = "true";
+
+      const reqUser1 = new Request("https://example.com/api/v1/customer/menu", {
+        headers: {
+          "x-forwarded-for": "203.0.113.10, 10.0.0.1",
+        },
+      });
+      const reqUser2 = new Request("https://example.com/api/v1/customer/menu", {
+        headers: {
+          "x-forwarded-for": "198.51.100.20, 10.0.0.1",
+        },
+      });
+
+      const ip1 = getClientIpFromRequest(reqUser1);
+      const ip2 = getClientIpFromRequest(reqUser2);
+
+      expect(ip1).toBe("203.0.113.10");
+      expect(ip2).toBe("198.51.100.20");
+      expect(ip1).not.toBe(ip2);
+      expect(ip1).not.toBe("127.0.0.1");
+      expect(ip2).not.toBe("127.0.0.1");
+    });
+
+    it("honors cf-connecting-ip and x-real-ip when TRUST_PROXY is set", () => {
+      delete process.env.VERCEL;
+      process.env.TRUST_PROXY = "true";
+
+      const reqCf = new Request("https://example.com/api/v1/auth/login", {
+        headers: {
+          "cf-connecting-ip": "192.0.2.77",
+        },
+      });
+      expect(getClientIpFromRequest(reqCf)).toBe("192.0.2.77");
+
+      const reqReal = new Request("https://example.com/api/v1/auth/login", {
+        headers: {
+          "x-real-ip": "192.0.2.88",
+        },
+      });
+      expect(getClientIpFromRequest(reqReal)).toBe("192.0.2.88");
     });
 
     it("honors x-real-ip when VERCEL is set and x-forwarded-for is missing", () => {

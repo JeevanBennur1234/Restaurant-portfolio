@@ -183,9 +183,11 @@ test.describe("Customer Food Ordering Journey", () => {
     const submitBtn = page.locator('[data-testid="checkout-submit-btn"]');
     await submitBtn.click();
 
-    // 6. Must show useful error message (e.g. gateway not configured) and NEVER fake payment success
+    // 6. Must show useful error or test mode notice and NEVER fake payment success
     await expect(
-      page.getByText(/Payment gateway is not configured|Could not initialize payment|Could not retrieve payment/i)
+      page.getByText(
+        /Payment gateway is not configured|Could not initialize payment|Could not retrieve payment|Razorpay Test Mode Notice|UPI QR Unavailable|Dynamic UPI QR codes are not available/i
+      )
     ).toBeVisible({ timeout: 15_000 });
 
     // 7. Verify safe recovery: click "Pay at Counter Instead"

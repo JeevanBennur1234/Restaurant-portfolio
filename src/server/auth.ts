@@ -41,20 +41,31 @@ const MAX_FAILED_ATTEMPTS = 5;
 
 /**
  * Extracts client IP from incoming request headers.
- * Only trusts x-forwarded-for when running on Vercel (process.env.VERCEL),
- * otherwise falls back to a fixed key to prevent IP spoofing in self-hosted environments.
+ * Supports Vercel and non-Vercel deployments behind trusted proxies (TRUST_PROXY=true).
  */
 export async function getClientIp(): Promise<string> {
-  if (process.env.VERCEL) {
+  const isTrusted =
+    Boolean(process.env.VERCEL) ||
+    process.env.TRUST_PROXY === "true" ||
+    process.env.TRUST_PROXY === "1" ||
+    process.env.TRUSTED_PROXY === "true" ||
+    process.env.TRUSTED_PROXY === "1";
+
+  if (isTrusted) {
     try {
       const headerList = await headers();
       const forwardedFor = headerList.get("x-forwarded-for");
       if (forwardedFor) {
-        return forwardedFor.split(",")[0].trim();
+        const clientIp = forwardedFor.split(",")[0].trim();
+        if (clientIp) return clientIp;
       }
       const realIp = headerList.get("x-real-ip");
-      if (realIp) {
+      if (realIp && realIp.trim()) {
         return realIp.trim();
+      }
+      const cfIp = headerList.get("cf-connecting-ip");
+      if (cfIp && cfIp.trim()) {
+        return cfIp.trim();
       }
     } catch {
       // Fallback when headers() is outside request lifecycle (e.g., unit test)

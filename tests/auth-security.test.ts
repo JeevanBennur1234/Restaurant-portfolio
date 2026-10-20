@@ -414,6 +414,14 @@ describe("Staff Authentication Security", () => {
         process.env.VERCEL = "1";
         const ipOnVercel = await getClientIp();
         expect(ipOnVercel).toBe("203.0.113.195");
+
+        // Non-Vercel behind trusted proxy (TRUST_PROXY=true): x-forwarded-for is trusted
+        delete process.env.VERCEL;
+        process.env.TRUST_PROXY = "true";
+        mockHeadersMap.set("x-forwarded-for", "198.51.100.42, 10.0.0.1");
+        const ipTrustedProxy = await getClientIp();
+        expect(ipTrustedProxy).toBe("198.51.100.42");
+        delete process.env.TRUST_PROXY;
       } finally {
         if (originalVercel !== undefined) {
           process.env.VERCEL = originalVercel;
