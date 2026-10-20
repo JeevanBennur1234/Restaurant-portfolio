@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse("No tables found to generate QR codes", { status: 404 });
   }
 
-  // Base URL for QR links: built ONLY from env.NEXT_PUBLIC_APP_URL (never from Host header)
-  const baseUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  // Base URL for QR links: built ONLY from env.APP_URL (never from Host header)
+  const baseUrl = env.APP_URL.replace(/\/$/, "");
 
   // 3. Generate PDF Document using PDFKit
   const pdfBuffer = await new Promise<Buffer>(async (resolve, reject) => {

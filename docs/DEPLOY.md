@@ -101,7 +101,7 @@ Every project requires environment variables configured under **Project Settings
 | `SITE` | `customer` | `kitchen` | `manager` | **Strictly required**. Determines route proxying and role gating. |
 | `DATABASE_URL` | Yes | Yes | Yes | Supabase connection string with transaction pooler (`:6543`). |
 | `SESSION_SECRET` | Yes | Yes | Yes | **MUST BE IDENTICAL** across all 3 projects (min 32 characters). |
-| `NEXT_PUBLIC_APP_URL` | Yes | Yes | Yes | The project's own URL (e.g. `https://order.foo.com`). |
+| `APP_URL` | Yes | Yes | Yes | The project's own URL (e.g. `https://order.foo.com`). |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Yes | Supabase API URL (`https://<project-ref>.supabase.co`). |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Yes | Yes | Supabase public anonymous API key. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Yes | Yes | Supabase private service role key for storage and broadcasts. |

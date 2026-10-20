@@ -45,7 +45,7 @@ jobs:
           SITE: customer
           PAYMENTS_MODE: counter_only
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dinepulse_build
-          NEXT_PUBLIC_APP_URL: https://example.com
+          APP_URL: https://example.com
           SESSION_SECRET: ci-build-session-secret-at-least-32-characters-long
           NEXT_PUBLIC_SUPABASE_URL: https://mock-ci-project.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-supabase-anon-key-token
@@ -93,7 +93,7 @@ jobs:
         env:
           CI: "true"
           E2E_DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/dinepulse_e2e
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          APP_URL: http://localhost:3000
           SESSION_SECRET: e2e-fixed-test-session-secret-at-least-32-chars-long
           SITE: all
           PAYMENTS_MODE: online

@@ -23,7 +23,7 @@ const siteName =
   process.env.NEXT_PUBLIC_SITE_NAME || env.NEXT_PUBLIC_SITE_NAME || "DinePulse";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
+  metadataBase: new URL(env.APP_URL),
   title: {
     default: `${siteName} by Intallo | Smart QR Dining & Real-Time KDS`,
     template: `%s | ${siteName}`,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "DinePulse by Intallo | Smart QR Dining & Real-Time KDS",
     description:
       "Instant QR table ordering and zero-latency kitchen coordination for modern Indian dining.",
-    url: env.NEXT_PUBLIC_APP_URL,
+    url: env.APP_URL,
     siteName: "DinePulse",
     locale: "en_IN",
     type: "website",

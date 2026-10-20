@@ -12,7 +12,7 @@ describe("check-env Script (scripts/check-env.ts)", () => {
     SITE: "customer",
     DATABASE_URL: "postgresql://postgres:secret@pooler.supabase.co:6543/postgres?sslmode=require",
     SESSION_SECRET: "a-valid-session-secret-that-is-at-least-32-chars-long",
-    NEXT_PUBLIC_APP_URL: "https://order.dinepulse.intallo.in",
+    APP_URL: "https://order.dinepulse.intallo.in",
     NEXT_PUBLIC_SUPABASE_URL: "https://xyzcompany.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key",
     SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_service_key",
@@ -100,13 +100,13 @@ describe("check-env Script (scripts/check-env.ts)", () => {
       expect(oldSecret.passed).toBe(false);
     });
 
-    it("fails when NEXT_PUBLIC_APP_URL is invalid or contains path", () => {
+    it("fails when APP_URL is invalid or contains path", () => {
       const withPath = validateEnvForSite(
-        { ...validBaseEnv, NEXT_PUBLIC_APP_URL: "https://example.com/subdir" },
+        { ...validBaseEnv, APP_URL: "https://example.com/subdir" },
         { site: "customer" }
       );
       expect(withPath.passed).toBe(false);
-      expect(withPath.items.find((i) => i.name === "NEXT_PUBLIC_APP_URL")?.status).toBe("FAIL");
+      expect(withPath.items.find((i) => i.name === "APP_URL")?.status).toBe("FAIL");
     });
 
     it("fails when Supabase variables are missing or placeholders", () => {
@@ -158,7 +158,7 @@ describe("check-env Script (scripts/check-env.ts)", () => {
     const kitchenBase = {
       ...validBaseEnv,
       SITE: "kitchen",
-      NEXT_PUBLIC_APP_URL: "https://kitchen.dinepulse.intallo.in",
+      APP_URL: "https://kitchen.dinepulse.intallo.in",
       RAZORPAY_KEY_ID: "",
       RAZORPAY_KEY_SECRET: "",
       RAZORPAY_WEBHOOK_SECRET: "",
@@ -175,7 +175,7 @@ describe("check-env Script (scripts/check-env.ts)", () => {
         {
           ...kitchenBase,
           SITE: "manager",
-          NEXT_PUBLIC_APP_URL: "https://manager.dinepulse.intallo.in",
+          APP_URL: "https://manager.dinepulse.intallo.in",
         },
         { site: "manager" }
       );

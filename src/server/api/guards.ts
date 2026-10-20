@@ -32,7 +32,7 @@ export function isTrustedProxy(): boolean {
 
 /**
  * Validates Origin header for cookie-authenticated write requests.
- * Origin must match host (or verified x-forwarded-host behind trusted proxy) or an entry in ALLOWED_ORIGINS / NEXT_PUBLIC_APP_URL.
+ * Origin must match host (or verified x-forwarded-host behind trusted proxy) or an entry in ALLOWED_ORIGINS / APP_URL.
  */
 export function validateOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
@@ -77,10 +77,10 @@ export function validateOrigin(req: Request): boolean {
     }
   }
 
-  // 2. Check against NEXT_PUBLIC_APP_URL
-  if (env.NEXT_PUBLIC_APP_URL) {
+  // 2. Check against APP_URL
+  if (env.APP_URL) {
     try {
-      const appUrl = new URL(env.NEXT_PUBLIC_APP_URL);
+      const appUrl = new URL(env.APP_URL);
       if (originHost === appUrl.host.toLowerCase()) {
         return true;
       }

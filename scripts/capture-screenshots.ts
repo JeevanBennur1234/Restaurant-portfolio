@@ -224,7 +224,7 @@ export async function main() {
       env: {
         ...commonEnv,
         SITE: "customer",
-        NEXT_PUBLIC_APP_URL: CUSTOMER_URL,
+        APP_URL: CUSTOMER_URL,
       },
       shell: true,
       stdio: "pipe",
@@ -235,7 +235,7 @@ export async function main() {
       env: {
         ...commonEnv,
         SITE: "kitchen",
-        NEXT_PUBLIC_APP_URL: KITCHEN_URL,
+        APP_URL: KITCHEN_URL,
       },
       shell: true,
       stdio: "pipe",
@@ -246,7 +246,7 @@ export async function main() {
       env: {
         ...commonEnv,
         SITE: "manager",
-        NEXT_PUBLIC_APP_URL: MANAGER_URL,
+        APP_URL: MANAGER_URL,
       },
       shell: true,
       stdio: "pipe",

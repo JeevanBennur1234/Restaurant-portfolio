@@ -70,7 +70,7 @@ export default async function globalSetup() {
   }
 
   const safeE2EDefaults: Record<string, string> = {
-    NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    APP_URL: "http://localhost:3000",
     SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
     PAYMENTS_MODE: "online",
     NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",

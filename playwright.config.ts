@@ -5,7 +5,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 const safeE2EDefaults: Record<string, string> = {
-  NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+  APP_URL: "http://localhost:3000",
   SESSION_SECRET: "e2e-fixed-test-session-secret-at-least-32-chars-long",
   PAYMENTS_MODE: "online",
   NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",
@@ -100,7 +100,7 @@ export default defineConfig({
         ...process.env,
         ...commonEnv,
         SITE: "customer",
-        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+        APP_URL: "http://localhost:3000",
       },
     },
     {
@@ -112,7 +112,7 @@ export default defineConfig({
         ...process.env,
         ...commonEnv,
         SITE: "kitchen",
-        NEXT_PUBLIC_APP_URL: "http://localhost:3001",
+        APP_URL: "http://localhost:3001",
       },
     },
     {
@@ -124,7 +124,7 @@ export default defineConfig({
         ...process.env,
         ...commonEnv,
         SITE: "manager",
-        NEXT_PUBLIC_APP_URL: "http://localhost:3002",
+        APP_URL: "http://localhost:3002",
       },
     },
   ],

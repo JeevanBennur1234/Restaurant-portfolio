@@ -5,7 +5,7 @@ vi.mock("@/server/env", () => ({
   env: {
     PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
-    NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    APP_URL: "http://localhost:3000",
     SESSION_SECRET: "mock-session-secret-at-least-32-chars-long",
     RAZORPAY_KEY_ID: "rzp_test_placeholder",
     RAZORPAY_KEY_SECRET: "rzp_test_placeholder",

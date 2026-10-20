@@ -151,9 +151,9 @@ const rawEnvSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required"),
-  NEXT_PUBLIC_APP_URL: z
+  APP_URL: z
     .string()
-    .min(1, "NEXT_PUBLIC_APP_URL is required"),
+    .min(1, "APP_URL is required"),
   NEXT_PUBLIC_CUSTOMER_SITE_URL: z
     .preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
   NEXT_PUBLIC_KITCHEN_SITE_URL: z

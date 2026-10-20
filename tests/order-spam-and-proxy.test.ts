@@ -7,7 +7,7 @@ vi.mock("@/server/env", () => ({
     NODE_ENV: "production",
     PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
-    NEXT_PUBLIC_APP_URL: "https://dinepulse.example.com",
+    APP_URL: "https://dinepulse.example.com",
     SESSION_SECRET: "test-secret-at-least-32-characters-long-123456",
     NEXT_PUBLIC_SUPABASE_URL: "https://xyzcompany.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "mock_service_key",
@@ -387,7 +387,7 @@ describe("Order Spam Protections (placeOrderAction)", () => {
 });
 
 describe("QR PDF Generation Security (GET /api/admin/tables/qr-pdf)", () => {
-  it("Requirement 3: builds QR URLs ONLY from env.NEXT_PUBLIC_APP_URL and never Host header", async () => {
+  it("Requirement 3: builds QR URLs ONLY from env.APP_URL and never Host header", async () => {
     const req = new NextRequest("http://evil-host.com/api/admin/tables/qr-pdf", {
       headers: {
         host: "evil-host.com",

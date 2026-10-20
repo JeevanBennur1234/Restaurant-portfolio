@@ -121,7 +121,7 @@ import { db } from "@/server/db";
 const baseProdEnv: Record<string, string> = {
   NODE_ENV: "production",
   DATABASE_URL: "postgresql://postgres:pass@localhost:5432/dinepulse",
-  NEXT_PUBLIC_APP_URL: "https://example.com",
+  APP_URL: "https://example.com",
   SESSION_SECRET: "at-least-32-characters-production-session-secret-string",
   NEXT_PUBLIC_SUPABASE_URL: "https://prod-project.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "prod-anon-key-string",

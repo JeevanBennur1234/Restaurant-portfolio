@@ -185,25 +185,25 @@ export function validateEnvForSite(
     }
   }
 
-  // 4. NEXT_PUBLIC_APP_URL
-  const appUrl = env.NEXT_PUBLIC_APP_URL;
+  // 4. APP_URL
+  const appUrl = env.APP_URL;
   if (!appUrl || appUrl.trim() === "") {
     items.push({
-      name: "NEXT_PUBLIC_APP_URL",
+      name: "APP_URL",
       status: "FAIL",
-      message: "NEXT_PUBLIC_APP_URL is required.",
+      message: "APP_URL is required.",
     });
   } else {
     const valRes = validateSiteUrlOrigin(appUrl);
     if (!valRes.valid) {
       items.push({
-        name: "NEXT_PUBLIC_APP_URL",
+        name: "APP_URL",
         status: "FAIL",
         message: valRes.error ?? "Invalid absolute origin URL without path.",
       });
     } else {
       items.push({
-        name: "NEXT_PUBLIC_APP_URL",
+        name: "APP_URL",
         status: "PASS",
         message: valRes.origin ?? appUrl,
       });

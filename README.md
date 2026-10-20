@@ -157,7 +157,7 @@ DinePulse validates all environment variables on boot using Zod in [`src/server/
 |---|---|---|---|
 | `DATABASE_URL` | **Yes** | Direct / Pooler | PostgreSQL connection string. |
 | `SESSION_SECRET` | **Yes** | Min 32 chars | Secret key for signing staff HMAC session tokens and deriving private realtime channels. |
-| `NEXT_PUBLIC_APP_URL` | **Yes** | e.g. `http://localhost:3000` | Canonical public URL for the running site instance. |
+| `APP_URL` | **Yes** | e.g. `http://localhost:3000` | Canonical public URL for the running site instance. |
 | `SITE` | Conditional | `customer` \| `kitchen` \| `manager` \| `all` | Controls site personality and proxy routing rules. |
 | `PAYMENTS_MODE` | No | `online` | Payment gateway mode (`online` or `counter_only`). |
 | `NEXT_PUBLIC_CUSTOMER_SITE_URL` | If Multi-site | e.g. `http://localhost:3000` | Cross-site navigation link to customer portal. |
