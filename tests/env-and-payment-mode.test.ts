@@ -146,6 +146,20 @@ describe("Vercel APP_URL fallback", () => {
   it("does not invent an APP_URL outside Vercel when none is configured", () => {
     expect(resolveAppUrlEnv({}).APP_URL).toBeUndefined();
   });
+
+  it("uses the isolated build's site identity when the runtime SITE variable is absent", () => {
+    const resolved = resolveAppUrlEnv(
+      {
+        DATABASE_URL: "postgresql://postgres:pass@localhost:5432/dinepulse",
+        APP_URL: "https://dinepulse-kitchen.vercel.app",
+        SESSION_SECRET: "at-least-32-characters-production-session-secret-string",
+      },
+      "kitchen"
+    );
+
+    expect(resolved.SITE).toBe("kitchen");
+    expect(validateEnv({ ...resolved, NODE_ENV: "production" }).success).toBe(true);
+  });
 });
 
 // Base valid production environment variables without any Razorpay keys

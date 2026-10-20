@@ -392,9 +392,24 @@ export const envSchema = rawEnvSchema.superRefine((data, ctx) => {
  * "Automatically expose System Environment Variables" is enabled.
  */
 export function resolveAppUrlEnv(
-  source: Record<string, string | undefined>
+  source: Record<string, string | undefined>,
+  buildSite: string | undefined = process.env.DINEPULSE_BUILD_SITE
 ): Record<string, string | undefined> {
   const resolved = { ...source };
+
+  // The SITE value used by cross-env during build may not exist in deployed
+  // function environments. Prefer an explicit runtime SITE, then use the
+  // non-secret site identity embedded by next.config.ts for this build.
+  if (
+    !resolved.SITE?.trim() &&
+    (buildSite === "customer" ||
+      buildSite === "kitchen" ||
+      buildSite === "manager" ||
+      buildSite === "all")
+  ) {
+    resolved.SITE = buildSite;
+  }
+
   if (resolved.APP_URL?.trim()) return resolved;
 
   const host =

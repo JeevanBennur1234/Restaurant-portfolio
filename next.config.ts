@@ -6,6 +6,7 @@ const distDir = isDev && site !== "all" ? `.next-${site}` : ".next";
 
 const nextConfig: NextConfig = {
   distDir,
+  env: { DINEPULSE_BUILD_SITE: site },
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
