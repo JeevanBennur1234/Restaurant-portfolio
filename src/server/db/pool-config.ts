@@ -31,14 +31,15 @@ export function getPoolConfig(
       !connectionString.includes("127.0.0.1") &&
       !connectionString.includes("mock"));
 
-  // Production verifies remote TLS certificates by default, including Supabase.
-  // Set DATABASE_CA_CERT to the Supabase root certificate when required by the host.
-  // Local development preserves Supabase's existing TLS-encrypted connection behavior;
-  // DATABASE_SSL_REJECT_UNAUTHORIZED can explicitly override either environment.
+  // Supabase's standard connection guidance uses TLS encryption with sslmode=require,
+  // which does not verify the server certificate chain. Match that default for Supabase
+  // unless a root CA certificate is configured. Other production database hosts retain
+  // strict certificate verification by default. Operators can explicitly override this.
+  const hasDatabaseCaCert = Boolean(process.env.DATABASE_CA_CERT);
   const rejectUnauthorized =
     process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== undefined
       ? process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "true"
-      : isProduction;
+      : isProduction && (!isSupabase || hasDatabaseCaCert);
 
   const ssl = needsSsl
     ? {
