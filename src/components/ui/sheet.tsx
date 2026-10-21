@@ -15,6 +15,8 @@ export interface SheetProps {
   footer?: React.ReactNode;
   side?: SheetSide;
   className?: string;
+  contentClassName?: string;
+  footerClassName?: string;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -29,6 +31,8 @@ export function Sheet({
   footer,
   side = "bottom",
   className,
+  contentClassName,
+  footerClassName,
 }: SheetProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLElement | null>(null);
@@ -179,11 +183,11 @@ export function Sheet({
         )}
 
         {/* Body content */}
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto p-5", contentClassName)}>{children}</div>
 
         {/* Optional Footer */}
         {footer && (
-          <div className="p-4 sm:p-5 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50">
+          <div className={cn("border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-4 sm:p-5", footerClassName)}>
             {footer}
           </div>
         )}

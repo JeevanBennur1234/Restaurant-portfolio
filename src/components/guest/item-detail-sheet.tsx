@@ -100,7 +100,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
     addItem(item.id, quantity, selectedModifierIds);
     showToast({
       title: "Added to Cart",
-      message: `${quantity}× ${item.name}`,
+      message: `${quantity} × ${item.name} added to your order.`,
       variant: "success",
       duration: 2500,
     });
@@ -112,7 +112,9 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       isOpen={isOpen}
       onClose={onClose}
       side="bottom"
-      className="max-h-[88vh] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      className="max-h-[88dvh] sm:max-h-[min(88dvh,760px)] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      contentClassName="p-4 sm:p-5"
+      footerClassName="p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4"
       footer={
         <div className="space-y-2">
           {/* Detailed Price Breakdown */}
@@ -128,9 +130,9 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Quantity Stepper (min 44px tap targets) */}
-            <div className="flex items-center border border-[var(--border-strong)] rounded-[var(--radius-md)] bg-[var(--bg-surface)]">
+            <div className="flex shrink-0 items-center border border-[var(--border-strong)] rounded-[var(--radius-md)] bg-[var(--bg-surface)]">
               <button
                 type="button"
                 disabled={quantity <= 1 || !isAvailable}
@@ -161,12 +163,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               variant="primary"
               disabled={!isAvailable}
               onClick={handleAddToCart}
-              className="flex-1 justify-between shadow-md px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
+              className="flex-1 justify-between shadow-md px-2.5 sm:px-4 text-[11px] sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
             >
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
               </span>
-              <span className="font-mono font-bold shrink-0">
+              <span className="font-mono text-[11px] sm:text-sm font-bold shrink-0">
                 {formatPaiseToINR(lineTotalPaise)}
               </span>
             </Button>
@@ -174,10 +176,10 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5">
         {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
         {item.imageUrl && !bannerError ? (
-          <div className="relative -mx-5 -mt-5 h-52 sm:h-64 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
+          <div className="relative -mx-4 -mt-4 h-36 sm:-mx-5 sm:-mt-5 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
             <Image
               src={item.imageUrl}
               alt={item.name}
@@ -197,7 +199,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             </div>
           </div>
         ) : (
-          <div className="relative -mx-5 -mt-5 h-40 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
+          <div className="relative -mx-4 -mt-4 h-36 sm:-mx-5 sm:-mt-5 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
             <div className="flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <Utensils className="h-4 w-4 text-[#D97706]" />
@@ -239,7 +241,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
 
         {/* Modifiers List */}
         {modifierGroups.size > 0 && (
-          <div className="space-y-5 border-t border-[var(--border-subtle)] pt-4">
+          <div className="space-y-4 border-t border-[var(--border-subtle)] pt-3 sm:pt-4">
             {Array.from(modifierGroups.entries()).map(([groupName, mods], groupIndex) => {
               const isRadio = mods.some((m) => m.isRequired);
 
@@ -268,10 +270,10 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                           key={mod.id}
                           data-testid="modifier-option"
                           onClick={() => toggleModifier(mod, isRadio)}
-                          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[48px] select-none ${
+                          className={`flex items-center justify-between p-3 sm:p-4 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[48px] select-none ${
                             isSelected
                               ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 text-[var(--text-primary)] font-medium ring-1 ring-[var(--primary)]"
-                              : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                              : "border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)]/55 text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
                           }`}
                         >
                           <div className="flex items-center gap-3">

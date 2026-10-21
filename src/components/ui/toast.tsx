@@ -76,7 +76,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
     <div
       aria-live="polite"
       aria-label="Notifications"
-      className="fixed bottom-4 right-4 z-50 flex max-w-sm w-full flex-col gap-2 p-4 sm:p-0 pointer-events-none"
+      className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-3 right-3 z-50 mx-auto flex w-auto max-w-sm flex-col gap-2 p-0 sm:bottom-24 sm:left-auto sm:right-4 sm:mx-0 sm:w-full"
     >
       {toasts.map((toast) => (
         <ToastCard key={toast.id} toast={toast} onDismiss={() => onDismiss(toast.id)} />

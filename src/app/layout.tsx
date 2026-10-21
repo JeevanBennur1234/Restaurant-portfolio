@@ -78,7 +78,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-primary)]">
         <ToastProvider>
           <div className="flex-1 flex flex-col">{children}</div>
-          <footer className="py-6 px-4 text-center text-xs text-[var(--text-muted)] border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+          <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-4 text-center text-[11px] font-medium text-[var(--text-secondary)]">
             <p>
               Concept preview by{" "}
               <a

@@ -60,24 +60,33 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
   return (
     <article
       data-testid="menu-item-card"
+      role={isAvailable ? "button" : undefined}
+      tabIndex={isAvailable ? 0 : undefined}
+      aria-label={isAvailable ? `View details for ${item.name}` : undefined}
+      onKeyDown={(event) => {
+        if (isAvailable && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onSelect(item);
+        }
+      }}
       onClick={() => {
         if (isAvailable) onSelect(item);
       }}
       className={cn(
-        "group relative flex flex-col rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-[var(--shadow-card)] transition-all",
+        "group relative flex h-full flex-col rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-[var(--shadow-card)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2",
         isAvailable
           ? "cursor-pointer hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-elevated)] active:scale-[0.99]"
           : "opacity-60 cursor-not-allowed bg-[var(--bg-subtle)]/50"
       )}
     >
       {/* 4:3 Image on Top with Subtle Desktop Hover Zoom & Fixed Aspect Ratio */}
-      <div className="relative aspect-[5/3] w-full overflow-hidden bg-[var(--bg-subtle)] sm:aspect-[4/3]">
+      <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#EFE5D9] sm:aspect-[16/10]">
         {item.imageUrl && !imageError ? (
           <>
             {imageLoading && (
               <div
                 aria-hidden="true"
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#E8DED2] via-[#F8F1E8] to-[#E5D7C9]"
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 overflow-hidden bg-gradient-to-br from-[#E8DED2] via-[#F8F1E8] to-[#E5D7C9] before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/50 before:to-transparent"
               >
                 <Utensils className="h-7 w-7 animate-pulse text-[#A98C76]/70" />
                 <span className="h-2 w-20 animate-pulse rounded-full bg-[#CDBAA8]/70" />
@@ -90,7 +99,7 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
               priority={item.sortOrder <= 3}
               sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
               className={cn(
-                "object-cover transition-[opacity,transform] duration-300 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
+                "object-cover transition-[opacity,transform] duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
                 imageLoading ? "opacity-0" : "opacity-100"
               )}
               onLoad={() => setImageStatus({ src: item.imageUrl ?? null, loading: false, error: false })}
@@ -158,14 +167,14 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
       </div>
 
       {/* Card Details */}
-      <div className="flex flex-1 flex-col justify-between gap-2.5 p-3.5 sm:p-4 sm:gap-3">
-        <div className="space-y-1.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3 sm:p-4 sm:gap-3">
+        <div className="min-w-0 space-y-1.5">
           <h3 className="font-serif text-base font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)] sm:text-lg">
             <HighlightedText text={item.name} query={searchQuery} />
           </h3>
 
           {item.description && (
-            <p className="text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
+            <p className="line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
               <HighlightedText text={item.description} query={searchQuery} />
             </p>
           )}
@@ -188,7 +197,7 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
         </div>
 
         {/* Price, Prep Time, and Circular '+' Button on One Row */}
-        <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]/70">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-[var(--border-subtle)]/70">
           <div className="flex items-baseline gap-2">
             <span className="font-sans text-base font-bold text-[var(--primary)]">
               {formatPaiseToINR(item.pricePaise)}

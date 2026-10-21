@@ -7,7 +7,7 @@ import { ItemDetailSheet } from "./item-detail-sheet";
 import { CartBar } from "./cart-bar";
 import { CartSheet } from "./cart-sheet";
 import { VegIndicator } from "./veg-indicator";
-import { Search, X, UtensilsCrossed, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, UtensilsCrossed, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GuestCategory, GuestMenuItem, GuestTable } from "@/lib/api/types";
 
@@ -51,6 +51,12 @@ export function MenuView({
     setCanScrollCategoryLeft(nav.scrollLeft > 2);
     setCanScrollCategoryRight(nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
   }, []);
+
+  const scrollCategoriesBy = React.useCallback((direction: -1 | 1) => {
+    const nav = navRef.current;
+    if (!nav) return;
+    nav.scrollBy({ left: direction * Math.max(180, nav.clientWidth * 0.65), behavior: shouldReduceMotion ? "auto" : "smooth" });
+  }, [shouldReduceMotion]);
 
   // Filter items based on search and dietary filter
   const filteredItems = React.useMemo(() => {
@@ -183,7 +189,7 @@ export function MenuView({
       {/* Compact Editorial Hero Banner (<200px tall so menu starts on screen one) */}
       <section
         aria-label="Restaurant banner"
-        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] px-4 py-4 sm:py-5 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
+        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] px-4 py-2.5 sm:py-5 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
       >
         {/* Ambient warm tandoor glow */}
         <div
@@ -197,7 +203,7 @@ export function MenuView({
 
         <div className="relative max-w-2xl mx-auto w-full">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className="eyebrow text-[10px] sm:text-[11px] text-amber-300/90 font-medium tracking-[0.2em]">
+            <span className="eyebrow text-[9px] sm:text-[11px] text-amber-300/90 font-medium tracking-[0.16em] sm:tracking-[0.2em]">
               00 · Table Dining
             </span>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-xs font-semibold border border-white/15 backdrop-blur-xs">
@@ -206,19 +212,19 @@ export function MenuView({
             </div>
           </div>
 
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
+          <h1 className="font-serif text-xl sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
             <span>{restaurantName}</span>
             <Sparkles className="h-4 w-4 text-[#D97706] opacity-75 shrink-0" />
           </h1>
 
-          <p className="mt-1 text-xs text-stone-300 leading-relaxed max-w-md line-clamp-1">
+          <p className="mt-1 hidden text-xs text-stone-300 leading-relaxed max-w-md line-clamp-1 sm:block">
             Clay-pot curries, slow tandoor grills & coastal specials prepared fresh.
           </p>
         </div>
       </section>
 
       {/* Search Bar & Veg/Non-Veg Filter Section */}
-      <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border-subtle)] space-y-3">
+      <div className="bg-[var(--bg-surface)] px-3 py-2 sm:px-4 sm:py-3 border-b border-[var(--border-subtle)] space-y-2 sm:space-y-3">
         {/* Search Input */}
         <div className="relative mx-auto flex w-full max-w-2xl items-center">
           <Search className="pointer-events-none absolute left-4 h-4 w-4 text-[var(--text-muted)]" />
@@ -230,7 +236,7 @@ export function MenuView({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search dishes, ingredients, curries..."
             autoComplete="off"
-            className="h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+            className="h-10 sm:h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
           />
           {searchQuery.length > 0 && (
             <button
@@ -245,13 +251,13 @@ export function MenuView({
         </div>
 
         {/* Refined, accessible dietary filter chips */}
-        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-2 pt-0.5">
+        <div className="mx-auto flex w-full max-w-2xl flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar pt-0.5 sm:flex-wrap sm:overflow-visible">
           <button
             type="button"
             aria-pressed={dietaryFilter === "all"}
             onClick={() => setDietaryFilter("all")}
             className={cn(
-              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2",
+              "inline-flex min-h-[44px] shrink-0 whitespace-nowrap items-center gap-2 rounded-full border px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2",
               dietaryFilter === "all"
                 ? "border-[var(--secondary)] bg-[var(--secondary)] text-white shadow-[0_3px_10px_rgba(46,39,35,0.18)]"
                 : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
@@ -268,7 +274,7 @@ export function MenuView({
             aria-pressed={dietaryFilter === "veg"}
             onClick={() => setDietaryFilter("veg")}
             className={cn(
-              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/30 focus-visible:ring-offset-2",
+              "inline-flex min-h-[44px] shrink-0 whitespace-nowrap items-center gap-2 rounded-full border px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/30 focus-visible:ring-offset-2",
               dietaryFilter === "veg"
                 ? "border-emerald-800 bg-emerald-50 text-emerald-950 shadow-sm ring-1 ring-emerald-700/25"
                 : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-emerald-700/40 hover:bg-emerald-50/60"
@@ -283,7 +289,7 @@ export function MenuView({
             aria-pressed={dietaryFilter === "non-veg"}
             onClick={() => setDietaryFilter("non-veg")}
             className={cn(
-              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/30 focus-visible:ring-offset-2",
+              "inline-flex min-h-[44px] shrink-0 whitespace-nowrap items-center gap-2 rounded-full border px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/30 focus-visible:ring-offset-2",
               dietaryFilter === "non-veg"
                 ? "border-rose-900 bg-rose-50 text-rose-950 shadow-sm ring-1 ring-rose-800/20"
                 : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-rose-800/35 hover:bg-rose-50/50"
@@ -334,9 +340,9 @@ export function MenuView({
           ref={navRef}
           aria-label="Menu categories"
           onScroll={updateCategoryScrollAffordance}
-          className="flex w-full min-w-0 gap-2 overflow-x-auto px-4 py-2.5 no-scrollbar scroll-smooth"
+          className="flex w-full min-w-0 gap-2 overflow-x-auto px-11 py-1.5 no-scrollbar scroll-smooth"
         >
-          <div className="mx-auto flex w-max min-w-full gap-2">
+          <div className="flex w-max min-w-max gap-2">
             {categories.map((cat, idx) => {
               const count = itemsByCategory.get(cat.id)?.length ?? 0;
               const isActive = activeCategoryId === cat.id;
@@ -349,7 +355,7 @@ export function MenuView({
                   onClick={() => handleCategoryClick(cat.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "relative flex min-h-[44px] shrink-0 items-center rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-colors cursor-pointer select-none",
+                    "relative flex min-h-[44px] shrink-0 items-center rounded-full px-3 sm:px-4 py-2 text-xs font-medium tracking-wide transition-colors cursor-pointer select-none whitespace-nowrap",
                     isActive
                       ? "z-10 font-semibold text-white"
                       : "border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -381,15 +387,25 @@ export function MenuView({
           </div>
         </nav>
         {canScrollCategoryLeft && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-[var(--bg-app)] to-transparent" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-7 z-10 w-6 bg-gradient-to-r from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
         )}
         {canScrollCategoryRight && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-gradient-to-l from-[var(--bg-app)] to-transparent" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-7 z-10 w-6 bg-gradient-to-l from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
+        )}
+        {canScrollCategoryLeft && (
+          <button type="button" aria-label="Scroll categories left" onClick={() => scrollCategoriesBy(-1)} className="absolute left-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+        {canScrollCategoryRight && (
+          <button type="button" aria-label="Scroll categories right" onClick={() => scrollCategoriesBy(1)} className="absolute right-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]">
+            <ChevronRight className="h-4 w-4" />
+          </button>
         )}
       </div>
 
       {/* Menu Sections & Image-Led Item Cards */}
-      <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-3 sm:space-y-6 sm:px-6 sm:py-4 lg:px-8">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[var(--text-muted)]">
             <UtensilsCrossed className="h-10 w-10 opacity-30 text-[var(--primary)] mb-3" />
@@ -423,14 +439,14 @@ export function MenuView({
               <section
                 key={category.id}
                 id={`category-section-${category.id}`}
-                className="scroll-mt-32 space-y-3"
+                className="scroll-mt-28 space-y-2.5 sm:space-y-3"
               >
                 <div className="flex items-baseline justify-between border-b border-[var(--border-subtle)] pb-2">
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs font-mono font-bold text-[var(--accent)]">
                       {String(catIndex + 1).padStart(2, "0")} /
                     </span>
-                    <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+                    <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                       {category.name}
                     </h2>
                   </div>
@@ -439,15 +455,20 @@ export function MenuView({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-6 xl:gap-5">
                   {catItems.map((item, itemIndex) => {
-                    const isOddFinalCard = catItems.length % 2 === 1 && itemIndex === catItems.length - 1;
+                    const remainder = catItems.length % 3;
+                    const isSingleFinalCard = remainder === 1 && itemIndex === catItems.length - 1;
+                    const isFinalPair = remainder === 2 && itemIndex >= catItems.length - 2;
+                    const isFinalPairFirst = isFinalPair && itemIndex === catItems.length - 2;
                     return (
                       <div
                         key={item.id}
                         className={cn(
-                          "min-w-0",
-                          isOddFinalCard && "sm:col-span-2 sm:mx-auto sm:w-1/2 xl:col-span-1 xl:mx-0 xl:w-full"
+                          "min-w-0 sm:col-span-1 xl:col-span-2",
+                          isSingleFinalCard && "sm:col-span-2 sm:mx-auto sm:w-1/2 xl:col-start-3 xl:mx-0 xl:w-full",
+                          isFinalPairFirst && "xl:col-start-2",
+                          isFinalPair && !isFinalPairFirst && "xl:col-start-4"
                         )}
                       >
                         <MenuItemCard

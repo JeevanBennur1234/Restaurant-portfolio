@@ -24,17 +24,23 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("aria-label=\"Restaurant banner\"");
     expect(menuViewCode).toContain("table.tableNumber");
     expect(menuViewCode).toContain("restaurantName");
-    expect(menuViewCode).toContain("font-serif text-2xl sm:text-3xl");
+    expect(menuViewCode).toContain("font-serif text-xl sm:text-3xl");
+    expect(menuViewCode).toContain("hidden text-xs text-stone-300");
 
-    // Sticky category rail matches the header height and exposes horizontal scroll affordance.
+    // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
     expect(menuViewCode).toContain("sticky top-[60px]");
     expect(menuViewCode).toContain("canScrollCategoryRight");
     expect(menuViewCode).toContain("nav.scrollTo");
+    expect(menuViewCode).toContain("Scroll categories left");
+    expect(menuViewCode).toContain("Scroll categories right");
+    expect(menuViewCode).toContain("scrollCategoriesBy");
 
-    // Wide desktop layout and balanced odd-numbered tablet rows.
+    // Six-track desktop grid provides room to center odd final rows.
     expect(menuViewCode).toContain("max-w-7xl");
-    expect(menuViewCode).toContain("xl:grid-cols-3");
-    expect(menuViewCode).toContain("sm:col-span-2 sm:mx-auto sm:w-1/2");
+    expect(menuViewCode).toContain("xl:grid-cols-6");
+    expect(menuViewCode).toContain("xl:col-start-3");
+    expect(menuViewCode).toContain("xl:col-start-2");
+    expect(menuViewCode).toContain("xl:col-start-4");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
@@ -47,9 +53,14 @@ describe("Guest Editorial Flow Polish Verification", () => {
   });
 
   it("2. menu-item-card.tsx is image-led with 4:3 image, corner veg badge, Playfair typography, and min 44px circular '+' button", () => {
-    // Compact mobile image ratio with 4:3 imagery on larger screens.
-    expect(menuItemCardCode).toContain("aspect-[5/3]");
-    expect(menuItemCardCode).toContain("sm:aspect-[4/3]");
+    // Landscape image ratios keep the long menu more scannable, with a premium skeleton/fade.
+    expect(menuItemCardCode).toContain("aspect-[16/9]");
+    expect(menuItemCardCode).toContain("sm:aspect-[16/10]");
+    expect(menuItemCardCode).toContain("before:animate-pulse");
+    expect(menuItemCardCode).toContain("duration-500 ease-out");
+    expect(menuItemCardCode).toContain("h-full flex-col");
+    expect(menuItemCardCode).toContain("line-clamp-3");
+    expect(menuItemCardCode).toContain("tabIndex={isAvailable ? 0 : undefined}");
     expect(menuItemCardCode).toContain("Image");
     expect(menuItemCardCode).toContain("imageLoading");
     expect(menuItemCardCode).toContain("onError");
@@ -86,7 +97,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
   it("3. cart-bar.tsx has floating pill design and bump animation on count change", () => {
     // Floating pill
     expect(cartBarCode).toContain("rounded-full");
-    expect(cartBarCode).toContain("fixed bottom-5");
+    expect(cartBarCode).toContain("fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]");
+    expect(cartBarCode).toContain("data-testid=\"cart-bar-btn\"");
+    expect(cartBarCode).toContain("isEmpty ? \"Your order\"");
+    expect(cartBarCode).toContain("Add dishes to get started");
 
     // Bump animation on count change
     expect(cartBarCode).toContain("isBumping");
