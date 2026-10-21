@@ -45,7 +45,7 @@ export function CartBar() {
           }
           setIsCartOpen(true);
         }}
-        aria-label={isEmpty ? "Browse menu dishes" : `View cart with ${totalCount} items totaling ${formatPaiseToINR(totalPaise)}`}
+        aria-label={isEmpty ? "Browse dishes" : `View cart with ${totalCount} items totaling ${formatPaiseToINR(totalPaise)}`}
         className={cn(
           "flex items-center justify-between gap-3 rounded-full text-left transition-all active:scale-[0.98]",
           isEmpty

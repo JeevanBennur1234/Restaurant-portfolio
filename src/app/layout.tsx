@@ -85,7 +85,8 @@ export default function RootLayout({
                 href="https://intallo.in"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-[var(--primary)] hover:underline underline-offset-4 transition-colors"
+                className="font-semibold text-[var(--primary)] underline underline-offset-4 transition-colors"
+                style={{ textDecorationLine: "underline" }}
               >
                 Intallo
               </a>

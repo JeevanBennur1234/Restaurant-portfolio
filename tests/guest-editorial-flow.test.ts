@@ -68,6 +68,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("h-full flex-col");
     expect(menuItemCardCode).toContain("line-clamp-3");
     expect(menuItemCardCode).toContain('data-testid="menu-item-details-btn"');
+    expect(menuItemCardCode).not.toContain("aria-label={isAvailable ?");
     expect(menuItemCardCode).not.toContain('role={isAvailable ? "button" : undefined}');
     expect(menuItemCardCode).not.toContain("tabIndex={isAvailable ? 0 : undefined}");
     expect(menuItemCardCode).toContain("Image");

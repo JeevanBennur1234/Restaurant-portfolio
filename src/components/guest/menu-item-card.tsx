@@ -71,7 +71,6 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
         type="button"
         data-testid="menu-item-details-btn"
         disabled={!isAvailable}
-        aria-label={isAvailable ? `View details for ${item.name}` : `${item.name} is unavailable`}
         onClick={() => {
           if (isAvailable) onSelect(item);
         }}
