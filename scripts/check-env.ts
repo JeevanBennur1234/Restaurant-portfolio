@@ -300,6 +300,12 @@ export function validateEnvForSite(
             status: "FAIL",
             message: `${keyName} contains placeholder value.`,
           });
+        } else if (isProduction && keyName === "RAZORPAY_KEY_ID" && val.startsWith("rzp_test_")) {
+          items.push({
+            name: keyName,
+            status: "WARN",
+            message: "Configured with Razorpay TEST key (rzp_test_*). Real customer transactions will not be processed. Use live keys (rzp_live_*) for real dining.",
+          });
         } else {
           items.push({
             name: keyName,

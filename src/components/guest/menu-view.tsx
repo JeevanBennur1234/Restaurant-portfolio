@@ -70,7 +70,21 @@ export function MenuView({
         const query = searchQuery.toLowerCase().trim();
         const matchesName = item.name.toLowerCase().includes(query);
         const matchesDesc = item.description?.toLowerCase().includes(query) ?? false;
-        return matchesName || matchesDesc;
+        const matchesIngredients =
+          Boolean((item as unknown as { ingredients?: string | string[] }).ingredients) &&
+          (Array.isArray((item as unknown as { ingredients?: string[] }).ingredients)
+            ? (item as unknown as { ingredients: string[] }).ingredients.some((ing) =>
+                ing.toLowerCase().includes(query)
+              )
+            : String((item as unknown as { ingredients?: string }).ingredients)
+                .toLowerCase()
+                .includes(query));
+        const matchesModifiers = item.modifiers.some(
+          (mod) =>
+            mod.name.toLowerCase().includes(query) ||
+            mod.groupName.toLowerCase().includes(query)
+        );
+        return matchesName || matchesDesc || matchesIngredients || matchesModifiers;
       }
 
       return true;

@@ -42,9 +42,24 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   );
 }
 
+export function hasSelectableCustomizations(modifiers: GuestMenuItem["modifiers"]): boolean {
+  if (!modifiers || modifiers.length === 0) return false;
+  const groups = new Map<string, GuestMenuItem["modifiers"]>();
+  for (const mod of modifiers) {
+    const list = groups.get(mod.groupName) ?? [];
+    list.push(mod);
+    groups.set(mod.groupName, list);
+  }
+  for (const groupMods of groups.values()) {
+    if (groupMods.length > 1) return true;
+    if (groupMods.some((m) => !m.isRequired)) return true;
+  }
+  return false;
+}
+
 export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSelect }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
-  const hasModifiers = item.modifiers.length > 0;
+  const isCustomizable = hasSelectableCustomizations(item.modifiers);
   const spiceOptions = item.modifiers
     .filter((modifier) => /spice\s*level/i.test(modifier.groupName))
     .map((modifier) => modifier.name);
@@ -145,7 +160,7 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
 
           {/* Badges on Top Right Corner */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
-            {hasModifiers && isAvailable && (
+            {isCustomizable && isAvailable && (
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-black/60 text-amber-300 backdrop-blur-xs border border-white/20">
                 Customizable
               </span>

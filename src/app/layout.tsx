@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ToastProvider } from "@/components/ui/toast";
+import { GlobalFooter } from "@/components/layout/global-footer";
 import "./globals.css";
 
 const playfair = localFont({
@@ -78,20 +80,9 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-primary)]">
         <ToastProvider>
           <div className="flex-1 flex flex-col">{children}</div>
-          <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-4 text-center text-[11px] font-medium text-[var(--text-secondary)]">
-            <p>
-              Concept preview by{" "}
-              <a
-                href="https://intallo.in"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-[var(--primary)] underline underline-offset-4 transition-colors"
-                style={{ textDecorationLine: "underline" }}
-              >
-                Intallo
-              </a>
-            </p>
-          </footer>
+          <Suspense fallback={null}>
+            <GlobalFooter />
+          </Suspense>
         </ToastProvider>
       </body>
     </html>

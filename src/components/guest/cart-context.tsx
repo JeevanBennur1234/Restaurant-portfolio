@@ -167,6 +167,10 @@ export function CartProvider({ children, menuItems, tableId }: CartProviderProps
   );
 }
 
+export function useOptionalCart() {
+  return React.useContext(CartContext);
+}
+
 export function useCart() {
   const ctx = React.useContext(CartContext);
   if (!ctx) {

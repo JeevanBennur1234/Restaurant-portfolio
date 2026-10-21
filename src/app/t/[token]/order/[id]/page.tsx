@@ -28,6 +28,10 @@ export async function generateMetadata({
     return {
       title: "Order Not Found | Masala Lane",
       description: "Live table order tracking.",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
@@ -36,6 +40,10 @@ export async function generateMetadata({
   return {
     title: `Order #${order.orderNumber} (${order.tableNumber}) | ${order.restaurantName}`,
     description: `Live order status tracker for ${order.tableNumber} at ${order.restaurantName}.`,
+    robots: {
+      index: false,
+      follow: false,
+    },
   };
 }
 

@@ -25,12 +25,20 @@ export async function generateMetadata({
     return {
       title: "Table Not Found | Masala Lane",
       description: "Invalid table QR code session.",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
   return {
     title: `${result.data.table.tableNumber} | ${result.data.restaurant.name}`,
     description: `Mobile guest ordering for ${result.data.table.tableNumber} at ${result.data.restaurant.name}.`,
+    robots: {
+      index: false,
+      follow: false,
+    },
   };
 }
 
