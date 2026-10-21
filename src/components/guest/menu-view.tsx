@@ -41,7 +41,16 @@ export function MenuView({
   const shouldReduceMotion = useReducedMotion();
   const isManualScrollRef = React.useRef(false);
   const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const navRef = React.useRef<HTMLElement | null>(null);
+  const navRef = React.useRef<HTMLDivElement | null>(null);
+  const [canScrollCategoryLeft, setCanScrollCategoryLeft] = React.useState(false);
+  const [canScrollCategoryRight, setCanScrollCategoryRight] = React.useState(false);
+
+  const updateCategoryScrollAffordance = React.useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    setCanScrollCategoryLeft(nav.scrollLeft > 2);
+    setCanScrollCategoryRight(nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
+  }, []);
 
   // Filter items based on search and dietary filter
   const filteredItems = React.useMemo(() => {
@@ -135,20 +144,33 @@ export function MenuView({
     };
   }, [categories]);
 
-  // Keep active category tab scrolled into horizontal view within the nav bar
+  // Keep the active tab visible without allowing it to scroll the entire page.
   React.useEffect(() => {
-    if (!navRef.current) return;
-    const activeBtn = navRef.current.querySelector<HTMLElement>(
+    const nav = navRef.current;
+    if (!nav) return;
+    const activeBtn = nav.querySelector<HTMLElement>(
       `[data-category-id="${activeCategoryId}"]`
     );
     if (activeBtn) {
-      activeBtn.scrollIntoView({
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = activeBtn.getBoundingClientRect();
+      const delta = buttonRect.left - navRect.left + buttonRect.width / 2 - nav.clientWidth / 2;
+      nav.scrollTo({
+        left: Math.max(0, nav.scrollLeft + delta),
         behavior: shouldReduceMotion ? "auto" : "smooth",
-        inline: "center",
-        block: "nearest",
       });
     }
   }, [activeCategoryId, shouldReduceMotion]);
+
+  React.useEffect(() => {
+    updateCategoryScrollAffordance();
+    const nav = navRef.current;
+    if (!nav || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateCategoryScrollAffordance);
+    observer.observe(nav);
+    if (nav.firstElementChild) observer.observe(nav.firstElementChild);
+    return () => observer.disconnect();
+  }, [categories, updateCategoryScrollAffordance]);
 
   return (
     <div className="flex-1 flex flex-col pb-28">
@@ -255,68 +277,68 @@ export function MenuView({
         </div>
       </div>
 
-      {/* Sticky Category Tabs Bar with Sliding Active Indicator */}
-      <nav
-        ref={navRef}
-        aria-label="Menu categories"
-        className="sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 px-4 py-2.5 backdrop-blur-md no-scrollbar shadow-2xs"
-      >
-        <div className="flex gap-2 max-w-2xl mx-auto w-full">
-          {categories.map((cat, idx) => {
-            const count = itemsByCategory.get(cat.id)?.length ?? 0;
-            const isActive = activeCategoryId === cat.id;
+      {/* Sticky, horizontally scrollable category navigation */}
+      <div className="sticky top-[60px] z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 shadow-2xs backdrop-blur-md">
+        <nav
+          ref={navRef}
+          aria-label="Menu categories"
+          onScroll={updateCategoryScrollAffordance}
+          className="flex w-full min-w-0 gap-2 overflow-x-auto px-4 py-2.5 no-scrollbar scroll-smooth"
+        >
+          <div className="mx-auto flex w-max min-w-full gap-2">
+            {categories.map((cat, idx) => {
+              const count = itemsByCategory.get(cat.id)?.length ?? 0;
+              const isActive = activeCategoryId === cat.id;
 
-            return (
-              <button
-                key={cat.id}
-                data-category-id={cat.id}
-                type="button"
-                onClick={() => handleCategoryClick(cat.id)}
-                className={cn(
-                  "relative shrink-0 rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-colors cursor-pointer select-none min-h-[44px] flex items-center z-10",
-                  isActive
-                    ? "text-white font-semibold"
-                    : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="activeCategoryPill"
-                    transition={
-                      shouldReduceMotion
-                        ? { duration: 0 }
-                        : { type: "spring", stiffness: 450, damping: 32 }
-                    }
-                    className="absolute inset-0 rounded-full bg-[var(--primary)] -z-10 shadow-xs"
-                  />
-                )}
-                <span
+              return (
+                <button
+                  key={cat.id}
+                  data-category-id={cat.id}
+                  type="button"
+                  onClick={() => handleCategoryClick(cat.id)}
+                  aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "font-mono text-[10px] mr-1.5 transition-colors",
-                    isActive ? "text-white/80" : "opacity-75"
+                    "relative flex min-h-[44px] shrink-0 items-center rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-colors cursor-pointer select-none",
+                    isActive
+                      ? "z-10 font-semibold text-white"
+                      : "border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
                   )}
                 >
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <span>{cat.name}</span>
-                {count > 0 && (
-                  <span
-                    className={cn(
-                      "ml-1.5 text-[10px] font-mono transition-colors",
-                      isActive ? "text-white/85" : "opacity-60"
-                    )}
-                  >
-                    ({count})
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeCategoryPill"
+                      transition={
+                        shouldReduceMotion
+                          ? { duration: 0 }
+                          : { type: "spring", stiffness: 450, damping: 32 }
+                      }
+                      className="absolute inset-0 -z-10 rounded-full bg-[var(--primary)] shadow-xs"
+                    />
+                  )}
+                  <span className={cn("mr-1.5 font-mono text-[10px] transition-colors", isActive ? "text-white/80" : "opacity-75")}>
+                    {String(idx + 1).padStart(2, "0")}
                   </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+                  <span>{cat.name}</span>
+                  {count > 0 && (
+                    <span className={cn("ml-1.5 font-mono text-[10px] transition-colors", isActive ? "text-white/85" : "opacity-60")}>
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+        {canScrollCategoryLeft && (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-[var(--bg-app)] to-transparent" />
+        )}
+        {canScrollCategoryRight && (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-gradient-to-l from-[var(--bg-app)] to-transparent" />
+        )}
+      </div>
 
       {/* Menu Sections & Image-Led Item Cards */}
-      <main className="p-4 space-y-8 max-w-2xl mx-auto w-full">
+      <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[var(--text-muted)]">
             <UtensilsCrossed className="h-10 w-10 opacity-30 text-[var(--primary)] mb-3" />
@@ -338,7 +360,7 @@ export function MenuView({
               <section
                 key={category.id}
                 id={`category-section-${category.id}`}
-                className="scroll-mt-28 space-y-3.5"
+                className="scroll-mt-32 space-y-3"
               >
                 <div className="flex items-baseline justify-between border-b border-[var(--border-subtle)] pb-2">
                   <div className="flex items-baseline gap-2">
@@ -354,14 +376,24 @@ export function MenuView({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {catItems.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      item={item}
-                      onSelect={(selected) => setSelectedItemForSheet(selected)}
-                    />
-                  ))}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+                  {catItems.map((item, itemIndex) => {
+                    const isOddFinalCard = catItems.length % 2 === 1 && itemIndex === catItems.length - 1;
+                    return (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "min-w-0",
+                          isOddFinalCard && "sm:col-span-2 sm:mx-auto sm:w-1/2 xl:col-span-1 xl:mx-0 xl:w-full"
+                        )}
+                      >
+                        <MenuItemCard
+                          item={item}
+                          onSelect={(selected) => setSelectedItemForSheet(selected)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             );

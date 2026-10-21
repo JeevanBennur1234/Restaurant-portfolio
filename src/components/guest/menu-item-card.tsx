@@ -17,7 +17,14 @@ export interface MenuItemCardProps {
 export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
   const hasModifiers = item.modifiers.length > 0;
-  const [imageError, setImageError] = React.useState(false);
+  const [imageStatus, setImageStatus] = React.useState<{
+    src: string | null;
+    loading: boolean;
+    error: boolean;
+  }>(() => ({ src: item.imageUrl ?? null, loading: Boolean(item.imageUrl), error: false }));
+  const imageStatusMatches = imageStatus.src === (item.imageUrl ?? null);
+  const imageError = imageStatusMatches && imageStatus.error;
+  const imageLoading = Boolean(item.imageUrl) && (!imageStatusMatches || imageStatus.loading);
 
   return (
     <article
@@ -33,23 +40,40 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
       )}
     >
       {/* 4:3 Image on Top with Subtle Desktop Hover Zoom & Fixed Aspect Ratio */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
+      <div className="relative aspect-[5/3] w-full overflow-hidden bg-[var(--bg-subtle)] sm:aspect-[4/3]">
         {item.imageUrl && !imageError ? (
-          <Image
-            src={item.imageUrl}
-            alt={item.name}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
-            className="object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none"
-            onError={() => setImageError(true)}
-          />
+          <>
+            {imageLoading && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#E8DED2] via-[#F8F1E8] to-[#E5D7C9]"
+              >
+                <Utensils className="h-7 w-7 animate-pulse text-[#A98C76]/70" />
+                <span className="h-2 w-20 animate-pulse rounded-full bg-[#CDBAA8]/70" />
+              </div>
+            )}
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              priority={item.sortOrder <= 3}
+              sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
+              className={cn(
+                "object-cover transition-[opacity,transform] duration-300 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
+                imageLoading ? "opacity-0" : "opacity-100"
+              )}
+              onLoad={() => setImageStatus({ src: item.imageUrl ?? null, loading: false, error: false })}
+              onError={() => setImageStatus({ src: item.imageUrl ?? null, loading: false, error: true })}
+            />
+          </>
         ) : (
           /* Graceful Warm Fallback Placeholder */
           <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] text-center text-white/70 p-4">
             <Utensils className="h-8 w-8 opacity-40 text-[#D97706] mb-1.5" />
-            <span className="font-serif text-xs italic tracking-wide text-amber-200/80">
-              Masala Lane
+            <span className="max-w-full text-balance font-serif text-center text-xs italic tracking-wide text-amber-200/90">
+              {item.name}
             </span>
+            <span className="text-[10px] text-white/45">Photo coming soon</span>
           </div>
         )}
 
@@ -85,14 +109,14 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
       </div>
 
       {/* Card Details */}
-      <div className="flex flex-1 flex-col justify-between p-4 gap-3">
-        <div className="space-y-1">
-          <h3 className="font-serif text-lg font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+      <div className="flex flex-1 flex-col justify-between gap-2.5 p-3.5 sm:p-4 sm:gap-3">
+        <div className="space-y-1.5">
+          <h3 className="font-serif text-base font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)] sm:text-lg">
             {item.name}
           </h3>
 
           {item.description && (
-            <p className="line-clamp-2 text-xs text-[var(--text-secondary)] leading-relaxed">
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
               {item.description}
             </p>
           )}

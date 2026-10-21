@@ -19,15 +19,22 @@ describe("Guest Editorial Flow Polish Verification", () => {
   const sheetCode = fs.readFileSync(sheetPath, "utf-8");
   const globalsCssCode = fs.readFileSync(globalsCssPath, "utf-8");
 
-  it("1. menu-view.tsx has compact hero banner under 200px, sticky top-[53px] pill tabs, and scroll-spy", () => {
+  it("1. menu-view.tsx has compact hero, scrollable sticky category tabs, responsive grid, and scroll-spy", () => {
     // Compact hero banner
     expect(menuViewCode).toContain("aria-label=\"Restaurant banner\"");
     expect(menuViewCode).toContain("table.tableNumber");
     expect(menuViewCode).toContain("restaurantName");
     expect(menuViewCode).toContain("font-serif text-2xl sm:text-3xl");
 
-    // Sticky category bar at top-[53px]
-    expect(menuViewCode).toContain("sticky top-[53px]");
+    // Sticky category rail matches the header height and exposes horizontal scroll affordance.
+    expect(menuViewCode).toContain("sticky top-[60px]");
+    expect(menuViewCode).toContain("canScrollCategoryRight");
+    expect(menuViewCode).toContain("nav.scrollTo");
+
+    // Wide desktop layout and balanced odd-numbered tablet rows.
+    expect(menuViewCode).toContain("max-w-7xl");
+    expect(menuViewCode).toContain("xl:grid-cols-3");
+    expect(menuViewCode).toContain("sm:col-span-2 sm:mx-auto sm:w-1/2");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
@@ -40,9 +47,13 @@ describe("Guest Editorial Flow Polish Verification", () => {
   });
 
   it("2. menu-item-card.tsx is image-led with 4:3 image, corner veg badge, Playfair typography, and min 44px circular '+' button", () => {
-    // 4:3 aspect ratio next/image
-    expect(menuItemCardCode).toContain("aspect-[4/3]");
+    // Compact mobile image ratio with 4:3 imagery on larger screens.
+    expect(menuItemCardCode).toContain("aspect-[5/3]");
+    expect(menuItemCardCode).toContain("sm:aspect-[4/3]");
     expect(menuItemCardCode).toContain("Image");
+    expect(menuItemCardCode).toContain("imageLoading");
+    expect(menuItemCardCode).toContain("onError");
+    expect(menuItemCardCode).toContain("priority={item.sortOrder <= 3}");
 
     // Desktop hover zoom with motion-reduce guard
     expect(menuItemCardCode).toContain("sm:group-hover:scale-105");
@@ -52,9 +63,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("VegIndicator");
     expect(menuItemCardCode).toContain("absolute top-3 left-3");
 
-    // Playfair font and 2-line description
-    expect(menuItemCardCode).toContain("font-serif text-lg font-bold");
-    expect(menuItemCardCode).toContain("line-clamp-2");
+    // Editorial typography, with complete descriptions instead of mid-sentence ellipses.
+    expect(menuItemCardCode).toContain("font-serif text-base font-bold");
+    expect(menuItemCardCode).toContain("item.description");
+    expect(menuItemCardCode).not.toContain("line-clamp-2");
 
     // One row price, prep time, circular '+' button
     expect(menuItemCardCode).toContain("Clock");

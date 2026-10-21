@@ -29,20 +29,13 @@ export function CartBar() {
       aria-label="Current cart summary"
       className="fixed bottom-5 inset-x-4 max-w-md mx-auto z-40 animate-sheet-slide-up"
     >
-      <div
-        role="button"
+      <button
+        type="button"
         data-testid="cart-bar-btn"
-        tabIndex={0}
         onClick={() => setIsCartOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setIsCartOpen(true);
-          }
-        }}
         aria-label={`View cart with ${totalCount} items totaling ${formatPaiseToINR(totalPaise)}`}
         className={cn(
-          "flex items-center justify-between rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] px-4 sm:px-5 py-3 shadow-[var(--shadow-elevated)] cursor-pointer hover:bg-[var(--primary-hover)] active:scale-[0.98] transition-all min-h-[48px]",
+          "flex min-h-[48px] w-full items-center justify-between rounded-full border-0 bg-[var(--primary)] px-4 py-3 text-left text-[var(--primary-foreground)] shadow-[var(--shadow-elevated)] transition-all hover:bg-[var(--primary-hover)] active:scale-[0.98] sm:px-5",
           isBumping && "animate-bump motion-reduce:transform-none"
         )}
       >
@@ -70,7 +63,7 @@ export function CartBar() {
           <span>View Cart</span>
           <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </div>
-      </div>
+      </button>
     </aside>
   );
 }
