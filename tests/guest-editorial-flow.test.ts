@@ -42,12 +42,11 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("Scroll categories right");
     expect(menuViewCode).toContain("scrollCategoriesBy");
 
-    // Six-track desktop grid provides room to center odd final rows.
+    // Three-column desktop grid keeps card sizes consistent and centers incomplete final rows.
     expect(menuViewCode).toContain("max-w-7xl");
-    expect(menuViewCode).toContain("lg:grid-cols-6");
-    expect(menuViewCode).toContain("lg:col-start-3");
+    expect(menuViewCode).toContain("lg:grid-cols-3");
     expect(menuViewCode).toContain("lg:col-start-2");
-    expect(menuViewCode).toContain("lg:col-start-4");
+    expect(menuViewCode).toContain("max-w-[620px]");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
@@ -59,10 +58,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("scrollIntoView");
   });
 
-  it("2. menu-item-card.tsx is image-led with 4:3 image, corner veg badge, Playfair typography, and min 44px circular '+' button", () => {
-    // Landscape image ratios keep the long menu more scannable, with a premium skeleton/fade.
-    expect(menuItemCardCode).toContain("aspect-[16/9]");
-    expect(menuItemCardCode).toContain("sm:aspect-[16/10]");
+  it("2. menu-item-card.tsx uses consistent poster proportions, readable image contrast, and min 44px circular '+' button", () => {
+    // Consistent card image ratios and a lighter overlay keep food photography visible.
+    expect(menuItemCardCode).toContain("aspect-[4/5]");
+    expect(menuItemCardCode).toContain("from-[#140F0C]/95 via-[#1F1A17]/30 via-50% to-black/10");
     expect(menuItemCardCode).toContain("before:animate-pulse");
     expect(menuItemCardCode).toContain("duration-500 ease-out");
     expect(menuItemCardCode).toContain("h-full flex-col");
@@ -74,7 +73,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("Image");
     expect(menuItemCardCode).toContain("imageLoading");
     expect(menuItemCardCode).toContain("onError");
-    expect(menuItemCardCode).toContain("priority={item.sortOrder <= 3}");
+    expect(menuItemCardCode).toContain("priority={priority || item.sortOrder <= 3}");
 
     // Desktop hover zoom with motion-reduce guard
     expect(menuItemCardCode).toContain("sm:group-hover:scale-105");
@@ -99,8 +98,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("Customizable");
     expect(menuItemCardCode).toContain("Sold Out");
 
-    // A native details button is separate from the add button, preventing nested interactive controls.
+    // Card details are keyboard reachable without nesting native buttons around cart controls.
     expect(menuItemCardCode).toContain('data-testid="menu-item-details-btn"');
+    expect(menuItemCardCode).toContain('role="group"');
+    expect(menuItemCardCode).toContain("tabIndex={isAvailable ? 0 : -1}");
     expect(menuItemCardCode).toContain("onClick={() => {");
     expect(menuItemCardCode).toContain("if (isAvailable) onSelect(item);");
   });

@@ -563,7 +563,7 @@ export function MenuView({
       <main className="mx-auto w-full max-w-7xl space-y-8 px-3 py-4 sm:space-y-10 sm:px-6 sm:py-6 lg:px-8">
         {/* 4. "Chef's Picks" Strip at the top (swipeable carousel of recommended items, hide if none) */}
         {recommendedItems.length > 0 && searchQuery.trim().length === 0 && (
-          <section aria-label="Chef's picks" className="space-y-3 pt-1">
+          <section aria-label="Chef's picks" className="max-w-[620px] space-y-3 pt-1">
             <div className="flex items-center justify-between border-b border-amber-900/15 pb-2">
               <div className="flex items-center gap-2">
                 <span className="p-1 rounded-sm bg-amber-500/15 text-amber-800">
@@ -584,7 +584,7 @@ export function MenuView({
             </div>
 
             {/* Horizontal Swipeable Scroll-Snap Carousel */}
-            <div className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2 px-0.5">
+            <div className="flex w-full max-w-[620px] gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2 px-0.5">
               {recommendedItems.map((item, idx) => (
                 <div key={item.id} className="w-[260px] xs:w-[280px] shrink-0 snap-start">
                   <MenuItemCard
@@ -672,39 +672,31 @@ export function MenuView({
                   ))}
                 </div>
 
-                {/* Desktop: Asymmetric grid with the first dish as a larger hero card */}
-                <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-6 lg:gap-5">
+                {/* Desktop: consistent shopfront grid; incomplete final rows are centered. */}
+                <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
                   {catItems.map((item, itemIndex) => {
-                    const isHero = itemIndex === 0;
                     const isFinalItem = itemIndex === catItems.length - 1;
                     const isSmallSingleFinalCard =
-                      catItems.length % 2 === 1 && isFinalItem && !isHero;
-                    const isSingleFinalCard =
-                      catItems.length % 3 === 1 && isFinalItem && !isHero;
-                    const isFinalPair =
-                      catItems.length % 3 === 2 &&
-                      itemIndex >= catItems.length - 2 &&
-                      !isHero;
-                    const isFinalPairFirst = isFinalPair && itemIndex === catItems.length - 2;
+                      catItems.length % 2 === 1 && isFinalItem && catItems.length > 1;
+                    const remainderAtDesktop = catItems.length % 3;
+                    const isDesktopSingleFinalCard =
+                      remainderAtDesktop === 1 && isFinalItem && catItems.length > 3;
+                    const isDesktopFinalPairFirst =
+                      remainderAtDesktop === 2 && itemIndex === catItems.length - 2;
 
                     return (
                       <div
                         key={item.id}
                         className={cn(
                           "min-w-0",
-                          isHero
-                            ? "sm:col-span-2 lg:col-span-3 lg:row-span-1"
-                            : "sm:col-span-1 lg:col-span-3",
                           isSmallSingleFinalCard &&
-                            "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-3 lg:mx-0 lg:w-full",
-                          isSingleFinalCard && "lg:col-start-3",
-                          isFinalPairFirst && "lg:col-start-2",
-                          isFinalPair && !isFinalPairFirst && "lg:col-start-4"
+                            "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-1 lg:mx-0 lg:w-full",
+                          isDesktopSingleFinalCard && "lg:col-start-2",
+                          isDesktopFinalPairFirst && "lg:col-start-2"
                         )}
                       >
                         <MenuItemCard
                           item={item}
-                          isHero={isHero}
                           priority={catIndex === 0 && itemIndex < 2}
                           searchQuery={searchQuery}
                           isSignature={signatureCategoryIds.has(item.categoryId)}

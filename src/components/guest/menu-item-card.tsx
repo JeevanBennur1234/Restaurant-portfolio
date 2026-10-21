@@ -86,6 +86,7 @@ export function MenuItemCard({
   searchQuery = "",
   isSignature = false,
   isHero = false,
+  priority = false,
   onSelect,
 }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
@@ -172,27 +173,31 @@ export function MenuItemCard({
           : "opacity-65 cursor-not-allowed bg-[var(--bg-subtle)]/50"
       )}
     >
-      <button
-        type="button"
+      <div
+        role="group"
+        tabIndex={isAvailable ? 0 : -1}
         data-testid="menu-item-details-btn"
-        disabled={!isAvailable}
+        aria-label={`Open details for ${item.name}`}
         onClick={() => {
           if (isAvailable) onSelect(item);
+        }}
+        onKeyDown={(event) => {
+          if (
+            isAvailable &&
+            event.target === event.currentTarget &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            onSelect(item);
+          }
         }}
         className={cn(
           "relative flex w-full min-w-0 flex-1 flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-inset",
           isAvailable ? "cursor-pointer" : "cursor-not-allowed"
         )}
       >
-        {/* Full-Bleed Tall Poster Card (4:5 Ratio on Mobile, Responsive on Desktop) */}
-        <div
-          className={cn(
-            "relative w-full overflow-hidden bg-[#2E2723]",
-            isHero
-              ? "aspect-[16/9] sm:aspect-[16/10] lg:aspect-[4/3]"
-              : "aspect-[4/5]"
-          )}
-        >
+        {/* Consistent image proportions keep every dish card aligned across a shopfront. */}
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#2E2723]">
           {item.imageUrl && !imageError ? (
             <>
               {imageLoading && (
@@ -208,7 +213,7 @@ export function MenuItemCard({
                 src={item.imageUrl}
                 alt={item.name}
                 fill
-                priority={item.sortOrder <= 3}
+                priority={priority || item.sortOrder <= 3}
                 sizes="(max-width: 639px) 280px, (max-width: 1023px) 50vw, 33vw"
                 className={cn(
                   "object-cover transition-[opacity,transform] duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
@@ -232,8 +237,8 @@ export function MenuItemCard({
             </div>
           )}
 
-          {/* Deep Atmosphere Overlays for WCAG AA Contrast */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#140F0C] via-[#1F1A17]/75 via-50% to-black/25" />
+          {/* Keep food photography vivid while retaining strong contrast behind bottom text. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#140F0C]/95 via-[#1F1A17]/30 via-50% to-black/10" />
 
           {/* Top-Left: Veg Indicator & Recommendation Badge */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
@@ -413,7 +418,7 @@ export function MenuItemCard({
             </div>
           </div>
         </div>
-      </button>
+      </div>
     </article>
   );
 }
