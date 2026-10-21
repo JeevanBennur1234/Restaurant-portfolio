@@ -112,7 +112,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       isOpen={isOpen}
       onClose={onClose}
       side="bottom"
-      className="max-h-[88dvh] sm:max-h-[min(88dvh,760px)] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      className="max-h-[92dvh] sm:max-h-[min(88dvh,760px)] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
       contentClassName="p-4 sm:p-5"
       footerClassName="p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4"
       footer={
@@ -156,20 +156,20 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               </button>
             </div>
 
-            {/* Add CTA (min 48px height) */}
+            {/* Add CTA (min 48px height) with sticky Add to order · ₹x */}
             <Button
               data-testid="add-to-order-btn"
               size="lg"
               variant="primary"
               disabled={!isAvailable}
               onClick={handleAddToCart}
-              className="flex-1 justify-between shadow-md px-2.5 sm:px-4 text-[11px] sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
+              className="flex-1 justify-between shadow-md px-3 sm:px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
             >
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
               </span>
-              <span className="font-mono text-[11px] sm:text-sm font-bold shrink-0">
-                {formatPaiseToINR(lineTotalPaise)}
+              <span className="font-mono text-xs sm:text-sm font-bold shrink-0">
+                · {formatPaiseToINR(lineTotalPaise)}
               </span>
             </Button>
           </div>
@@ -179,7 +179,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       <div className="space-y-4 sm:space-y-5">
         {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
         {item.imageUrl && !bannerError ? (
-          <div className="relative -mx-4 -mt-4 h-36 sm:-mx-5 sm:-mt-5 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
+          <div className="relative -mx-4 -mt-4 h-44 sm:-mx-5 sm:-mt-5 sm:h-52 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
             <Image
               src={item.imageUrl}
               alt={item.name}
@@ -188,7 +188,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               className="object-cover"
               onError={() => setBannerError(true)}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
             <div className="absolute bottom-3 left-4 right-4 text-white flex items-center justify-between">
               <span className="eyebrow text-[10px] text-amber-300">
                 Freshly Prepared · {item.prepTimeMinutes} mins
@@ -199,7 +199,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             </div>
           </div>
         ) : (
-          <div className="relative -mx-4 -mt-4 h-36 sm:-mx-5 sm:-mt-5 sm:h-48 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
+          <div className="relative -mx-4 -mt-4 h-44 sm:-mx-5 sm:-mt-5 sm:h-52 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
             <div className="flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <Utensils className="h-4 w-4 text-[#D97706]" />

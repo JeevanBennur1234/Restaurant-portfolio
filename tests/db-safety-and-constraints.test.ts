@@ -57,23 +57,33 @@ describe("Database Pool & TLS Configuration (pool-config)", () => {
     restoreEnv();
   });
 
-  it("uses TLS for Supabase and defaults to encryption without CA verification", () => {
+  it("uses TLS for Supabase and verifies server certificates by default", () => {
     envMap.NODE_ENV = "production";
     delete envMap.DATABASE_SSL_REJECT_UNAUTHORIZED;
     delete envMap.DATABASE_CA_CERT;
 
-    // Supabase's standard sslmode=require behavior encrypts traffic but does not
-    // verify the certificate chain. A configured CA certificate enables verification.
     const directSupabase = getPoolConfig("postgres://postgres:secret@db.xyz.supabase.co:5432/postgres");
     expect(directSupabase.ssl).toBeDefined();
-    expect((directSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(false);
+    expect((directSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
 
     const poolerSupabase = getPoolConfig("postgres://postgres.xyz:secret@aws-0-ap-south-1.pooler.supabase.com:6543/postgres");
     expect(poolerSupabase.ssl).toBeDefined();
-    expect((poolerSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(false);
+    expect((poolerSupabase.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
 
     const otherProductionDb = getPoolConfig("postgres://app:secret@db.example.com:5432/app");
     expect((otherProductionDb.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(true);
+
+    restoreEnv();
+  });
+
+  it("keeps TLS encryption but does not require a CA bundle in development", () => {
+    envMap.NODE_ENV = "development";
+    delete envMap.DATABASE_SSL_REJECT_UNAUTHORIZED;
+    delete envMap.DATABASE_CA_CERT;
+
+    const config = getPoolConfig("postgres://postgres:secret@db.xyz.supabase.co:5432/postgres");
+    expect(config.ssl).toBeDefined();
+    expect((config.ssl as { rejectUnauthorized?: boolean })?.rejectUnauthorized).toBe(false);
 
     restoreEnv();
   });

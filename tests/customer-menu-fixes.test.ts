@@ -220,4 +220,47 @@ describe("Customer Menu Audit Fixes & Verification", () => {
       expect(content).toContain("tableLabel");
     });
   });
+
+  describe("Task U1: Masala Lane Street-of-Shopfronts UI & Lane Rail", () => {
+    it("menu-view.tsx implements sticky lane rail with active category tracking and smooth scroll-to behavior", () => {
+      const menuViewPath = path.resolve(root, "src/components/guest/menu-view.tsx");
+      const content = fs.readFileSync(menuViewPath, "utf-8");
+
+      // Sticky lane rail with signboard chips
+      expect(content).toContain("data-category-id={cat.id}");
+      expect(content).toContain("handleCategoryClick(cat.id)");
+      expect(content).toContain("activeCategoryId === cat.id");
+      expect(content).toContain("activeCategoryPill");
+      expect(content).toContain("SHOP ");
+
+      // Smooth scroll-to category section
+      expect(content).toContain("document.getElementById(`category-section-${categoryId}`)");
+      expect(content).toContain("scrollIntoView");
+
+      // IntersectionObserver scroll-spy for active category highlighting
+      expect(content).toContain("IntersectionObserver");
+      expect(content).toContain("setActiveCategoryId(matchedId)");
+      expect(content).toContain("rootMargin");
+
+      // Shopfront sections with tagline and mobile scroll-snap poster cards
+      expect(content).toContain("SHOPFRONT_TAGLINES");
+      expect(content).toContain("snap-x snap-mandatory");
+
+      // Chef's picks recommended strip
+      expect(content).toContain("Chef&apos;s Street Picks");
+      expect(content).toContain("recommendedItems.length > 0");
+    });
+
+    it("menu-item-card.tsx implements full-bleed poster photo, spice flame meter, and quantity stepper once added", () => {
+      const cardPath = path.resolve(root, "src/components/guest/menu-item-card.tsx");
+      const content = fs.readFileSync(cardPath, "utf-8");
+
+      expect(content).toContain("aspect-[4/5]");
+      expect(content).toContain('data-testid="spice-level-slot"');
+      expect(content).toContain("getSpiceMeter");
+      expect(content).toContain("totalQuantityInCart > 0");
+      expect(content).toContain('data-testid="item-card-quantity"');
+      expect(content).toContain('data-testid="add-item-btn"');
+    });
+  });
 });
