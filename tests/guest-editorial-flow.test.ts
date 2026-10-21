@@ -67,7 +67,9 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("duration-500 ease-out");
     expect(menuItemCardCode).toContain("h-full flex-col");
     expect(menuItemCardCode).toContain("line-clamp-3");
-    expect(menuItemCardCode).toContain("tabIndex={isAvailable ? 0 : undefined}");
+    expect(menuItemCardCode).toContain('data-testid="menu-item-details-btn"');
+    expect(menuItemCardCode).not.toContain('role={isAvailable ? "button" : undefined}');
+    expect(menuItemCardCode).not.toContain("tabIndex={isAvailable ? 0 : undefined}");
     expect(menuItemCardCode).toContain("Image");
     expect(menuItemCardCode).toContain("imageLoading");
     expect(menuItemCardCode).toContain("onError");
@@ -96,7 +98,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("Customizable");
     expect(menuItemCardCode).toContain("Sold Out");
 
-    // Whole card is clickable
+    // A native details button is separate from the add button, preventing nested interactive controls.
+    expect(menuItemCardCode).toContain('data-testid="menu-item-details-btn"');
     expect(menuItemCardCode).toContain("onClick={() => {");
     expect(menuItemCardCode).toContain("if (isAvailable) onSelect(item);");
   });
