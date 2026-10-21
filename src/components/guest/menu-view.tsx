@@ -214,20 +214,23 @@ export function MenuView({
       {/* Search Bar & Veg/Non-Veg Filter Section */}
       <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border-subtle)] space-y-3">
         {/* Search Input */}
-        <div className="relative flex items-center max-w-2xl mx-auto w-full">
-          <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-[var(--text-muted)]" />
+        <div className="relative mx-auto flex w-full max-w-2xl items-center">
+          <Search className="pointer-events-none absolute left-4 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="search"
+            data-testid="menu-search-input"
+            aria-label="Search menu dishes"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search our dishes, kebabs, curries..."
-            className="h-10 w-full rounded-[var(--radius-full)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 pl-10 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-[var(--bg-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)] transition-colors"
+            placeholder="Search dishes, ingredients, curries..."
+            autoComplete="off"
+            className="h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
           />
           {searchQuery.length > 0 && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+              className="absolute right-2 flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />
@@ -235,45 +238,87 @@ export function MenuView({
           )}
         </div>
 
-        {/* Dietary Filters Toggle */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5 max-w-2xl mx-auto w-full">
+        {/* Refined, accessible dietary filter chips */}
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-2 pt-0.5">
           <button
             type="button"
+            aria-pressed={dietaryFilter === "all"}
             onClick={() => setDietaryFilter("all")}
-            className={`inline-flex items-center px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
+            className={cn(
+              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2",
               dietaryFilter === "all"
-                ? "bg-[var(--secondary)] text-[var(--secondary-foreground)] border-[var(--secondary)]"
-                : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
-            }`}
+                ? "border-[var(--secondary)] bg-[var(--secondary)] text-white shadow-[0_3px_10px_rgba(46,39,35,0.18)]"
+                : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
+            )}
           >
-            All Items
+            <span>All items</span>
+            <span className={cn("rounded-full px-1.5 py-0.5 font-mono text-[10px]", dietaryFilter === "all" ? "bg-white/15 text-white/85" : "bg-[var(--bg-subtle)] text-[var(--text-muted)]")}>
+              {items.length}
+            </span>
           </button>
 
           <button
             type="button"
+            aria-pressed={dietaryFilter === "veg"}
             onClick={() => setDietaryFilter("veg")}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
+            className={cn(
+              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/30 focus-visible:ring-offset-2",
               dietaryFilter === "veg"
-                ? "bg-emerald-800 text-white border-emerald-800"
-                : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
-            }`}
+                ? "border-emerald-800 bg-emerald-50 text-emerald-950 shadow-sm ring-1 ring-emerald-700/25"
+                : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-emerald-700/40 hover:bg-emerald-50/60"
+            )}
           >
             <VegIndicator isVeg={true} size="sm" />
-            <span>Veg Only</span>
+            <span>Veg only</span>
           </button>
 
           <button
             type="button"
+            aria-pressed={dietaryFilter === "non-veg"}
             onClick={() => setDietaryFilter("non-veg")}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full border transition-colors cursor-pointer select-none min-h-[44px] ${
+            className={cn(
+              "inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/30 focus-visible:ring-offset-2",
               dietaryFilter === "non-veg"
-                ? "bg-amber-950 text-white border-amber-950"
-                : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
-            }`}
+                ? "border-rose-900 bg-rose-50 text-rose-950 shadow-sm ring-1 ring-rose-800/20"
+                : "border-[var(--border-subtle)] bg-white text-[var(--text-secondary)] hover:border-rose-800/35 hover:bg-rose-50/50"
+            )}
           >
             <VegIndicator isVeg={false} size="sm" />
-            <span>Non-Veg</span>
+            <span>Non-veg</span>
           </button>
+        </div>
+
+        {/* Immediate search/filter feedback and one-tap reset */}
+        <div className="mx-auto flex min-h-6 w-full max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--border-subtle)]/80 pt-2.5">
+          <p aria-live="polite" aria-atomic="true" className="text-xs text-[var(--text-muted)]">
+            {searchQuery.trim() ? (
+              <>
+                Found <span className="font-semibold text-[var(--text-primary)]">{filteredItems.length}</span>{" "}
+                {filteredItems.length === 1 ? "dish" : "dishes"} for{" "}
+                <span className="font-semibold text-[var(--text-primary)]">?{searchQuery.trim()}?</span>
+              </>
+            ) : dietaryFilter === "veg" ? (
+              <><span className="font-semibold text-[var(--text-primary)]">{filteredItems.length}</span> vegetarian {filteredItems.length === 1 ? "dish" : "dishes"}</>
+            ) : dietaryFilter === "non-veg" ? (
+              <><span className="font-semibold text-[var(--text-primary)]">{filteredItems.length}</span> non-vegetarian {filteredItems.length === 1 ? "dish" : "dishes"}</>
+            ) : (
+              <><span className="font-semibold text-[var(--text-primary)]">{filteredItems.length}</span> dishes on the menu</>
+            )}
+          </p>
+          {(searchQuery.trim().length > 0 || dietaryFilter !== "all") && (
+            <button
+              type="button"
+              data-testid="clear-menu-filters"
+              onClick={() => {
+                setSearchQuery("");
+                setDietaryFilter("all");
+              }}
+              className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -345,11 +390,23 @@ export function MenuView({
             <h3 className="font-serif text-lg font-semibold text-[var(--text-primary)]">
               No dishes found
             </h3>
-            <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-xs">
-              {searchQuery
-                ? `No dishes matching "${searchQuery}". Try a different keyword.`
+            <p className="mt-1 max-w-xs text-xs text-[var(--text-secondary)]">
+              {searchQuery.trim()
+                ? `No dishes match ?${searchQuery.trim()}?${dietaryFilter !== "all" ? " with this dietary filter" : ""}. Try another term or clear the filters.`
                 : "No dishes currently match the selected dietary filter."}
             </p>
+            {(searchQuery.trim() || dietaryFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setDietaryFilter("all");
+                }}
+                className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-white px-4 text-xs font-semibold text-[var(--text-primary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
+              >
+                <X className="h-3.5 w-3.5" /> Reset search and filters
+              </button>
+            )}
           </div>
         ) : (
           categories.map((category, catIndex) => {
@@ -389,6 +446,7 @@ export function MenuView({
                       >
                         <MenuItemCard
                           item={item}
+                          searchQuery={searchQuery}
                           onSelect={(selected) => setSelectedItemForSheet(selected)}
                         />
                       </div>

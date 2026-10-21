@@ -125,4 +125,18 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(globalsCssCode).toContain(".animate-bump");
     expect(globalsCssCode).toContain("@media (prefers-reduced-motion: reduce)");
   });
+
+  it("6. search and dietary filters show accessible live feedback and highlight query matches", () => {
+    expect(menuViewCode).toContain('data-testid="menu-search-input"');
+    expect(menuViewCode).toContain('aria-label="Search menu dishes"');
+    expect(menuViewCode).toContain('aria-pressed={dietaryFilter === "all"}');
+    expect(menuViewCode).toContain('aria-pressed={dietaryFilter === "veg"}');
+    expect(menuViewCode).toContain('aria-pressed={dietaryFilter === "non-veg"}');
+    expect(menuViewCode).toContain('aria-live="polite"');
+    expect(menuViewCode).toContain('data-testid="clear-menu-filters"');
+    expect(menuViewCode).toContain('searchQuery={searchQuery}');
+    expect(menuItemCardCode).toContain('data-search-match="true"');
+    expect(menuItemCardCode).toContain('new RegExp(`(${escapedQuery})`, "gi")');
+  });
+
 });

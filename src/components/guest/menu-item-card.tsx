@@ -11,10 +11,36 @@ import type { GuestMenuItem } from "@/lib/api/types";
 
 export interface MenuItemCardProps {
   item: GuestMenuItem;
+  searchQuery?: string;
   onSelect: (item: GuestMenuItem) => void;
 }
 
-export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return <>{text}</>;
+
+  const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escapedQuery})`, "gi"));
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLocaleLowerCase() === normalizedQuery.toLocaleLowerCase() ? (
+          <mark
+            key={`${index}-${part}`}
+            data-search-match="true"
+            className="rounded-sm bg-amber-200/80 px-0.5 text-inherit ring-1 ring-amber-400/30"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
+export function MenuItemCard({ item, searchQuery = "", onSelect }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
   const hasModifiers = item.modifiers.length > 0;
   const [imageStatus, setImageStatus] = React.useState<{
@@ -112,12 +138,12 @@ export function MenuItemCard({ item, onSelect }: MenuItemCardProps) {
       <div className="flex flex-1 flex-col justify-between gap-2.5 p-3.5 sm:p-4 sm:gap-3">
         <div className="space-y-1.5">
           <h3 className="font-serif text-base font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)] sm:text-lg">
-            {item.name}
+            <HighlightedText text={item.name} query={searchQuery} />
           </h3>
 
           {item.description && (
             <p className="text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
-              {item.description}
+              <HighlightedText text={item.description} query={searchQuery} />
             </p>
           )}
         </div>
