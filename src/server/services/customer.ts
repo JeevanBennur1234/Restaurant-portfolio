@@ -1,4 +1,4 @@
-import { eq, inArray, and, sql, gte, asc, desc, like } from "drizzle-orm";
+import { eq, ne, isNotNull, inArray, and, sql, gte, asc, desc, like } from "drizzle-orm";
 import {
   orders,
   orderItems,
@@ -68,6 +68,8 @@ export interface GuestMenuItem {
   imageUrl: string | null;
   isAvailable: boolean;
   sortOrder: number;
+  /** True when at least five units were ordered in the last 30 days and the item ranks in the top three. */
+  isBestSeller?: boolean;
   modifiers: GuestModifier[];
 }
 
@@ -239,6 +241,33 @@ export async function getMenuForTable(
       ? await ctx.db.query.modifiers.findMany()
       : [];
 
+    // Aggregate real sales in SQL so each menu request does not load full order history.
+    // Require 5+ units in the trailing 30 days, then label the top three items.
+    const salesSince = new Date((ctx.now ?? new Date()).getTime() - 30 * 24 * 60 * 60 * 1000);
+    const bestSellerRecords = typeof ctx.db.select === "function"
+      ? await ctx.db
+          .select({
+            menuItemId: orderItems.menuItemId,
+            totalUnits: sql<number>`COALESCE(SUM(${orderItems.quantity}), 0)::int`.as("total_units"),
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .where(and(
+            eq(orders.restaurantId, restaurantRecord.id),
+            gte(orders.createdAt, salesSince),
+            ne(orders.status, "cancelled"),
+            isNotNull(orderItems.menuItemId)
+          ))
+          .groupBy(orderItems.menuItemId)
+          .orderBy(desc(sql<number>`COALESCE(SUM(${orderItems.quantity}), 0)`))
+          .limit(3)
+      : [];
+    const bestSellerIds = new Set(
+      bestSellerRecords
+        .filter((record) => record.menuItemId && Number(record.totalUnits) >= 5)
+        .map((record) => record.menuItemId as string)
+    );
+
     const modifiersByItemId = new Map<string, GuestModifier[]>();
     for (const m of modifierRecords) {
       const list = modifiersByItemId.get(m.menuItemId) ?? [];
@@ -263,6 +292,7 @@ export async function getMenuForTable(
       imageUrl: item.imageUrl,
       isAvailable: item.isAvailable,
       sortOrder: item.sortOrder,
+      isBestSeller: bestSellerIds.has(item.id),
       modifiers: modifiersByItemId.get(item.id) ?? [],
     }));
 

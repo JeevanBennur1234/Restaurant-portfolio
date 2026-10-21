@@ -139,4 +139,18 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain('new RegExp(`(${escapedQuery})`, "gi")');
   });
 
+  it("7. recommendation labels use real category, order history, and spice modifier metadata", () => {
+    const customerServicePath = path.resolve(process.cwd(), "src/server/services/customer.ts");
+    const customerServiceCode = fs.readFileSync(customerServicePath, "utf-8");
+    expect(menuViewCode).toContain('category.slug === "signature-curries"');
+    expect(menuViewCode).toContain('isSignature={signatureCategoryIds.has(item.categoryId)}');
+    expect(menuItemCardCode).toContain('item.isBestSeller');
+    expect(menuItemCardCode).toContain('data-testid="spice-level-indicator"');
+    expect(menuItemCardCode).toContain('modifier.groupName');
+    expect(customerServiceCode).toContain('gte(orders.createdAt, salesSince)');
+    expect(customerServiceCode).toContain('SUM(${orderItems.quantity})');
+    expect(customerServiceCode).toContain('Number(record.totalUnits) >= 5');
+    expect(customerServiceCode).toContain('.limit(3)');
+  });
+
 });

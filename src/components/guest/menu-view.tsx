@@ -86,6 +86,12 @@ export function MenuView({
     return map;
   }, [categories, filteredItems]);
 
+  // The category's own slug is the source of truth for the Signature label.
+  const signatureCategoryIds = React.useMemo(
+    () => new Set(categories.filter((category) => category.slug === "signature-curries").map((category) => category.id)),
+    [categories]
+  );
+
   const handleCategoryClick = (categoryId: string) => {
     isManualScrollRef.current = true;
     setActiveCategoryId(categoryId);
@@ -447,6 +453,7 @@ export function MenuView({
                         <MenuItemCard
                           item={item}
                           searchQuery={searchQuery}
+                          isSignature={signatureCategoryIds.has(item.categoryId)}
                           onSelect={(selected) => setSelectedItemForSheet(selected)}
                         />
                       </div>

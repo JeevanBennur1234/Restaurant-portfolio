@@ -5,13 +5,15 @@ import Image from "next/image";
 import { formatPaiseToINR } from "@/lib/currency";
 import { VegIndicator } from "./veg-indicator";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Plus, Utensils } from "lucide-react";
+import { Clock, Flame, Plus, Star, TrendingUp, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GuestMenuItem } from "@/lib/api/types";
 
 export interface MenuItemCardProps {
   item: GuestMenuItem;
   searchQuery?: string;
+  /** Derived from the menu item's real category slug. */
+  isSignature?: boolean;
   onSelect: (item: GuestMenuItem) => void;
 }
 
@@ -40,9 +42,12 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   );
 }
 
-export function MenuItemCard({ item, searchQuery = "", onSelect }: MenuItemCardProps) {
+export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSelect }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
   const hasModifiers = item.modifiers.length > 0;
+  const spiceOptions = item.modifiers
+    .filter((modifier) => /spice\s*level/i.test(modifier.groupName))
+    .map((modifier) => modifier.name);
   const [imageStatus, setImageStatus] = React.useState<{
     src: string | null;
     loading: boolean;
@@ -111,6 +116,24 @@ export function MenuItemCard({ item, searchQuery = "", onSelect }: MenuItemCardP
           <VegIndicator isVeg={item.isVeg} size="sm" />
         </div>
 
+        {/* Metadata-backed recommendation badges */}
+        {(isSignature || item.isBestSeller) && (
+          <div className="absolute bottom-3 left-3 z-10 flex max-w-[85%] flex-wrap gap-1.5">
+            {isSignature && (
+              <Badge variant="accent" size="sm" className="gap-1 border border-white/15 bg-[#2E2723]/85 text-amber-100 shadow-sm backdrop-blur-sm">
+                <Star className="h-3 w-3" aria-hidden="true" />
+                Signature
+              </Badge>
+            )}
+            {item.isBestSeller && (
+              <Badge variant="success" size="sm" className="gap-1 border border-white/15 bg-emerald-950/85 text-emerald-50 shadow-sm backdrop-blur-sm">
+                <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                Best seller
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Badges on Top Right Corner */}
         <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
           {hasModifiers && isAvailable && (
@@ -145,6 +168,22 @@ export function MenuItemCard({ item, searchQuery = "", onSelect }: MenuItemCardP
             <p className="text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
               <HighlightedText text={item.description} query={searchQuery} />
             </p>
+          )}
+          {spiceOptions.length > 0 && (
+            <div data-testid="spice-level-indicator" className="flex flex-wrap items-center gap-1.5 pt-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-rose-800" title={"Available spice choices: " + spiceOptions.join(", ")}>
+                <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                Spice level
+              </span>
+              {spiceOptions.slice(0, 2).map((option) => (
+                <span key={option} className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-900">
+                  {option}
+                </span>
+              ))}
+              {spiceOptions.length > 2 && (
+                <span className="text-[10px] text-[var(--text-muted)]">+{spiceOptions.length - 2}</span>
+              )}
+            </div>
           )}
         </div>
 
