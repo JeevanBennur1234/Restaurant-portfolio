@@ -224,7 +224,8 @@ export function MenuView({
       </section>
 
       {/* Search Bar & Veg/Non-Veg Filter Section */}
-      <div className="bg-[var(--bg-surface)] px-3 py-2 sm:px-6 sm:py-3 lg:px-8 border-b border-[var(--border-subtle)] space-y-2 sm:space-y-3">
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+        <div className="mx-auto w-full max-w-7xl space-y-2 px-3 py-2 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8">
         {/* Search Input */}
         <div className="relative flex w-full max-w-2xl items-center">
           <Search className="pointer-events-none absolute left-4 h-4 w-4 text-[var(--text-muted)]" />
@@ -331,6 +332,7 @@ export function MenuView({
               Clear filters
             </button>
           )}
+        </div>
         </div>
       </div>
 
