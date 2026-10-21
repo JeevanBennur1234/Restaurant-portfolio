@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import QRCode from "qrcode";
 
 // Mock env
 vi.mock("@/server/env", () => ({
   env: {
     NODE_ENV: "production",
+    SITE: "manager",
     PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
-    APP_URL: "https://dinepulse.example.com",
+    APP_URL: "https://dinepulse-manager.example.com",
+    NEXT_PUBLIC_CUSTOMER_SITE_URL: "https://dinepulse-customer.vercel.app",
     SESSION_SECRET: "test-secret-at-least-32-characters-long-123456",
     NEXT_PUBLIC_SUPABASE_URL: "https://xyzcompany.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "mock_service_key",
@@ -387,16 +390,31 @@ describe("Order Spam Protections (placeOrderAction)", () => {
 });
 
 describe("QR PDF Generation Security (GET /api/admin/tables/qr-pdf)", () => {
-  it("Requirement 3: builds QR URLs ONLY from env.APP_URL and never Host header", async () => {
-    const req = new NextRequest("http://evil-host.com/api/admin/tables/qr-pdf", {
-      headers: {
-        host: "evil-host.com",
-      },
-    });
+  it("uses the configured customer origin for QR URLs and never the manager or Host origin", async () => {
+    const qrBufferSpy = vi.spyOn(QRCode, "toBuffer");
+    try {
+      const req = new NextRequest("https://evil-host.example/api/admin/tables/qr-pdf", {
+        headers: {
+          host: "evil-host.example",
+        },
+      });
 
-    const res = await getQrPdf(req);
-    expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toBe("application/pdf");
+      const res = await getQrPdf(req);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("application/pdf");
+      expect(qrBufferSpy).toHaveBeenCalledWith(
+        "https://dinepulse-customer.vercel.app/t/tok_table1",
+        expect.any(Object)
+      );
+      expect(
+        qrBufferSpy.mock.calls.some(([url]) => String(url).includes("evil-host.example"))
+      ).toBe(false);
+      expect(
+        qrBufferSpy.mock.calls.some(([url]) => String(url).includes("dinepulse-manager.example.com"))
+      ).toBe(false);
+    } finally {
+      qrBufferSpy.mockRestore();
+    }
   });
 });
 

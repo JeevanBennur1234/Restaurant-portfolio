@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { adminApi } from "@/lib/api/admin";
 import { userMessageFor } from "@/lib/api/errors";
 import type { AdminTableData } from "@/lib/api/types";
+import { resolveSiteUrl } from "@/lib/site-urls";
 
 export function AdminTablesTab() {
   const [tables, setTables] = React.useState<AdminTableData[]>([]);
@@ -215,7 +216,7 @@ export function AdminTablesTab() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {tables.map((table) => {
-            const guestUrl = `/t/${table.qrToken}`;
+            const guestUrl = resolveSiteUrl("customer", `/t/${table.qrToken}`, "manager");
 
             return (
               <div
@@ -266,15 +267,25 @@ export function AdminTablesTab() {
                     <span>Print PDF</span>
                   </Link>
 
-                  <Link
-                    href={guestUrl}
-                    target="_blank"
-                    className="inline-flex items-center gap-1 text-[var(--primary)] hover:underline font-semibold transition-colors"
-                    title="Test guest ordering experience for this table"
-                  >
-                    <span>Test Guest App</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
+                  {guestUrl ? (
+                    <Link
+                      href={guestUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[var(--primary)] hover:underline font-semibold transition-colors"
+                      title="Test guest ordering experience for this table"
+                    >
+                      <span>Test Guest App</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : (
+                    <span
+                      className="text-[var(--text-secondary)]"
+                      title="Set NEXT_PUBLIC_CUSTOMER_SITE_URL on the Manager deployment"
+                    >
+                      Customer URL not configured
+                    </span>
+                  )}
                 </div>
               </div>
             );

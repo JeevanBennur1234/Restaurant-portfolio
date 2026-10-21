@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock environment
 vi.mock("@/server/env", () => ({
   env: {
+    SITE: "all",
     PAYMENTS_MODE: "online",
     DATABASE_URL: "postgres://mock",
     APP_URL: "http://localhost:3000",
+    NEXT_PUBLIC_CUSTOMER_SITE_URL: "http://localhost:3000",
     SESSION_SECRET: "mock-session-secret-at-least-32-chars-long",
     RAZORPAY_KEY_ID: "rzp_test_placeholder",
     RAZORPAY_KEY_SECRET: "rzp_test_placeholder",

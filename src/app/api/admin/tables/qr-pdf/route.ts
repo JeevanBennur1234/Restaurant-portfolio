@@ -51,8 +51,32 @@ export async function GET(request: NextRequest) {
     return new NextResponse("No tables found to generate QR codes", { status: 404 });
   }
 
-  // Base URL for QR links: built ONLY from env.APP_URL (never from Host header)
-  const baseUrl = env.APP_URL.replace(/\/$/, "");
+  // In the multi-site deployment, guest QR codes must point to the customer
+  // deployment. The manager deployment deliberately blocks /t/* routes (404).
+  // Unified local mode still uses APP_URL because all routes share one origin.
+  const guestSiteOrigin =
+    env.SITE === "all" ? env.APP_URL : env.NEXT_PUBLIC_CUSTOMER_SITE_URL;
+
+  if (!guestSiteOrigin) {
+    console.error(
+      "Cannot generate table QR PDF: NEXT_PUBLIC_CUSTOMER_SITE_URL is not configured."
+    );
+    return new NextResponse(
+      JSON.stringify({
+        success: false,
+        error: "Customer ordering site URL is not configured",
+      }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  }
+
+  const baseUrl = guestSiteOrigin.replace(/\/+$/, "");
 
   // 3. Generate PDF Document using PDFKit
   const pdfBuffer = await new Promise<Buffer>(async (resolve, reject) => {
