@@ -27,6 +27,13 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("font-serif text-xl sm:text-3xl");
     expect(menuViewCode).toContain("hidden text-xs text-stone-300");
 
+    // Hero, search, dietary chips, and result count share the menu content grid alignment.
+    expect(menuViewCode).toContain("relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8");
+    expect(menuViewCode).toContain("bg-[var(--bg-surface)] px-3 py-2 sm:px-6 sm:py-3 lg:px-8");
+    expect(menuViewCode).toContain("relative flex w-full max-w-2xl items-center");
+    expect(menuViewCode).toContain("flex w-full max-w-2xl flex-nowrap items-center");
+    expect(menuViewCode).not.toContain("mx-auto flex w-full max-w-2xl");
+
     // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
     expect(menuViewCode).toContain("sticky top-[60px]");
     expect(menuViewCode).toContain("canScrollCategoryRight");
