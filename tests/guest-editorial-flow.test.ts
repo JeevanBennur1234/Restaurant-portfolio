@@ -24,18 +24,18 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("aria-label=\"Restaurant banner\"");
     expect(menuViewCode).toContain("table.tableNumber");
     expect(menuViewCode).toContain("restaurantName");
-    expect(menuViewCode).toContain("font-serif text-xl sm:text-3xl");
+    expect(menuViewCode).toContain("font-serif text-lg sm:text-3xl");
     expect(menuViewCode).toContain("hidden text-xs text-stone-300");
 
     // Hero, search, dietary chips, and result count share the menu content grid alignment.
     expect(menuViewCode).toContain("relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8");
-    expect(menuViewCode).toContain("mx-auto w-full max-w-7xl space-y-2 px-3 py-2 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8");
+    expect(menuViewCode).toContain("mx-auto w-full max-w-7xl space-y-1.5 px-3 py-1.5 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8");
     expect(menuViewCode).toContain("relative flex w-full max-w-2xl items-center");
     expect(menuViewCode).toContain("flex w-full max-w-2xl flex-nowrap items-center");
     expect(menuViewCode).not.toContain("mx-auto flex w-full max-w-2xl");
 
     // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
-    expect(menuViewCode).toContain("sticky top-[60px]");
+    expect(menuViewCode).toContain("sticky top-[49px] sm:top-[61px]");
     expect(menuViewCode).toContain("canScrollCategoryRight");
     expect(menuViewCode).toContain("nav.scrollTo");
     expect(menuViewCode).toContain("Scroll categories left");
@@ -44,10 +44,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
 
     // Six-track desktop grid provides room to center odd final rows.
     expect(menuViewCode).toContain("max-w-7xl");
-    expect(menuViewCode).toContain("xl:grid-cols-6");
-    expect(menuViewCode).toContain("xl:col-start-3");
-    expect(menuViewCode).toContain("xl:col-start-2");
-    expect(menuViewCode).toContain("xl:col-start-4");
+    expect(menuViewCode).toContain("lg:grid-cols-6");
+    expect(menuViewCode).toContain("lg:col-start-3");
+    expect(menuViewCode).toContain("lg:col-start-2");
+    expect(menuViewCode).toContain("lg:col-start-4");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
@@ -109,8 +109,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(cartBarCode).toContain("rounded-full");
     expect(cartBarCode).toContain("fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]");
     expect(cartBarCode).toContain("data-testid=\"cart-bar-btn\"");
-    expect(cartBarCode).toContain("isEmpty ? \"Your order\"");
-    expect(cartBarCode).toContain("Add dishes to get started");
+    expect(cartBarCode).toContain("Browse dishes");
+    expect(cartBarCode).toContain("mx-auto min-h-10 w-fit");
 
     // Bump animation on count change
     expect(cartBarCode).toContain("isBumping");
@@ -169,7 +169,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain('category.slug === "signature-curries"');
     expect(menuViewCode).toContain('isSignature={signatureCategoryIds.has(item.categoryId)}');
     expect(menuItemCardCode).toContain('item.isBestSeller');
-    expect(menuItemCardCode).toContain('data-testid="spice-level-indicator"');
+    expect(menuItemCardCode).toContain('data-testid="spice-level-slot"');
     expect(menuItemCardCode).toContain('modifier.groupName');
     expect(customerServiceCode).toContain('gte(orders.createdAt, salesSince)');
     expect(customerServiceCode).toContain('SUM(${orderItems.quantity})');

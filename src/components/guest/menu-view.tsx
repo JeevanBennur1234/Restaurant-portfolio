@@ -189,7 +189,7 @@ export function MenuView({
       {/* Compact Editorial Hero Banner (<200px tall so menu starts on screen one) */}
       <section
         aria-label="Restaurant banner"
-        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] py-2.5 sm:py-5 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
+        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] py-1.5 sm:py-4 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
       >
         {/* Ambient warm tandoor glow */}
         <div
@@ -202,7 +202,7 @@ export function MenuView({
         />
 
         <div className="relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center justify-between gap-2 mb-1">
             <span className="eyebrow text-[9px] sm:text-[11px] text-amber-300/90 font-medium tracking-[0.16em] sm:tracking-[0.2em]">
               00 · Table Dining
             </span>
@@ -212,7 +212,7 @@ export function MenuView({
             </div>
           </div>
 
-          <h1 className="font-serif text-xl sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
+          <h1 className="font-serif text-lg sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
             <span>{restaurantName}</span>
             <Sparkles className="h-4 w-4 text-[#D97706] opacity-75 shrink-0" />
           </h1>
@@ -225,7 +225,7 @@ export function MenuView({
 
       {/* Search Bar & Veg/Non-Veg Filter Section */}
       <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-        <div className="mx-auto w-full max-w-7xl space-y-2 px-3 py-2 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl space-y-1.5 px-3 py-1.5 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8">
         {/* Search Input */}
         <div className="relative flex w-full max-w-2xl items-center">
           <Search className="pointer-events-none absolute left-4 h-4 w-4 text-[var(--text-muted)]" />
@@ -237,7 +237,7 @@ export function MenuView({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search dishes, ingredients, curries..."
             autoComplete="off"
-            className="h-10 sm:h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+            className="h-9 sm:h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
           />
           {searchQuery.length > 0 && (
             <button
@@ -302,7 +302,7 @@ export function MenuView({
         </div>
 
         {/* Immediate search/filter feedback and one-tap reset */}
-        <div className="flex min-h-6 w-full max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--border-subtle)]/80 pt-2.5">
+        <div className="flex min-h-4 w-full max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--border-subtle)]/60 pt-1.5 sm:pt-2.5">
           <p aria-live="polite" aria-atomic="true" className="text-xs text-[var(--text-muted)]">
             {searchQuery.trim() ? (
               <>
@@ -337,12 +337,12 @@ export function MenuView({
       </div>
 
       {/* Sticky, horizontally scrollable category navigation */}
-      <div className="sticky top-[60px] z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 shadow-2xs backdrop-blur-md">
+      <div className="sticky top-[49px] sm:top-[61px] z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 shadow-2xs backdrop-blur-md">
         <nav
           ref={navRef}
           aria-label="Menu categories"
           onScroll={updateCategoryScrollAffordance}
-          className="flex w-full min-w-0 gap-2 overflow-x-auto px-11 py-1.5 no-scrollbar scroll-smooth"
+          className="flex w-full min-w-0 gap-2 overflow-x-auto px-10 py-1 sm:px-11 sm:py-1.5 no-scrollbar scroll-smooth"
         >
           <div className="flex w-max min-w-max gap-2">
             {categories.map((cat, idx) => {
@@ -389,10 +389,10 @@ export function MenuView({
           </div>
         </nav>
         {canScrollCategoryLeft && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-7 z-10 w-6 bg-gradient-to-r from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-7 z-10 w-3 sm:w-4 bg-gradient-to-r from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
         )}
         {canScrollCategoryRight && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-7 z-10 w-6 bg-gradient-to-l from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-7 z-10 w-3 sm:w-4 bg-gradient-to-l from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent" />
         )}
         {canScrollCategoryLeft && (
           <button type="button" aria-label="Scroll categories left" onClick={() => scrollCategoriesBy(-1)} className="absolute left-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]">
@@ -407,7 +407,7 @@ export function MenuView({
       </div>
 
       {/* Menu Sections & Image-Led Item Cards */}
-      <main className="mx-auto w-full max-w-7xl space-y-5 px-3 py-3 sm:space-y-6 sm:px-6 sm:py-4 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl space-y-4 px-3 py-2 sm:space-y-6 sm:px-6 sm:py-4 lg:px-8">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[var(--text-muted)]">
             <UtensilsCrossed className="h-10 w-10 opacity-30 text-[var(--primary)] mb-3" />
@@ -457,20 +457,22 @@ export function MenuView({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-6 xl:gap-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-6 lg:gap-5">
                   {catItems.map((item, itemIndex) => {
-                    const remainder = catItems.length % 3;
-                    const isSingleFinalCard = remainder === 1 && itemIndex === catItems.length - 1;
-                    const isFinalPair = remainder === 2 && itemIndex >= catItems.length - 2;
+                    const isFinalItem = itemIndex === catItems.length - 1;
+                    const isSmallSingleFinalCard = catItems.length % 2 === 1 && isFinalItem;
+                    const isSingleFinalCard = catItems.length % 3 === 1 && isFinalItem;
+                    const isFinalPair = catItems.length % 3 === 2 && itemIndex >= catItems.length - 2;
                     const isFinalPairFirst = isFinalPair && itemIndex === catItems.length - 2;
                     return (
                       <div
                         key={item.id}
                         className={cn(
-                          "min-w-0 sm:col-span-1 xl:col-span-2",
-                          isSingleFinalCard && "sm:col-span-2 sm:mx-auto sm:w-1/2 xl:col-start-3 xl:mx-0 xl:w-full",
-                          isFinalPairFirst && "xl:col-start-2",
-                          isFinalPair && !isFinalPairFirst && "xl:col-start-4"
+                          "min-w-0 sm:col-span-1 lg:col-span-2",
+                          isSmallSingleFinalCard && "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-2 lg:mx-0 lg:w-full",
+                          isSingleFinalCard && "lg:col-start-3",
+                          isFinalPairFirst && "lg:col-start-2",
+                          isFinalPair && !isFinalPairFirst && "lg:col-start-4"
                         )}
                       >
                         <MenuItemCard

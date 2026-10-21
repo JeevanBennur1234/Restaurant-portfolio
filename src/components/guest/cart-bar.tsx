@@ -32,17 +32,31 @@ export function CartBar() {
       <button
         type="button"
         data-testid="cart-bar-btn"
-        onClick={() => setIsCartOpen(true)}
-        aria-label={isEmpty ? "Open empty cart and browse the menu" : `View cart with ${totalCount} items totaling ${formatPaiseToINR(totalPaise)}`}
+        onClick={() => {
+          if (isEmpty) {
+            const browseTarget =
+              document.querySelector('[id^="category-section-"]') ??
+              document.querySelector('[data-testid="menu-search-input"]');
+            browseTarget?.scrollIntoView({
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+              block: "start",
+            });
+            return;
+          }
+          setIsCartOpen(true);
+        }}
+        aria-label={isEmpty ? "Browse menu dishes" : `View cart with ${totalCount} items totaling ${formatPaiseToINR(totalPaise)}`}
         className={cn(
-          "flex min-h-[52px] w-full items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-left shadow-[var(--shadow-elevated)] transition-all active:scale-[0.98] sm:px-5",
-          isEmpty ? "border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]" : "border-0 bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]",
+          "flex items-center justify-between gap-3 rounded-full text-left transition-all active:scale-[0.98]",
+          isEmpty
+            ? "mx-auto min-h-10 w-fit border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 text-[var(--text-secondary)] shadow-sm hover:bg-[var(--bg-subtle)]"
+            : "min-h-[52px] w-full border-0 bg-[var(--primary)] px-3.5 py-2.5 text-[var(--primary-foreground)] shadow-[var(--shadow-elevated)] hover:bg-[var(--primary-hover)] sm:px-5",
           isBumping && "animate-bump motion-reduce:transform-none"
         )}
       >
         {/* Left Count & Price */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className={cn("relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full", isEmpty ? "bg-[var(--bg-subtle)]" : "bg-white/20")}>
+          <div className={cn("relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full", isEmpty ? "bg-[var(--bg-subtle)]" : "bg-white/20", isEmpty && "hidden")}>
             <ShoppingBag className={cn("h-4 w-4", isEmpty ? "text-[var(--primary)]" : "text-white")} />
             <span className={cn("absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold font-mono", isEmpty ? "bg-[var(--border-strong)] text-[var(--text-primary)]" : "bg-[var(--secondary)] text-white")}>
               {totalCount}
@@ -51,16 +65,16 @@ export function CartBar() {
 
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-[10px] font-medium uppercase tracking-wide leading-tight opacity-85 sm:text-[11px]">
-              {isEmpty ? "Your order" : totalCount === 1 ? "1 item added" : `${totalCount} items added`}
+              {isEmpty ? "Browse dishes" : totalCount === 1 ? "1 item added" : `${totalCount} items added`}
             </span>
-            <span className="truncate text-xs font-semibold leading-tight sm:text-sm">
-              {isEmpty ? "Add dishes to get started" : `${formatPaiseToINR(totalPaise)} · ${totalCount} ${totalCount === 1 ? "item" : "items"}`}
+            <span className={cn("truncate text-xs font-semibold leading-tight sm:text-sm", isEmpty && "hidden")}>
+              {isEmpty ? "Choose dishes to begin" : `${formatPaiseToINR(totalPaise)} · ${totalCount} ${totalCount === 1 ? "item" : "items"}`}
             </span>
           </div>
         </div>
 
         {/* Right Action Pill */}
-        <div className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold sm:text-sm", isEmpty ? "bg-[var(--bg-subtle)] text-[var(--text-primary)]" : "bg-white/15")}>
+        <div className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold sm:text-sm", isEmpty ? "bg-[var(--bg-subtle)] text-[var(--text-primary)]" : "bg-white/15", isEmpty && "hidden")}>
           <span>{isEmpty ? "Browse" : "View Cart"}</span>
           <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </div>

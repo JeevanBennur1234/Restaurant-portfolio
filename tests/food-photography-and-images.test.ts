@@ -76,6 +76,7 @@ describe("Food Photography, Media Assets & Image Config", () => {
 
     const dishResults = report.results.filter((r) => r.category === "dish");
     expect(dishResults.length).toBe(31);
+    expect(dishResults.filter((dish) => !dish.exists)).toEqual([]);
 
     const butterChickenResult = dishResults.find((r) => r.expectedPath === "public/images/dishes/butter-chicken.jpg");
     expect(butterChickenResult).toBeDefined();

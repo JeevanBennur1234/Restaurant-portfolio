@@ -98,7 +98,7 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
                 alt={item.name}
                 fill
                 priority={item.sortOrder <= 3}
-                sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
+                sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 34vw"
                 className={cn(
                   "object-cover transition-[opacity,transform] duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
                   imageLoading ? "opacity-0" : "opacity-100"
@@ -109,7 +109,7 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
             </>
           ) : (
             /* Graceful Warm Fallback Placeholder */
-            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] text-center text-white/70 p-4">
+            <div data-testid="dish-image-fallback" className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] text-center text-white/70 p-4">
               <Utensils className="h-8 w-8 opacity-40 text-[#D97706] mb-1.5" />
               <span className="max-w-full text-balance font-serif text-center text-xs italic tracking-wide text-amber-200/90">
                 {item.name}
@@ -170,31 +170,35 @@ export function MenuItemCard({ item, searchQuery = "", isSignature = false, onSe
         {/* Card Details */}
         <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3 sm:p-4 sm:gap-3">
           <div className="min-w-0 space-y-1.5">
-            <h3 className="font-serif text-base font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)] sm:text-lg">
+            <h3 className="min-h-[2.75rem] font-serif text-base font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)] sm:min-h-[3rem] sm:text-lg">
               <HighlightedText text={item.name} query={searchQuery} />
             </h3>
 
-            {item.description && (
-              <p className="line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)] sm:text-[13px]">
+            <p className="min-h-[3.75rem] line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)] sm:min-h-[4rem] sm:text-[13px]">
+              {item.description ? (
                 <HighlightedText text={item.description} query={searchQuery} />
-              </p>
-            )}
-            {spiceOptions.length > 0 && (
-              <div data-testid="spice-level-indicator" className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-rose-800" title={"Available spice choices: " + spiceOptions.join(", ")}>
-                  <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-                  Spice level
-                </span>
-                {spiceOptions.slice(0, 2).map((option) => (
-                  <span key={option} className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-900">
-                    {option}
+              ) : (
+                <span aria-hidden="true">&nbsp;</span>
+              )}
+            </p>
+            <div data-testid="spice-level-slot" className="flex min-h-7 flex-wrap items-center gap-1.5 pt-1.5">
+              {spiceOptions.length > 0 ? (
+                <>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-rose-800" title={"Available spice choices: " + spiceOptions.join(", ")}>
+                    <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                    Spice level
                   </span>
-                ))}
-                {spiceOptions.length > 2 && (
-                  <span className="text-[10px] text-[var(--text-muted)]">+{spiceOptions.length - 2}</span>
-                )}
-              </div>
-            )}
+                  {spiceOptions.slice(0, 2).map((option) => (
+                    <span key={option} className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-900">
+                      {option}
+                    </span>
+                  ))}
+                  {spiceOptions.length > 2 && (
+                    <span className="text-[10px] text-[var(--text-muted)]">+{spiceOptions.length - 2}</span>
+                  )}
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       </button>

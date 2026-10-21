@@ -69,6 +69,41 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     expect(orderScrollWidth).toBeLessThanOrEqual(menuClientWidth + 1);
   });
 
+  test("key bread and dessert photos load on the guest menu", async ({ page }) => {
+    await page.goto(CUSTOMER_URL + "/t/" + DEMO_TABLE_TOKEN);
+
+    const targetDishes = [
+      "Roomali Roti",
+      "Smoked Burani Garlic Raita",
+      "Saffron Angoori Rasmalai",
+      "Warm Gulab Jamun with Rabdi",
+      "Smoked Nimbu Shikanji",
+    ];
+
+    for (const name of targetDishes) {
+      const card = page
+        .locator('[data-testid="menu-item-card"]')
+        .filter({ has: page.locator("h3", { hasText: name }) })
+        .first();
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await card.scrollIntoViewIfNeeded();
+
+      const image = card.locator("img");
+      await expect
+        .poll(
+          () =>
+            image.evaluate((node) => {
+              const img = node as HTMLImageElement;
+              return img.complete && img.naturalWidth > 0;
+            }),
+          { timeout: 15_000 }
+        )
+        .toBe(true);
+
+      await expect(card.locator('[data-testid="dish-image-fallback"]')).toHaveCount(0);
+    }
+  });
+
   test("axe reports zero serious or critical violations on guest menu, kitchen board, and manager login", async ({
     page,
   }) => {
