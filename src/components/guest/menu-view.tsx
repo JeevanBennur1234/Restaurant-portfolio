@@ -561,30 +561,30 @@ export function MenuView({
 
       {/* Main Street Content */}
       <main className="mx-auto w-full max-w-7xl space-y-8 px-3 py-4 sm:space-y-10 sm:px-6 sm:py-6 lg:px-8">
-        {/* 4. "Chef's Picks" Strip at the top (swipeable carousel of recommended items, hide if none) */}
+        {/* Chef's Picks uses the same full-width signboard header and responsive card layout as every menu category. */}
         {recommendedItems.length > 0 && searchQuery.trim().length === 0 && (
-          <section aria-label="Chef's picks" className="max-w-[620px] space-y-3 pt-1">
-            <div className="flex items-center justify-between border-b border-amber-900/15 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded-sm bg-amber-500/15 text-amber-800">
-                  <Sparkles className="h-4 w-4" />
-                </span>
-                <div>
-                  <h2 className="font-serif text-base sm:text-xl font-bold text-[var(--text-primary)]">
+          <section aria-label="Chef's picks" className="space-y-3 sm:space-y-4 pt-1">
+            <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
+                    CHEF&apos;S PICKS
+                  </span>
+                  <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                     Chef&apos;s Street Picks
                   </h2>
-                  <p className="text-[11px] text-[var(--text-secondary)]">
-                    Hand-crafted street favorites and daily recommendations
-                  </p>
                 </div>
+                <span className="shrink-0 font-mono text-xs font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-2.5 py-0.5 rounded-full border border-[var(--border-subtle)]">
+                  {recommendedItems.length} recommended
+                </span>
               </div>
-              <span className="font-mono text-[11px] text-amber-800 font-semibold bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300/40">
-                ★ Recommended
-              </span>
+              <p className="pl-0.5 text-xs font-sans italic text-[var(--text-secondary)] max-w-2xl">
+                Hand-crafted street favorites and daily recommendations
+              </p>
             </div>
 
-            {/* Horizontal Swipeable Scroll-Snap Carousel */}
-            <div className="flex w-full max-w-[620px] gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2 px-0.5">
+            {/* Mobile: match the category scroll-snap card row. */}
+            <div className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-3 pt-1 px-0.5 sm:hidden">
               {recommendedItems.map((item, idx) => (
                 <div key={item.id} className="w-[260px] xs:w-[280px] shrink-0 snap-start">
                   <MenuItemCard
@@ -597,9 +597,43 @@ export function MenuView({
                 </div>
               ))}
             </div>
+
+            {/* Desktop: use the same three-column grid and centered incomplete rows as menu categories. */}
+            <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
+              {recommendedItems.map((item, itemIndex) => {
+                const isFinalItem = itemIndex === recommendedItems.length - 1;
+                const isSmallSingleFinalCard =
+                  recommendedItems.length % 2 === 1 && isFinalItem && recommendedItems.length > 1;
+                const remainderAtDesktop = recommendedItems.length % 3;
+                const isDesktopSingleFinalCard =
+                  remainderAtDesktop === 1 && isFinalItem && recommendedItems.length > 3;
+                const isDesktopFinalPairFirst =
+                  remainderAtDesktop === 2 && itemIndex === recommendedItems.length - 2;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "min-w-0",
+                      isSmallSingleFinalCard &&
+                        "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-1 lg:mx-0 lg:w-full",
+                      isDesktopSingleFinalCard && "lg:col-start-2",
+                      isDesktopFinalPairFirst && "lg:col-start-2"
+                    )}
+                  >
+                    <MenuItemCard
+                      item={item}
+                      priority={itemIndex < 2}
+                      searchQuery={searchQuery}
+                      isSignature={signatureCategoryIds.has(item.categoryId)}
+                      onSelect={(selected) => setSelectedItemForSheet(selected)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </section>
         )}
-
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center text-[var(--text-muted)]">
             <UtensilsCrossed className="h-10 w-10 opacity-30 text-[var(--primary)] mb-3" />

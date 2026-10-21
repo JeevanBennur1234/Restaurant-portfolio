@@ -46,7 +46,9 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("max-w-7xl");
     expect(menuViewCode).toContain("lg:grid-cols-3");
     expect(menuViewCode).toContain("lg:col-start-2");
-    expect(menuViewCode).toContain("max-w-[620px]");
+    expect(menuViewCode).toContain('aria-label="Chef\'s picks" className="space-y-3 sm:space-y-4 pt-1"');
+    expect(menuViewCode).toContain("CHEF&apos;S PICKS");
+    expect(menuViewCode).toContain("hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
