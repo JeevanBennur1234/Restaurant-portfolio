@@ -20,7 +20,7 @@ describe("category labels and empty cart recovery", () => {
 
   it("shows a cancel/back-to-menu action when the cart becomes empty", () => {
     expect(cartSheet).toContain('data-testid="empty-cart-cancel"');
-    expect(cartSheet).toContain("Cancel ? Back to menu");
+    expect(cartSheet).toContain("Cancel / Back to menu");
     expect(cartSheet).toContain("onClick={() => setIsCartOpen(false)}");
     expect(cartSheet).toContain("Your cart is empty");
   });

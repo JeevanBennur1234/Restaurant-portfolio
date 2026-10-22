@@ -528,7 +528,7 @@ export function CartSheet({
               className="w-full min-h-[48px] h-12 text-base font-semibold"
               leftIcon={<ArrowLeft className="h-4 w-4" aria-hidden="true" />}
             >
-              Cancel ? Back to menu
+              Cancel / Back to menu
             </Button>
           </div>
         )
