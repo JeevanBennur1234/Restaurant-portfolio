@@ -38,8 +38,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     // Bazaar-style category placards preserve the horizontal rail, counts, active state, and scroll controls.
     expect(menuViewCode).toContain('bg-[#14100E]/95');
     expect(menuViewCode).toContain('bg-[#1A1614]');
-    expect(menuViewCode).toContain('flex-col items-start');
+    expect(menuViewCode).toContain('items-center justify-center gap-2');
     expect(menuViewCode).toContain('font-serif text-sm font-semibold tracking-wide');
+    expect(menuViewCode).not.toContain('SHOP {String(');
+    expect(menuViewCode).toContain('aria-current={isActive ? "location" : undefined}');
 
     // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
     expect(menuViewCode).toContain("sticky top-[49px] sm:top-[61px]");

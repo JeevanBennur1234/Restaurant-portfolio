@@ -476,7 +476,7 @@ export function MenuView({
           className="flex w-full min-w-0 gap-3 overflow-x-auto px-10 py-2.5 sm:px-11 sm:py-3 no-scrollbar scroll-smooth"
         >
           <div className="flex w-max min-w-max gap-3">
-            {categories.map((cat, idx) => {
+            {categories.map((cat) => {
               const count = itemsByCategory.get(cat.id)?.length ?? 0;
               const isActive = activeCategoryId === cat.id;
 
@@ -488,7 +488,7 @@ export function MenuView({
                   onClick={() => handleCategoryClick(cat.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "relative flex min-h-[58px] shrink-0 flex-col items-start justify-center rounded-xl border px-4 py-2.5 text-left transition-all duration-200 cursor-pointer select-none whitespace-nowrap",
+                    "relative flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-left transition-all duration-200 cursor-pointer select-none whitespace-nowrap",
                     isActive
                       ? "z-10 border-[#D4A373] bg-[#2E231D] font-semibold text-[#FAF7F2] shadow-md shadow-black/40"
                       : "border-[#2E2723] bg-[#1A1614] text-stone-400 hover:border-stone-600 hover:text-stone-200"
@@ -505,22 +505,11 @@ export function MenuView({
                       className="absolute inset-0 -z-10 rounded-xl bg-[#2E231D] shadow-xs"
                     />
                   )}
-                  {/* Shop Signboard Number Badge */}
-                  <span
-                    className={cn(
-                      "mb-0.5 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors",
-                      isActive
-                        ? "border-amber-300/30 bg-amber-500/20 text-amber-300"
-                        : "border-[#2E2723] bg-[#241E1A] text-stone-500"
-                    )}
-                  >
-                    SHOP {String(idx + 1).padStart(2, "0")}
-                  </span>
                   <span className="font-serif text-sm font-semibold tracking-wide">{cat.name}</span>
                   {count > 0 && (
                     <span
                       className={cn(
-                        "absolute right-2 top-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors",
+                        "rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors",
                         isActive
                           ? "bg-white/15 text-white"
                           : "bg-[#241E1A] text-stone-500"
@@ -679,15 +668,10 @@ export function MenuView({
                 {/* Shopfront Signboard-Style Header */}
                 <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
-                        SHOP {String(catIndex + 1).padStart(2, "0")}
-                      </span>
-                      <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-                        {category.name}
-                      </h2>
-                    </div>
-                    <span className="font-mono text-sm font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
+                    <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+                      {category.name}
+                    </h2>
+                    <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-1 font-mono text-sm font-medium text-[var(--text-muted)]">
                       {catItems.length} {catItems.length === 1 ? "specialty" : "specialties"}
                     </span>
                   </div>

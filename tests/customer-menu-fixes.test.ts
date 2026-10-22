@@ -231,7 +231,8 @@ describe("Customer Menu Audit Fixes & Verification", () => {
       expect(content).toContain("handleCategoryClick(cat.id)");
       expect(content).toContain("activeCategoryId === cat.id");
       expect(content).toContain("activeCategoryPill");
-      expect(content).toContain("SHOP ");
+      expect(content).not.toContain('SHOP {String(');
+      expect(content).toContain("data-category-id={cat.id}");
 
       // Smooth scroll-to category section
       expect(content).toContain("document.getElementById(`category-section-${categoryId}`)");
