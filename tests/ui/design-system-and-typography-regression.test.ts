@@ -141,8 +141,10 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(itemDetailSheetCode).toContain('border border-[#3A3026]');
       expect(itemDetailSheetCode).toContain('Masala Lane &middot; Heritage Kitchen');
       expect(itemDetailSheetCode).toContain('from-[#C85A32] to-[#B34B24]');
-      expect(guestHeaderCode).toContain('Digital Table Ordering home');
-      expect(pairingCardCode).toContain('aria-label={`Add standard pair:');
+      // Derive accessible names from the visible content so WCAG label-content-name-match passes.
+      expect(guestHeaderCode).not.toContain('aria-label={`Return to ${restaurantName} main page`');
+      expect(pairingCardCode).not.toContain('aria-label={`Add standard pair:');
+      expect(pairingCardCode).toContain('<span>{canAdd ? "Add standard pair" : "Currently unavailable"}</span>');
     });
 
     it("prints only the bill/receipt instead of the manager page behind its modal", () => {

@@ -22,7 +22,6 @@ export function GuestHeader({ restaurantName, tableLabel, homeHref = "/" }: Gues
       <Link
         href={homeHref}
         data-testid="guest-brand-home-link"
-        aria-label={`${restaurantName} Digital Table Ordering home`}
         title={`Back to ${restaurantName}`}
         className="group flex min-w-0 items-center gap-3 rounded-xl py-1 pr-2 transition-colors hover:bg-[var(--bg-subtle)]/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
       >

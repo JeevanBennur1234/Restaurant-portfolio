@@ -103,7 +103,6 @@ export function PairingCard({ bread, side }: PairingCardProps) {
         data-testid="add-pairing-btn"
         onClick={handleAddPair}
         disabled={!canAdd}
-        aria-label={`Add standard pair: ${bread.name} and ${side.name} for ${formatPaiseToINR(totalPaise)}`}
         className="mt-4 flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl bg-[#FAF7F2] px-3 py-3 text-left text-sm font-semibold text-[#1F1A17] transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
       >
         <span>{canAdd ? "Add standard pair" : "Currently unavailable"}</span>
