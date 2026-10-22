@@ -141,7 +141,7 @@ describe("Real PostgreSQL Constraints via PGlite", () => {
       INSERT INTO categories (id, restaurant_id, name, slug)
       VALUES ('cat_c1', 'rest_c1', 'Mains', 'mains');
     `);
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await client.close();

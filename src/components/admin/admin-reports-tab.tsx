@@ -140,7 +140,7 @@ export function AdminReportsTab() {
                 <IndianRupee className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none font-mono tabular-nums">
               {formatPaiseToINR(reports.todayRevenuePaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -160,7 +160,7 @@ export function AdminReportsTab() {
                 <ShoppingBag className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none tabular-nums">
               {reports.todayOrderCount}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -180,7 +180,7 @@ export function AdminReportsTab() {
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none font-mono tabular-nums">
               {formatPaiseToINR(reports.todayAvgTicketPaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -200,7 +200,7 @@ export function AdminReportsTab() {
                 <Clock className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none">
+            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none tabular-nums">
               {reports.avgPrepTimeMinutes} <span className="text-xl font-sans font-medium text-[var(--text-secondary)]">min</span>
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -237,7 +237,7 @@ export function AdminReportsTab() {
 
         {/* Chart Visualization Container */}
         <div className="pt-6 pb-2">
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end h-56 border-b border-[var(--border-subtle)] pb-2">
+          <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end border-b border-[var(--border-subtle)] pb-4">
             {reports.sevenDayHistory.map((day, idx) => {
               const heightPct = Math.max(
                 8,
@@ -248,32 +248,37 @@ export function AdminReportsTab() {
               return (
                 <div
                   key={day.date}
-                  className="flex flex-col items-center justify-end h-full group"
+                  className="flex flex-col items-center justify-end group"
                 >
                   {/* Tooltip / Value on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 text-center text-[10px] font-mono bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-10">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 text-center text-[10px] font-mono bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-10 tabular-nums">
                     <div className="font-bold">{formatPaiseToINR(day.revenuePaise)}</div>
                     <div className="text-[9px] opacity-80">{day.orderCount} orders</div>
                   </div>
 
                   {/* Order count label */}
-                  <span className="text-[10px] font-mono font-semibold text-[var(--text-muted)] mb-1">
-                    {day.orderCount} {day.orderCount === 1 ? "ord" : "ords"}
-                  </span>
+                  <div className="flex flex-col items-center mb-1.5">
+                    <span className="text-[11px] sm:text-xs font-mono font-bold text-[var(--text-primary)] tabular-nums">
+                      {day.orderCount}
+                    </span>
+                    <span className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                      {day.orderCount === 1 ? "tkt" : "tkts"}
+                    </span>
+                  </div>
 
-                  {/* Brand-Coloured Bar */}
-                  <div className="w-full max-w-[44px] bg-[var(--bg-subtle)] rounded-t-lg overflow-hidden flex flex-col justify-end p-0.5">
+                  {/* Brand-Coloured Bar with fixed height track */}
+                  <div className="w-full max-w-[48px] h-36 sm:h-44 bg-[var(--bg-subtle)] rounded-t-xl overflow-hidden flex flex-col justify-end p-1 border border-[var(--border-subtle)] shadow-inner">
                     <div
                       style={{ height: `${heightPct}%` }}
-                      className={`w-full rounded-t-md transition-all duration-500 ${
+                      className={`w-full min-h-[6px] rounded-t-md transition-all duration-500 ${
                         isToday
                           ? "bg-gradient-to-t from-[var(--primary)] to-[#D96B43] shadow-md ring-1 ring-[var(--primary)]"
-                          : "bg-[var(--accent)] hover:bg-[var(--primary)] opacity-90 hover:opacity-100"
+                          : "bg-gradient-to-t from-[var(--accent)] to-[#E8A663] hover:from-[var(--primary)] hover:to-[#D96B43] opacity-90 hover:opacity-100"
                       }`}
                     />
                   </div>
 
-                  {/* Day Label */}
+                  {/* Day Label & Amount */}
                   <div className="mt-3 text-center">
                     <div
                       className={`text-xs font-semibold ${
@@ -282,8 +287,11 @@ export function AdminReportsTab() {
                     >
                       {day.dayLabel}
                     </div>
-                    <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                    <div className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
                       {day.date.slice(5)}
+                    </div>
+                    <div className="text-[10px] sm:text-[11px] font-mono font-semibold text-[var(--text-secondary)] tabular-nums mt-0.5">
+                      {formatPaiseToINR(day.revenuePaise)}
                     </div>
                   </div>
                 </div>
@@ -356,12 +364,12 @@ export function AdminReportsTab() {
                     </td>
 
                     {/* Units Sold */}
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-[var(--text-primary)] tabular-nums">
                       {item.totalQuantity}
                     </td>
 
                     {/* Revenue */}
-                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-[var(--text-primary)] tabular-nums">
                       {formatPaiseToINR(item.totalRevenuePaise)}
                     </td>
                   </tr>

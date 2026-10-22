@@ -509,7 +509,7 @@ export function AdminOrdersTab({
                       </td>
 
                       {/* Total */}
-                      <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono">
+                      <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono tabular-nums">
                         {formatPaiseToINR(order.totalPaise)}
                       </td>
 
@@ -725,7 +725,7 @@ export function AdminOrdersTab({
             </div>
 
             {/* Financial Summary */}
-            <div className="p-3 rounded-lg border border-[var(--border-subtle)] space-y-1.5 font-mono text-xs">
+            <div className="p-3 rounded-lg border border-[var(--border-subtle)] space-y-1.5 font-mono text-xs tabular-nums">
               <div className="flex justify-between text-[var(--text-secondary)]">
                 <span>Subtotal</span>
                 <span>{formatPaiseToINR(selectedOrder.subtotalPaise)}</span>
@@ -946,7 +946,7 @@ export function AdminOrdersTab({
               <span className="text-xs text-[var(--text-muted)] uppercase font-mono block">
                 Total Amount Due
               </span>
-              <span className="text-2xl font-extrabold text-[var(--primary)] font-mono">
+              <span className="text-2xl font-extrabold text-[var(--primary)] font-mono tabular-nums tracking-tight">
                 {formatPaiseToINR(paymentModalOrder.totalPaise)}
               </span>
             </div>

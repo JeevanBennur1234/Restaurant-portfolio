@@ -22,16 +22,16 @@ export function GuestHeader({ restaurantName, tableLabel, homeHref = "/" }: Gues
       <Link
         href={homeHref}
         data-testid="guest-brand-home-link"
-        title={`Back to ${restaurantName}`}
+        title={`Back to ${restaurantName}`} aria-label={restaurantName}
         className="group flex min-w-0 items-center gap-3 rounded-xl py-1 pr-2 transition-colors hover:bg-[var(--bg-subtle)]/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
       >
         <span className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full border border-[var(--primary)]/20 bg-[var(--primary-subtle)] text-[var(--primary)] shadow-xs transition-transform group-hover:scale-105">
           <Utensils className="h-5 w-5" aria-hidden="true" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate font-serif text-xl sm:text-2xl font-bold leading-tight tracking-tight text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+          <h1 className="block truncate font-serif text-xl sm:text-2xl font-bold leading-tight tracking-tight text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors m-0">
             {restaurantName}
-          </span>
+          </h1>
           <span className="mt-0.5 hidden text-[11px] sm:text-xs font-sans font-medium text-[var(--text-muted)] tracking-[0.12em] uppercase sm:block">
             Digital Table Ordering
           </span>

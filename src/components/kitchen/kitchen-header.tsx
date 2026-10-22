@@ -77,33 +77,33 @@ export function KitchenHeader({
   };
 
   return (
-    <header className="h-16 bg-[#161412] border-b border-[#2C2825] px-4 flex items-center justify-between text-white select-none shrink-0">
+    <header className="h-16 bg-[#161412] border-b border-[#2C2825] px-2.5 sm:px-4 flex items-center justify-between text-white select-none shrink-0 gap-2 overflow-hidden">
       {/* Brand & Role */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)] text-white shadow-md">
-          <ChefHat className="h-6 w-6" />
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white shadow-md">
+          <ChefHat className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-serif text-lg sm:text-xl font-bold tracking-wide">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <h1 className="font-serif text-base sm:text-xl font-bold tracking-wide truncate">
               {session.restaurantName}
             </h1>
             <Badge
               variant="outline"
               size="sm"
-              className="text-xs uppercase font-mono tracking-wider border-zinc-700 text-zinc-300"
+              className="hidden md:inline-flex text-[10px] sm:text-xs uppercase font-mono tracking-wider border-zinc-700 text-zinc-300 py-0 px-1.5"
             >
               KDS Display
             </Badge>
           </div>
-          <p className="text-xs sm:text-sm text-zinc-400 font-sans">
+          <p className="text-[11px] sm:text-xs text-zinc-400 font-sans truncate">
             Logged in as <b className="text-zinc-200 capitalize">{session.username}</b> ({session.role})
           </p>
         </div>
       </div>
 
-      {/* Ticket Counter Pills */}
-      <div className="hidden sm:flex items-center gap-2.5 bg-[#1F1C19] border border-[#2C2825] px-3.5 py-1.5 rounded-full text-sm font-mono">
+      {/* Ticket Counter Pills (Desktop & Tablet) */}
+      <div className="hidden lg:flex items-center gap-2.5 bg-[#1F1C19] border border-[#2C2825] px-3.5 py-1.5 rounded-full text-sm font-mono shrink-0">
         <span className="flex items-center gap-1.5 text-amber-400 font-bold">
           <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
           {activeCounts.new} New
@@ -118,41 +118,36 @@ export function KitchenHeader({
         </span>
       </div>
 
-        {/* Live Auto-Refresh Indicator & Action */}
-        <div
-          className="flex items-center gap-1.5 text-xs font-mono bg-[#1F1C19] border border-[#2C2825] px-2.5 py-1.5 rounded-md text-emerald-400"
-          title="Kitchen board automatically refreshes every 3 seconds"
+      {/* Center/Right Controls */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Live Auto-Refresh Action */}
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 text-xs font-mono bg-[#1F1C19] border border-[#2C2825] px-2 sm:px-2.5 py-1.5 rounded-lg text-emerald-400 hover:text-white hover:border-[#38332D] transition-colors cursor-pointer disabled:opacity-50 min-h-[44px]"
+          title="Kitchen board automatically refreshes every 3 seconds. Click to refresh instantly."
+          aria-label="Live Auto-Refresh: click to refresh tickets instantly"
         >
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-1.5 text-emerald-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-            title="Click to refresh instantly"
-            aria-label="Live Auto-Refresh: click to refresh tickets instantly"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span className="hidden md:inline font-sans font-medium text-xs">Live Auto-Refresh</span>
-          </button>
-        </div>
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <RefreshCw className={`h-3.5 w-3.5 shrink-0 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span className="hidden md:inline font-sans font-medium text-xs">Live Auto-Refresh</span>
+        </button>
 
-      {/* Controls & Clock */}
-      <div className="flex items-center gap-2.5">
         {/* Screen Wake Lock Indicator */}
         {wakeLockActive && (
           <div
-            className="hidden xl:flex items-center gap-1.5 text-emerald-400 font-mono text-xs bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1.5 rounded-md"
+            className="hidden xl:flex items-center gap-1.5 text-emerald-400 font-mono text-xs bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1.5 rounded-md min-h-[44px]"
             title="Screen stays on while viewing KDS"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             <span>Screen stays on</span>
           </div>
         )}
 
         {/* Live Clock */}
-        <div className="hidden lg:flex items-center gap-1.5 text-zinc-200 font-mono text-sm bg-[#1F1C19] border border-[#2C2825] px-3.5 py-2 rounded-md font-semibold">
-          <Clock className="h-4 w-4 text-zinc-400" />
+        <div className="hidden 2xl:flex items-center gap-1.5 text-zinc-200 font-mono text-sm bg-[#1F1C19] border border-[#2C2825] px-3.5 py-2 rounded-md font-semibold min-h-[44px]">
+          <Clock className="h-4 w-4 text-zinc-400 shrink-0" />
           <span>{timeStr}</span>
         </div>
 
@@ -161,7 +156,7 @@ export function KitchenHeader({
           type="button"
           onClick={handleSoundClick}
           aria-label={soundEnabled ? "Chime ON" : "Enable Sound"}
-          className={`flex items-center gap-1.5 min-h-[44px] px-3.5 text-sm font-semibold rounded-md border transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 text-xs sm:text-sm font-semibold rounded-lg border transition-all cursor-pointer ${
             soundEnabled
               ? "bg-emerald-950/80 text-emerald-300 border-emerald-600 shadow-xs"
               : "bg-[#25211D] text-zinc-400 border-[#38332D] hover:text-white"
@@ -170,13 +165,13 @@ export function KitchenHeader({
         >
           {soundEnabled ? (
             <>
-              <Volume2 className="h-4 w-4 text-emerald-400" />
+              <Volume2 className="h-4 w-4 text-emerald-400 shrink-0" />
               <span className="hidden sm:inline">Chime ON</span>
             </>
           ) : (
             <>
-              <VolumeX className="h-4 w-4 text-zinc-400" />
-              <span>Enable Sound</span>
+              <VolumeX className="h-4 w-4 text-zinc-400 shrink-0" />
+              <span className="hidden sm:inline">Sound</span>
             </>
           )}
         </button>
@@ -185,7 +180,7 @@ export function KitchenHeader({
         <button
           type="button"
           onClick={handleFullscreenToggle}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-[#25211D] border border-[#38332D] text-zinc-300 hover:text-white cursor-pointer"
+          className="hidden sm:flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-[#25211D] border border-[#38332D] text-zinc-300 hover:text-white cursor-pointer"
           title="Toggle Fullscreen"
           aria-label="Toggle Fullscreen"
         >
@@ -202,7 +197,7 @@ export function KitchenHeader({
           size="sm"
           onClick={handleLogout}
           aria-label="Exit KDS"
-          className="min-h-[44px] px-3.5 text-xs border-[#38332D] bg-[#25211D] text-zinc-300 hover:text-red-400 hover:bg-[#2C211E]"
+          className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 text-xs border-[#38332D] bg-[#25211D] text-zinc-300 hover:text-red-400 hover:bg-[#2C211E] rounded-lg"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden sm:inline ml-1.5">Exit</span>

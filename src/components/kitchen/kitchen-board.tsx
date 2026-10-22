@@ -26,6 +26,7 @@ export function KitchenBoard({
   const [highlightedIds, setHighlightedIds] = React.useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [mobileTab, setMobileTab] = React.useState<"all" | "new" | "preparing" | "ready">("all");
 
   // Sound ref to access current value in realtime callbacks without stale closure
   const soundEnabledRef = React.useRef(soundEnabled);
@@ -243,10 +244,61 @@ export function KitchenBoard({
         onRefresh={refreshTickets}
       />
 
+      {/* Mobile Column Switcher (Visible on <md screens) */}
+      <div className="md:hidden flex items-center gap-1.5 p-2 bg-[#171513] border-b border-[#26221E] shrink-0">
+        <button
+          type="button"
+          onClick={() => setMobileTab("all")}
+          className={`flex-1 min-h-[40px] px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+            mobileTab === "all"
+              ? "bg-[#2D2622] text-white border border-[#4A3C34] shadow-xs"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          All ({tickets.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("new")}
+          className={`flex-1 min-h-[40px] px-2 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+            mobileTab === "new"
+              ? "bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs"
+              : "text-zinc-400 hover:text-amber-400"
+          }`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          New ({newTickets.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("preparing")}
+          className={`flex-1 min-h-[40px] px-2 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+            mobileTab === "preparing"
+              ? "bg-orange-500/20 text-orange-400 border border-orange-500/40 shadow-xs"
+              : "text-zinc-400 hover:text-orange-400"
+          }`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+          Cook ({preparingTickets.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("ready")}
+          className={`flex-1 min-h-[40px] px-2 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+            mobileTab === "ready"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs"
+              : "text-zinc-400 hover:text-emerald-400"
+          }`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          Ready ({readyTickets.length})
+        </button>
+      </div>
+
       {/* 3-Column Board (Designed for Tablet Landscape & Touch) */}
       <main className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-y-auto md:overflow-hidden md:h-[calc(100vh-64px)]">
         {/* Column 1: NEW */}
-        <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
+        <section className={`flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden ${mobileTab !== "all" && mobileTab !== "new" ? "hidden md:flex" : "flex"}`}>
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
@@ -282,7 +334,7 @@ export function KitchenBoard({
         </section>
 
         {/* Column 2: PREPARING */}
-        <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
+        <section className={`flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden ${mobileTab !== "all" && mobileTab !== "preparing" ? "hidden md:flex" : "flex"}`}>
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-orange-500/20 text-orange-400">
@@ -318,7 +370,7 @@ export function KitchenBoard({
         </section>
 
         {/* Column 3: READY */}
-        <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
+        <section className={`flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden ${mobileTab !== "all" && mobileTab !== "ready" ? "hidden md:flex" : "flex"}`}>
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">

@@ -594,17 +594,17 @@ export function OrderLiveTracker({
           <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2 text-sm">
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>Subtotal</span>
-              <span className="font-mono font-medium">
+              <span className="font-mono font-medium tabular-nums">
                 {formatPaiseToINR(order.subtotalPaise)}
               </span>
             </div>
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>GST (5%)</span>
-              <span className="font-mono font-medium">{formatPaiseToINR(order.taxPaise)}</span>
+              <span className="font-mono font-medium tabular-nums">{formatPaiseToINR(order.taxPaise)}</span>
             </div>
             <div className="flex justify-between text-base font-bold text-[var(--text-primary)] pt-1.5 border-t border-[var(--border-subtle)]">
               <span>Total Amount</span>
-              <span className="font-mono text-xl text-[var(--primary)] font-extrabold">
+              <span className="font-mono text-xl text-[var(--primary)] font-extrabold tabular-nums tracking-tight">
                 {formatPaiseToINR(order.totalPaise)}
               </span>
             </div>

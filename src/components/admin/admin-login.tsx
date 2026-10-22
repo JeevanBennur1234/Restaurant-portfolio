@@ -45,7 +45,7 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] flex flex-col items-center justify-center p-4 text-[var(--text-primary)]">
+    <main className="min-h-screen bg-[var(--bg-app)] flex flex-col items-center justify-center p-4 text-[var(--text-primary)]">
       {/* Ambient background glow */}
       <div
         aria-hidden="true"
@@ -140,6 +140,6 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
           )}
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

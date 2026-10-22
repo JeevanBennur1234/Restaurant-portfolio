@@ -94,7 +94,7 @@ export function PairingCard({ bread, side }: PairingCardProps) {
           </div>
         </div>
         <p className="font-mono text-xs leading-relaxed text-stone-400">
-          Standard options ? {formatPaiseToINR(totalPaise)} for both
+          Standard options · {formatPaiseToINR(totalPaise)} for both
         </p>
       </div>
 
