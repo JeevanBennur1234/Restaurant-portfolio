@@ -15,6 +15,7 @@ import {
   Banknote,
   AlertTriangle,
   QrCode,
+  ArrowLeft,
 } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
@@ -513,7 +514,24 @@ export function CartSheet({
                 : "Order sent immediately to kitchen; settle bill at counter."}
             </p>
           </div>
-        ) : null
+        ) : (
+          <div className="space-y-2">
+            <p className="text-center text-xs text-[var(--text-secondary)]">
+              Your items are cleared. Return to the menu whenever you are ready.
+            </p>
+            <Button
+              type="button"
+              data-testid="empty-cart-cancel"
+              variant="outline"
+              size="md"
+              onClick={() => setIsCartOpen(false)}
+              className="w-full min-h-[48px] h-12 text-base font-semibold"
+              leftIcon={<ArrowLeft className="h-4 w-4" aria-hidden="true" />}
+            >
+              Cancel ? Back to menu
+            </Button>
+          </div>
+        )
       }
     >
       {/* Visual Header Banner */}

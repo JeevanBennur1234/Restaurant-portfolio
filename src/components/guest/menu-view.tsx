@@ -443,7 +443,6 @@ export function MenuView({
           >
           <div className="flex w-max min-w-max gap-3">
             {categories.map((cat) => {
-              const count = itemsByCategory.get(cat.id)?.length ?? 0;
               const isActive = activeCategoryId === cat.id;
 
               return (
@@ -472,18 +471,6 @@ export function MenuView({
                     />
                   )}
                   <span className="font-serif text-sm font-semibold tracking-wide">{cat.name}</span>
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors",
-                        isActive
-                          ? "bg-white/15 text-white"
-                          : "bg-[#241E1A] text-stone-500"
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -634,13 +621,10 @@ export function MenuView({
               >
                 {/* Shopfront Signboard-Style Header */}
                 <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
                     <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                       {category.name}
                     </h2>
-                    <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-1 font-mono text-sm font-medium text-[var(--text-muted)]">
-                      {catItems.length} {catItems.length === 1 ? "specialty" : "specialties"}
-                    </span>
                   </div>
                   <p className="text-sm text-[var(--text-secondary)] font-sans italic max-w-2xl pl-0.5">
                     {SHOPFRONT_TAGLINES[category.slug] ??
