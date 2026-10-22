@@ -39,16 +39,5 @@
   <!-- Dark Top/Bottom Contrast Gradient for WCAG AA Accessibility -->
   <rect width="2400" height="1350" fill="url(#overlayFade)" />
 
-  <!-- Editorial Brand Monogram & Eyebrow Watermark -->
-  <g text-anchor="middle" font-family="'Playfair Display', Georgia, serif">
-    <text x="1200" y="630" font-size="28" letter-spacing="8" fill="#D97706" font-family="system-ui, sans-serif" font-weight="600" text-transform="uppercase">
-      MASALA LANE · BENGALURU
-    </text>
-    <text x="1200" y="700" font-size="76" font-weight="700" fill="#FAF7F2" fill-opacity="0.92" letter-spacing="3">
-      Fired by Charcoal, Rooted in Heritage
-    </text>
-    <text x="1200" y="745" font-size="20" letter-spacing="6" fill="#FAF7F2" fill-opacity="0.5" font-family="system-ui, sans-serif" font-weight="500" text-transform="uppercase">
-      Artisanal Regional Indian Dining · Est. 2024
-    </text>
-  </g>
+  <!-- Clean hero background: retain only the warm gradient and subtle geometric linework. -->
 </svg>

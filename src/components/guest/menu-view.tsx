@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MenuItemCard } from "./menu-item-card";
+import { PairingCard } from "./pairing-card";
 import { ItemDetailSheet } from "./item-detail-sheet";
 import { CartBar } from "./cart-bar";
 import { CartSheet } from "./cart-sheet";
@@ -151,6 +152,16 @@ export function MenuView({
       .filter((item) => Boolean((item as { isRecommended?: boolean }).isRecommended || item.isBestSeller))
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [items]);
+
+  // Pairing ingredients are looked up from real menu records, so prices, availability, and images stay authoritative.
+  const pairingItems = React.useMemo(() => {
+    const garlicNaan = items.find((item) => /^(garlic butter|garlic) naan$/i.test(item.name.trim()));
+    const buraniRaita = items.find((item) => /burani.*raita/i.test(item.name));
+    if (!garlicNaan || !buraniRaita || !garlicNaan.isAvailable || !buraniRaita.isAvailable) return null;
+    return { bread: garlicNaan, side: buraniRaita };
+  }, [items]);
+  const showPairing =
+    searchQuery.trim().length === 0 && dietaryFilter === "all" && spiceFilter === "all";
 
   // The category's own slug is the source of truth for the Signature label.
   const signatureCategoryIds = React.useMemo(
@@ -457,14 +468,14 @@ export function MenuView({
       </div>
 
       {/* Sticky "Lane Rail" Category Signboards Navigation */}
-      <div className="sticky top-[49px] sm:top-[61px] z-20 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]/95 shadow-xs backdrop-blur-md">
+      <div className="sticky top-[49px] sm:top-[61px] z-20 border-y border-[#2E2723] bg-[#14100E]/95 shadow-xs backdrop-blur-md">
         <nav
           ref={navRef}
           aria-label="Menu categories"
           onScroll={updateCategoryScrollAffordance}
-          className="flex w-full min-w-0 gap-2 overflow-x-auto px-10 py-1.5 sm:px-11 sm:py-2 no-scrollbar scroll-smooth"
+          className="flex w-full min-w-0 gap-3 overflow-x-auto px-10 py-2.5 sm:px-11 sm:py-3 no-scrollbar scroll-smooth"
         >
-          <div className="flex w-max min-w-max gap-2">
+          <div className="flex w-max min-w-max gap-3">
             {categories.map((cat, idx) => {
               const count = itemsByCategory.get(cat.id)?.length ?? 0;
               const isActive = activeCategoryId === cat.id;
@@ -477,10 +488,10 @@ export function MenuView({
                   onClick={() => handleCategoryClick(cat.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "relative flex min-h-[44px] shrink-0 items-center rounded-xl px-3 sm:px-4 py-2 text-xs font-medium tracking-wide transition-all cursor-pointer select-none whitespace-nowrap border",
+                    "relative flex min-h-[58px] shrink-0 flex-col items-start justify-center rounded-xl border px-4 py-2.5 text-left transition-all duration-200 cursor-pointer select-none whitespace-nowrap",
                     isActive
-                      ? "z-10 font-semibold text-white border-amber-500/70 shadow-md"
-                      : "border-amber-900/20 bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:border-amber-700/40"
+                      ? "z-10 border-[#D4A373] bg-[#2E231D] font-semibold text-[#FAF7F2] shadow-md shadow-black/40"
+                      : "border-[#2E2723] bg-[#1A1614] text-stone-400 hover:border-stone-600 hover:text-stone-200"
                   )}
                 >
                   {isActive && (
@@ -491,28 +502,28 @@ export function MenuView({
                           ? { duration: 0 }
                           : { type: "spring", stiffness: 450, damping: 32 }
                       }
-                      className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-[#2E2723] via-[#382F2A] to-[#251E1A] shadow-xs"
+                      className="absolute inset-0 -z-10 rounded-xl bg-[#2E231D] shadow-xs"
                     />
                   )}
                   {/* Shop Signboard Number Badge */}
                   <span
                     className={cn(
-                      "mr-1.5 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-xs transition-colors",
+                      "mb-0.5 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest transition-colors",
                       isActive
-                        ? "bg-amber-400/25 text-amber-200 border border-amber-300/30"
-                        : "bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-subtle)]"
+                        ? "border-amber-300/30 bg-amber-500/20 text-amber-300"
+                        : "border-[#2E2723] bg-[#241E1A] text-stone-500"
                     )}
                   >
                     SHOP {String(idx + 1).padStart(2, "0")}
                   </span>
-                  <span className="font-serif text-xs font-semibold">{cat.name}</span>
+                  <span className="font-serif text-sm font-semibold tracking-wide">{cat.name}</span>
                   {count > 0 && (
                     <span
                       className={cn(
-                        "ml-1.5 font-mono text-xs transition-colors rounded-full px-1.5 py-0.5",
+                        "absolute right-2 top-2 rounded-full px-1.5 py-0.5 font-mono text-[10px] transition-colors",
                         isActive
-                          ? "bg-white/20 text-white"
-                          : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"
+                          ? "bg-white/15 text-white"
+                          : "bg-[#241E1A] text-stone-500"
                       )}
                     >
                       {count}
@@ -526,13 +537,13 @@ export function MenuView({
         {canScrollCategoryLeft && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-7 z-10 w-4 bg-gradient-to-r from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent"
+            className="pointer-events-none absolute inset-y-0 left-7 z-10 w-4 bg-gradient-to-r from-[#14100E] via-[#14100E]/85 to-transparent"
           />
         )}
         {canScrollCategoryRight && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-7 z-10 w-4 bg-gradient-to-l from-[var(--bg-app)] via-[var(--bg-app)]/85 to-transparent"
+            className="pointer-events-none absolute inset-y-0 right-7 z-10 w-4 bg-gradient-to-l from-[#14100E] via-[#14100E]/85 to-transparent"
           />
         )}
         {canScrollCategoryLeft && (
@@ -540,7 +551,7 @@ export function MenuView({
             type="button"
             aria-label="Scroll categories left"
             onClick={() => scrollCategoriesBy(-1)}
-            className="absolute left-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] cursor-pointer"
+            className="absolute left-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -550,7 +561,7 @@ export function MenuView({
             type="button"
             aria-label="Scroll categories right"
             onClick={() => scrollCategoriesBy(1)}
-            className="absolute right-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] cursor-pointer"
+            className="absolute right-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -560,7 +571,7 @@ export function MenuView({
       {/* Main Street Content */}
       <main className="mx-auto w-full max-w-7xl space-y-8 px-3 py-4 sm:space-y-10 sm:px-6 sm:py-6 lg:px-8">
         {/* Chef's Picks uses the same full-width signboard header and responsive card layout as every menu category. */}
-        {recommendedItems.length > 0 && searchQuery.trim().length === 0 && (
+        {(recommendedItems.length > 0 || (pairingItems && showPairing)) && searchQuery.trim().length === 0 && (
           <section aria-label="Chef's picks" className="space-y-3 sm:space-y-4 pt-1">
             <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
               <div className="flex items-center justify-between gap-3">
@@ -573,7 +584,7 @@ export function MenuView({
                   </h2>
                 </div>
                 <span className="shrink-0 font-mono text-sm font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
-                  {recommendedItems.length} recommended
+                  {recommendedItems.length > 0 ? `${recommendedItems.length} recommended` : "Pairing idea"}
                 </span>
               </div>
               <p className="pl-0.5 text-sm font-sans italic text-[var(--text-secondary)] max-w-2xl">
@@ -594,6 +605,11 @@ export function MenuView({
                   />
                 </div>
               ))}
+              {pairingItems && showPairing && (
+                <div className="w-[260px] xs:w-[280px] shrink-0 snap-start">
+                  <PairingCard bread={pairingItems.bread} side={pairingItems.side} />
+                </div>
+              )}
             </div>
 
             {/* Desktop: strict row-major order prevents artificial holes in short final rows. */}
@@ -609,6 +625,18 @@ export function MenuView({
                   />
                 </div>
               ))}
+              {pairingItems && showPairing && (
+                <div
+                  className={cn(
+                    "h-full min-w-0",
+                    recommendedItems.length % 2 === 0 && "sm:col-start-2",
+                    recommendedItems.length % 3 === 0 && "lg:col-start-2",
+                    recommendedItems.length % 2 === 0 && recommendedItems.length % 3 !== 0 && "lg:col-start-auto"
+                  )}
+                >
+                  <PairingCard bread={pairingItems.bread} side={pairingItems.side} />
+                </div>
+              )}
             </div>
           </section>
         )}

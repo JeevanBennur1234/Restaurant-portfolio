@@ -42,8 +42,12 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
     it("enforces row-major grid flow without artificial blank holes or centering offset columns", () => {
       // Products flow consistently left-to-right, top-to-bottom
       expect(menuViewCode).toContain("grid-flow-row sm:grid-cols-2 sm:items-stretch sm:gap-4 lg:grid-cols-3 lg:gap-5");
-      // Eliminates artificial col-start-2 centering offsets that leave first-column holes
-      expect(menuViewCode).not.toContain("lg:col-start-2");
+      // Category product grids remain row-major; only the standalone pairing card may be centered in an incomplete final row.
+      const categoryGridStart = menuViewCode.indexOf("/* Desktop: strict row-major order keeps every category gap-free and left-to-right. */");
+      const categoryGridEnd = menuViewCode.indexOf("</section>", categoryGridStart);
+      const categoryGridCode = menuViewCode.slice(categoryGridStart, categoryGridEnd);
+      expect(categoryGridCode).not.toContain("col-start");
+      expect(menuViewCode).toContain("lg:col-start-2");
       expect(menuViewCode).not.toContain("sm:col-span-2 sm:mx-auto sm:w-1/2");
     });
   });
@@ -72,8 +76,8 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
 
   describe("3. Global Typography & Minimum Legibility Targets", () => {
     it("maintains readable dish card titles (18-22px) and prominent prices (20-24px)", () => {
-      expect(menuItemCardCode).toContain("font-serif text-lg font-bold sm:text-xl");
-      expect(menuItemCardCode).toContain("font-sans text-xl sm:text-2xl font-bold text-amber-300");
+      expect(menuItemCardCode).toContain("font-serif text-xl font-bold");
+      expect(menuItemCardCode).toContain("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem]");
     });
 
     it("ensures form inputs use 16px (text-base) to prevent iOS auto-zoom and maximize legibility", () => {

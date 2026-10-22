@@ -255,7 +255,7 @@ describe("Customer Menu Audit Fixes & Verification", () => {
       const cardPath = path.resolve(root, "src/components/guest/menu-item-card.tsx");
       const content = fs.readFileSync(cardPath, "utf-8");
 
-      expect(content).toContain("aspect-[4/5]");
+      expect(content).toContain("aspect-[16/10]");
       expect(content).toContain('data-testid="spice-level-slot"');
       expect(content).toContain("getSpiceMeter");
       expect(content).toContain("totalQuantityInCart > 0");

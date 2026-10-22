@@ -164,13 +164,9 @@ export function MenuItemCard({
     <article
       data-testid="menu-item-card"
       className={cn(
-        "group relative flex h-full flex-col rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-[var(--shadow-card)] transition-all duration-300",
-        isHero
-          ? "border-amber-900/30 ring-1 ring-amber-500/20 shadow-md"
-          : "hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-elevated)]",
-        isAvailable
-          ? "active:scale-[0.99] cursor-pointer"
-          : "opacity-65 cursor-not-allowed bg-[var(--bg-subtle)]/50"
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#3A302A] bg-[#1A1614] text-[#FAF7F2] shadow-lg transition-all duration-300 hover:border-[#D4A373]/50 hover:shadow-2xl",
+        isHero && "border-[#D4A373]/60 ring-1 ring-[#D4A373]/20",
+        isAvailable ? "active:scale-[0.99]" : "cursor-not-allowed opacity-65"
       )}
     >
       <div
@@ -196,8 +192,8 @@ export function MenuItemCard({
           isAvailable ? "cursor-pointer" : "cursor-not-allowed"
         )}
       >
-        {/* Consistent image proportions keep every dish card aligned across a shopfront. */}
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#2E2723]">
+        {/* Editorial food photography: wide landscape crop above a separate charcoal card body. */}
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#241E1A]">
           {item.imageUrl && !imageError ? (
             <>
               {imageLoading && (
@@ -224,39 +220,34 @@ export function MenuItemCard({
               />
             </>
           ) : (
-            /* Graceful Warm Fallback Placeholder */
             <div
               data-testid="dish-image-fallback"
-              className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] text-center text-white/80 p-5"
+              className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] p-5 text-center text-white/80"
             >
-              <Utensils className="h-10 w-10 opacity-40 text-amber-500 mb-2" />
-              <span className="max-w-full text-balance font-serif text-center text-sm font-medium tracking-wide text-amber-200">
+              <Utensils className="mb-2 h-10 w-10 text-amber-500 opacity-40" />
+              <span className="max-w-full text-balance text-center font-serif text-sm font-medium tracking-wide text-amber-200">
                 {item.name}
               </span>
-              <span className="text-[11px] text-stone-400 mt-1">Photo coming soon</span>
+              <span className="mt-1 text-[11px] text-stone-400">Photo coming soon</span>
             </div>
           )}
 
-          {/* Keep food photography vivid while retaining strong contrast behind bottom text. */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#140F0C]/95 via-[#1F1A17]/30 via-50% to-black/10" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1A1614]/85 via-transparent to-black/25" />
 
-          {/* Top-Left: Veg Indicator & Recommendation Badge */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
-            <div className="p-1 rounded-sm bg-white/95 backdrop-blur-xs shadow-xs">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-black/65 p-0.5 backdrop-blur-sm">
               <VegIndicator isVeg={item.isVeg} size="sm" />
-            </div>
-
+            </span>
             {isSignature && (
               <Badge
                 variant="accent"
                 size="sm"
-                className="gap-1 border border-amber-400/30 bg-[#2E2723]/90 text-amber-100 shadow-sm backdrop-blur-xs font-serif"
+                className="gap-1 border border-amber-400/30 bg-[#2E2723]/90 font-serif text-amber-100 shadow-sm backdrop-blur-xs"
               >
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
                 Signature
               </Badge>
             )}
-
             {item.isBestSeller && !isSignature && (
               <Badge
                 variant="success"
@@ -267,7 +258,6 @@ export function MenuItemCard({
                 Best seller
               </Badge>
             )}
-
             {isHero && !isSignature && !item.isBestSeller && (
               <Badge
                 variant="secondary"
@@ -275,15 +265,13 @@ export function MenuItemCard({
                 className="gap-1 border border-white/20 bg-black/60 text-amber-200 backdrop-blur-xs"
               >
                 <Sparkles className="h-3 w-3 text-amber-300" aria-hidden="true" />
-                Shopfront Hero
+                Shopfront pick
               </Badge>
             )}
           </div>
-
-          {/* Top-Right: Customizable & Sold Out Badges */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
             {isCustomizable && isAvailable && (
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-black/70 text-amber-300 backdrop-blur-xs border border-white/20">
+              <span className="rounded-full border border-white/20 bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur-sm">
                 Customizable
               </span>
             )}
@@ -295,126 +283,111 @@ export function MenuItemCard({
           </div>
 
           {!isAvailable && (
-            <div className="pointer-events-none absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
-              <span className="font-mono text-xs font-bold uppercase tracking-wider text-white bg-black/80 px-3 py-1.5 rounded-full border border-white/25">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-2xs">
+              <span className="rounded-full border border-white/25 bg-black/80 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-white">
                 Currently Unavailable
               </span>
             </div>
           )}
+        </div>
 
-          {/* Bottom Card Overlay Content (Overlaid on Poster Photo) */}
-          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end p-3.5 sm:p-4 text-white">
-            {/* Metadata Pill: Spice Flame Meter & Prep Time */}
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <div data-testid="spice-level-slot" className="flex items-center gap-1">
+        {/* Separate body keeps dish names, descriptions, prices, and quantity controls easy to scan. */}
+        <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-stone-400">
+              <div data-testid="spice-level-slot" className="flex min-w-0 items-center gap-1.5">
                 {spiceInfo.flames > 0 ? (
-                  <div
-                    className="inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 backdrop-blur-xs border border-white/15"
-                    title={`Spice Level: ${spiceInfo.label}`}
-                  >
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 3 }).map((_, i) => (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-1" title={`Spice level: ${spiceInfo.label}`}>
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({ length: 3 }).map((_, index) => (
                         <Flame
-                          key={i}
+                          key={index}
                           className={cn(
-                            "h-3 w-3 transition-colors",
-                            i < spiceInfo.flames
-                              ? "text-rose-400 fill-rose-500"
-                              : "text-white/25 fill-white/10"
+                            "h-3 w-3",
+                            index < spiceInfo.flames ? "fill-rose-500 text-rose-400" : "fill-white/10 text-white/25"
                           )}
                           aria-hidden="true"
                         />
                       ))}
-                    </div>
-                    <span className="text-xs font-mono font-semibold uppercase tracking-wider text-rose-200">
+                    </span>
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-rose-200">
                       {spiceInfo.label}
                     </span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-mono text-stone-300 uppercase tracking-wide">
-                    Delicate
                   </span>
+                ) : (
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-stone-400">Delicate</span>
                 )}
               </div>
-
-              <span className="flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-0.5 font-mono text-xs text-stone-200 border border-white/10 backdrop-blur-xs">
-                <Clock className="h-3.5 w-3.5 text-amber-300" />
-                {item.prepTimeMinutes} min
-              </span>
+              {item.prepTimeMinutes > 0 && (
+                <span className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 font-mono text-[11px] text-stone-200">
+                  <Clock className="h-3.5 w-3.5 text-amber-400/80" aria-hidden="true" />
+                  {item.prepTimeMinutes} min
+                </span>
+              )}
             </div>
 
-            {/* Dish Name */}
-            <h3 className="font-serif text-lg font-bold sm:text-xl leading-snug text-white tracking-tight drop-shadow-xs transition-colors group-hover:text-amber-200">
+            <h3 className="font-serif text-xl font-bold leading-tight tracking-tight text-[#FAF7F2] transition-colors group-hover:text-amber-200 sm:text-2xl">
               <HighlightedText text={item.name} query={searchQuery} />
             </h3>
-
-            {/* Dish Description */}
-            <p className="mt-1 line-clamp-3 text-sm sm:text-base leading-relaxed text-stone-300/90 drop-shadow-xs font-sans">
+            <p className="mt-1.5 line-clamp-3 font-sans text-sm leading-relaxed text-stone-300/85 sm:text-base">
               {item.description ? (
                 <HighlightedText text={item.description} query={searchQuery} />
               ) : (
                 <span aria-hidden="true">&nbsp;</span>
               )}
             </p>
+          </div>
 
-            {/* Price and Action Row */}
-            <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-white/15">
-              <div className="flex flex-col">
-                <span className="text-xs uppercase font-mono tracking-wider text-stone-300 font-medium">
-                  Price
-                </span>
-                <span className="font-sans text-xl sm:text-2xl font-bold text-amber-300">
-                  {formatPaiseToINR(item.pricePaise)}
-                </span>
-              </div>
+          <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#2F2722] pt-3">
+            <div className="min-w-0">
+              <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+                Price
+              </span>
+              <span className="font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem]">
+                {formatPaiseToINR(item.pricePaise)}
+              </span>
+            </div>
 
-              {/* Floating Action Button / Stepper */}
-              <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                {totalQuantityInCart > 0 ? (
-                  <div className="flex min-h-[44px] items-center rounded-full bg-[var(--primary)] text-white shadow-lg border border-amber-300/40 backdrop-blur-xs p-0.5">
-                    <button
-                      type="button"
-                      aria-label={`Decrease ${item.name} quantity`}
-                      onClick={handleDecrement}
-                      className="flex h-10 w-9 min-h-[44px] min-w-[36px] items-center justify-center rounded-full hover:bg-black/20 active:scale-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span
-                      data-testid="item-card-quantity"
-                      className="min-w-6 text-center font-mono text-sm font-bold px-1"
-                    >
-                      {totalQuantityInCart}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Increase ${item.name} quantity`}
-                      onClick={handleIncrement}
-                      className="flex h-10 w-9 min-h-[44px] min-w-[36px] items-center justify-center rounded-full hover:bg-black/20 active:scale-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
+            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+              {totalQuantityInCart > 0 ? (
+                <div className="flex min-h-[44px] items-center rounded-full border border-amber-300/40 bg-gradient-to-br from-[#D4A373] to-[#B37840] p-0.5 text-[#1A1614] shadow-md">
                   <button
                     type="button"
-                    data-testid="add-item-btn"
-                    disabled={!isAvailable}
-                    onClick={handleQuickAdd}
-                    aria-label={
-                      isAvailable ? `Add ${item.name} to order` : `${item.name} is sold out`
-                    }
-                    className={cn(
-                      "flex h-11 w-11 min-h-[44px] min-w-[44px] rounded-full items-center justify-center shadow-lg transition-all cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]",
-                      isAvailable
-                        ? "bg-gradient-to-br from-[var(--primary)] to-[var(--primary-hover)] text-white hover:brightness-110 border border-amber-300/40"
-                        : "bg-white/20 text-white/40 cursor-not-allowed opacity-50"
-                    )}
+                    aria-label={`Decrease ${item.name} quantity`}
+                    onClick={handleDecrement}
+                    className="flex h-10 min-h-[44px] min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
                   >
-                    <Plus className="h-5 w-5" />
+                    <Minus className="h-4 w-4" />
                   </button>
-                )}
-              </div>
+                  <span data-testid="item-card-quantity" className="min-w-6 px-1 text-center font-mono text-sm font-bold">
+                    {totalQuantityInCart}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Increase ${item.name} quantity`}
+                    onClick={handleIncrement}
+                    className="flex h-10 min-h-[44px] min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="add-item-btn"
+                  disabled={!isAvailable}
+                  onClick={handleQuickAdd}
+                  aria-label={isAvailable ? `Add ${item.name} to order` : `${item.name} is sold out`}
+                  className={cn(
+                    "flex min-h-[44px] min-w-[44px] rounded-full h-11 w-11 cursor-pointer items-center justify-center border border-amber-300/40 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] active:scale-95",
+                    isAvailable
+                      ? "bg-gradient-to-br from-[#D4A373] to-[#B37840] text-[#1A1614] hover:brightness-110"
+                      : "cursor-not-allowed bg-white/20 text-white/40 opacity-50"
+                  )}
+                >
+                  <Plus className="h-5 w-5 stroke-[2.5]" />
+                </button>
+              )}
             </div>
           </div>
         </div>

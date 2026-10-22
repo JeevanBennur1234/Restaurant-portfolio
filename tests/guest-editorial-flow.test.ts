@@ -13,6 +13,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
 
   const menuViewCode = fs.readFileSync(menuViewPath, "utf-8");
   const menuItemCardCode = fs.readFileSync(menuItemCardPath, "utf-8");
+  const pairingCardPath = path.resolve(process.cwd(), "src/components/guest/pairing-card.tsx");
+  const pairingCardCode = fs.readFileSync(pairingCardPath, "utf-8");
   const cartBarCode = fs.readFileSync(cartBarPath, "utf-8");
   const itemDetailSheetCode = fs.readFileSync(itemDetailSheetPath, "utf-8");
   const cartSheetCode = fs.readFileSync(cartSheetPath, "utf-8");
@@ -33,6 +35,12 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("flex w-full max-w-2xl flex-nowrap items-center");
     expect(menuViewCode).not.toContain("mx-auto flex w-full max-w-2xl");
 
+    // Bazaar-style category placards preserve the horizontal rail, counts, active state, and scroll controls.
+    expect(menuViewCode).toContain('bg-[#14100E]/95');
+    expect(menuViewCode).toContain('bg-[#1A1614]');
+    expect(menuViewCode).toContain('flex-col items-start');
+    expect(menuViewCode).toContain('font-serif text-sm font-semibold tracking-wide');
+
     // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
     expect(menuViewCode).toContain("sticky top-[49px] sm:top-[61px]");
     expect(menuViewCode).toContain("canScrollCategoryRight");
@@ -44,7 +52,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     // Three-column desktop grid preserves row-major left-to-right order without artificial holes.
     expect(menuViewCode).toContain("max-w-7xl");
     expect(menuViewCode).toContain("lg:grid-cols-3");
-    expect(menuViewCode).not.toContain("lg:col-start-2");
+    const categoryGridStart = menuViewCode.indexOf("/* Desktop: strict row-major order keeps every category gap-free and left-to-right. */");
+    const categoryGridEnd = menuViewCode.indexOf("</section>", categoryGridStart);
+    const categoryGridCode = menuViewCode.slice(categoryGridStart, categoryGridEnd);
+    expect(categoryGridCode).not.toContain("col-start");
     expect(menuViewCode).toContain("list.sort((a, b) => a.sortOrder - b.sortOrder");
     expect(menuViewCode).toContain('aria-label="Chef\'s picks" className="space-y-3 sm:space-y-4 pt-1"');
     expect(menuViewCode).toContain("CHEF&apos;S PICKS");
@@ -62,14 +73,15 @@ describe("Guest Editorial Flow Polish Verification", () => {
 
   it("2. menu-item-card.tsx uses consistent poster proportions, readable image contrast, and min 44px circular '+' button", () => {
     // Consistent card image ratios and a lighter overlay keep food photography visible.
-    expect(menuItemCardCode).toContain("aspect-[4/5]");
-    expect(menuItemCardCode).toContain("from-[#140F0C]/95 via-[#1F1A17]/30 via-50% to-black/10");
+    expect(menuItemCardCode).toContain("aspect-[16/10]");
+    expect(menuItemCardCode).toContain("rounded-2xl border border-[#3A302A] bg-[#1A1614]");
+    expect(menuItemCardCode).toContain("bg-gradient-to-t from-[#1A1614]/85 via-transparent to-black/25");
     expect(menuItemCardCode).toContain("before:animate-pulse");
     expect(menuItemCardCode).toContain("duration-500 ease-out");
     expect(menuItemCardCode).toContain("h-full flex-col");
     expect(menuItemCardCode).toContain("line-clamp-3");
     expect(menuItemCardCode).toContain('data-testid="menu-item-details-btn"');
-    expect(menuItemCardCode).not.toContain("aria-label={isAvailable ?");
+    expect(menuItemCardCode).toContain("aria-label={isAvailable ?");
     expect(menuItemCardCode).not.toContain('role={isAvailable ? "button" : undefined}');
     expect(menuItemCardCode).not.toContain("tabIndex={isAvailable ? 0 : undefined}");
     expect(menuItemCardCode).toContain("Image");
@@ -84,9 +96,10 @@ describe("Guest Editorial Flow Polish Verification", () => {
     // Veg indicator on image corner
     expect(menuItemCardCode).toContain("VegIndicator");
     expect(menuItemCardCode).toContain("absolute top-3 left-3");
+    expect(menuItemCardCode).toContain('data-testid="spice-level-slot"');
 
     // Editorial typography, with complete descriptions instead of mid-sentence ellipses.
-    expect(menuItemCardCode).toContain("font-serif text-lg font-bold sm:text-xl");
+    expect(menuItemCardCode).toContain("font-serif text-xl font-bold");
     expect(menuItemCardCode).toContain("item.description");
     expect(menuItemCardCode).not.toContain("line-clamp-2");
 
@@ -181,6 +194,20 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(customerServiceCode).toContain('SUM(${orderItems.quantity})');
     expect(customerServiceCode).toContain('Number(record.totalUnits) >= 5');
     expect(customerServiceCode).toContain('.limit(3)');
+  });
+
+  it("8. Chef's pairing uses real menu data, stored prices, and standard required modifiers", () => {
+    expect(menuViewCode).toContain('import { PairingCard } from "./pairing-card"');
+    expect(menuViewCode).toContain('/^(garlic butter|garlic) naan$/i');
+    expect(menuViewCode).toContain('/burani.*raita/i');
+    expect(menuViewCode).toContain('pairingItems && showPairing');
+    expect(pairingCardCode).toContain('data-testid="pairing-card"');
+    expect(pairingCardCode).toContain('data-testid="add-pairing-btn"');
+    expect(pairingCardCode).toContain('formatPaiseToINR(totalPaise)');
+    expect(pairingCardCode).toContain('standardModifierIds');
+    expect(pairingCardCode).toContain('cart.addItem(bread.id, 1, breadModifiers)');
+    expect(pairingCardCode).toContain('cart.addItem(side.id, 1, sideModifiers)');
+    expect(pairingCardCode).toContain('bread.isAvailable && side.isAvailable');
   });
 
 });

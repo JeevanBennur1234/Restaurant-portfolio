@@ -38,6 +38,13 @@ describe("Food Photography, Media Assets & Image Config", () => {
     expect(posterSvg).toContain('viewBox="0 0 2400 1350"');
     expect(posterSvg).toContain('preserveAspectRatio="xMidYMid slice"');
 
+    // Hero and poster backgrounds must not repeat the brand or tagline beneath the live hero title.
+    expect(heroSvg).not.toContain("MASALA LANE");
+    expect(heroSvg).not.toContain("Fired by Charcoal");
+    expect(heroSvg).not.toContain("Artisanal Regional Indian Dining");
+    expect(posterSvg).not.toContain("MASALA LANE");
+    expect(posterSvg).not.toContain("Smoke &amp; Heritage");
+
     // Story: 1200x900 (4:3 fixed aspect ratio)
     expect(storySvg).toContain('viewBox="0 0 1200 900"');
     expect(storySvg).toContain('preserveAspectRatio="xMidYMid slice"');
