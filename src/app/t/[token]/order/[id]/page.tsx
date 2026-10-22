@@ -85,6 +85,7 @@ export default async function GuestOrderTrackerPage({ params }: OrderPageProps) 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)]">
       <GuestHeader
+        homeHref={`/t/${token}`}
         restaurantName={order.restaurantName}
         tableLabel={order.tableNumber}
       />

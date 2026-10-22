@@ -17,7 +17,7 @@ test.describe("Payment Processing & Integrity Verification", () => {
   }) => {
     // 1. Guest visits menu, adds an item, and selects Pay at Counter
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
-    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(500);
     await firstCard.click();

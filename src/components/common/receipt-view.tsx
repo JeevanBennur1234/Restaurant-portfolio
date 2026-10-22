@@ -56,6 +56,9 @@ export function ReceiptModal({
 
   return (
     <div
+      id="receipt-print-root"
+      data-testid="receipt-print-root"
+      data-print-layout={printLayout}
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto"
       role="dialog"
       aria-modal="true"
@@ -142,6 +145,7 @@ export function ReceiptModal({
 
         {/* Printable Receipt Content */}
         <div
+          data-receipt-content="true"
           className={`p-6 sm:p-8 overflow-y-auto space-y-6 print:overflow-visible print:p-0 ${
             printLayout === "thermal" ? "max-w-[80mm] mx-auto font-mono text-xs sm:text-xs" : ""
           }`}

@@ -134,22 +134,6 @@ export default function HomePage() {
               >
                 Dine In
               </Link>
-              {kitchenUrl && (
-                <Link
-                  href={kitchenUrl}
-                  className="hidden lg:inline-flex items-center text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors min-h-[44px]"
-                >
-                  Kitchen
-                </Link>
-              )}
-              {managerUrl && (
-                <Link
-                  href={managerUrl}
-                  className="hidden lg:inline-flex items-center text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors min-h-[44px]"
-                >
-                  Manager
-                </Link>
-              )}
               <Link
                 href="/order"
                 data-testid="header-order-btn"
@@ -189,7 +173,7 @@ export default function HomePage() {
               <Reveal delay={0.05}>
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[#FAF7F2]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#D97706] animate-pulse" />
-                  <span className="eyebrow text-[11px] text-[#FAF7F2]">
+                  <span className="eyebrow text-xs sm:text-sm font-semibold tracking-wider text-[#FAF7F2]">
                     00 / Regional Indian · Bengaluru
                   </span>
                 </div>
@@ -199,12 +183,6 @@ export default function HomePage() {
                 <h1 className="font-serif text-[#FAF7F2] uppercase font-bold tracking-tight drop-shadow-md leading-[0.92] text-[clamp(3rem,9vw,9rem)]">
                   Masala Lane
                 </h1>
-              </Reveal>
-
-              <Reveal delay={0.25}>
-                <p className="max-w-2xl mx-auto text-base sm:text-xl text-[#EAE2D8] font-sans font-normal leading-relaxed drop-shadow-sm px-2">
-                  Fired by charcoal, steeped in regional heritage, served with effortless digital hospitality.
-                </p>
               </Reveal>
 
               <Reveal delay={0.35}>
@@ -294,7 +272,7 @@ export default function HomePage() {
               {/* Column 1: Editorial Pull-Quote & Narrative */}
               <div className="lg:col-span-7 space-y-8">
                 <Reveal>
-                  <span className="eyebrow text-[#D97706] font-semibold">
+                  <span className="eyebrow text-sm sm:text-base md:text-lg font-bold tracking-wider text-[#D97706]">
                     02 / Culinary Heritage
                   </span>
                 </Reveal>
@@ -376,7 +354,7 @@ export default function HomePage() {
             <div className="max-w-7xl mx-auto space-y-10">
               <Reveal className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div className="space-y-2">
-                  <span className="eyebrow text-[#D97706] font-semibold">
+                  <span className="eyebrow text-sm sm:text-base md:text-lg font-bold tracking-wider text-[#D97706]">
                     {"03 / Chef's Signatures"}
                   </span>
                   <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[var(--text-primary)]">
@@ -399,7 +377,7 @@ export default function HomePage() {
           <section id="table-ordering" className="ember-section py-24 sm:py-32 px-4 sm:px-8 border-y border-[var(--ember-border)] w-full">
             <div className="max-w-7xl mx-auto space-y-16">
               <Reveal className="max-w-2xl space-y-3">
-                <span className="eyebrow text-[#D97706] font-semibold">
+                <span className="eyebrow text-base sm:text-lg md:text-xl font-bold tracking-wider text-[#D97706]">
                   04 / Effortless Hospitality
                 </span>
                 <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-[#FAF7F2] tracking-tight">
@@ -417,9 +395,9 @@ export default function HomePage() {
                     <div className="h-12 w-12 rounded-full bg-[#D97706]/15 flex items-center justify-center text-[#D97706]">
                       <Smartphone className="h-6 w-6" />
                     </div>
-                    <span className="font-mono text-xl font-bold text-[#D97706]">01</span>
-                  </div>
-                  <h3 className="font-serif text-xl font-bold text-[#FAF7F2]">
+                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#D97706]">01</span>
+                    </div>
+                    <h3 className="font-serif text-2xl font-bold text-[#FAF7F2]">
                     Scan at your table
                   </h3>
                   <p className="text-sm text-[#D1C5B8] leading-relaxed">
@@ -433,9 +411,9 @@ export default function HomePage() {
                     <div className="h-12 w-12 rounded-full bg-[#D97706]/15 flex items-center justify-center text-[#D97706]">
                       <Flame className="h-6 w-6" />
                     </div>
-                    <span className="font-mono text-xl font-bold text-[#D97706]">02</span>
-                  </div>
-                  <h3 className="font-serif text-xl font-bold text-[#FAF7F2]">
+                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#D97706]">02</span>
+                    </div>
+                    <h3 className="font-serif text-2xl font-bold text-[#FAF7F2]">
                     Order and pay
                   </h3>
                   <p className="text-sm text-[#D1C5B8] leading-relaxed">
@@ -449,9 +427,9 @@ export default function HomePage() {
                     <div className="h-12 w-12 rounded-full bg-[#D97706]/15 flex items-center justify-center text-[#D97706]">
                       <ChefHat className="h-6 w-6" />
                     </div>
-                    <span className="font-mono text-xl font-bold text-[#D97706]">03</span>
-                  </div>
-                  <h3 className="font-serif text-xl font-bold text-[#FAF7F2]">
+                    <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#D97706]">03</span>
+                    </div>
+                    <h3 className="font-serif text-2xl font-bold text-[#FAF7F2]">
                     Track it live
                   </h3>
                   <p className="text-sm text-[#D1C5B8] leading-relaxed">
@@ -488,7 +466,7 @@ export default function HomePage() {
           <section className="py-24 sm:py-32 px-4 sm:px-8 max-w-7xl mx-auto w-full">
             <div className="space-y-16">
               <Reveal className="max-w-2xl space-y-2">
-                <span className="eyebrow text-[#D97706] font-semibold">
+                <span className="eyebrow text-sm sm:text-base md:text-lg font-bold tracking-wider text-[#D97706]">
                   {"05 / Visit & Hours"}
                 </span>
                 <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[var(--text-primary)]">

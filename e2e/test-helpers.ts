@@ -11,12 +11,12 @@ export const DEMO_TABLE_TOKEN = "demo-table-7";
 
 export const SEEDED_KITCHEN_USER = {
   username: "kitchen",
-  password: "kitchen123",
+  password: "kitchen@123",
 };
 
 export const SEEDED_MANAGER_USER = {
   username: "manager",
-  password: "manager123",
+  password: "manager@123",
 };
 
 /**

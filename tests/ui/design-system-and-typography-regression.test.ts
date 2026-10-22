@@ -21,6 +21,10 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   const adminMenuCode = fs.readFileSync(path.resolve(root, "src/components/admin/admin-menu-tab.tsx"), "utf-8");
   const adminTablesCode = fs.readFileSync(path.resolve(root, "src/components/admin/admin-tables-tab.tsx"), "utf-8");
   const adminReportsCode = fs.readFileSync(path.resolve(root, "src/components/admin/admin-reports-tab.tsx"), "utf-8");
+  const receiptViewCode = fs.readFileSync(path.resolve(root, "src/components/common/receipt-view.tsx"), "utf-8");
+  const globalStylesCode = fs.readFileSync(path.resolve(root, "src/app/globals.css"), "utf-8");
+  const guestTablePageCode = fs.readFileSync(path.resolve(root, "src/app/t/[token]/page.tsx"), "utf-8");
+  const guestOrderPageCode = fs.readFileSync(path.resolve(root, "src/app/t/[token]/order/[id]/page.tsx"), "utf-8");
 
   describe("1. Customer UI Branding & Grid Structure", () => {
     it("preserves restaurant branding in GuestHeader while removing duplicated title in MenuView hero", () => {
@@ -110,7 +114,33 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
     });
   });
 
-  describe("4. Essential Actions & Tap Target Standards", () => {
+  describe("4. Receipt Print Isolation & Brand Navigation", () => {
+    it("makes the Customer brand mark return to the active table menu", () => {
+      expect(guestHeaderCode).toContain('data-testid="guest-brand-home-link"');
+      expect(guestHeaderCode).toContain("href={homeHref}");
+      expect(guestHeaderCode).toContain('homeHref = "/"');
+      expect(guestTablePageCode).toContain("homeHref={`/t/${token}`}");
+      expect(guestOrderPageCode).toContain("homeHref={`/t/${token}`}");
+    });
+
+    it("makes the Manager brand mark a link to the public restaurant home page", () => {
+      expect(adminNavbarCode).toContain('data-testid="admin-brand-home-link"');
+      expect(adminNavbarCode).toContain("href={brandHomeUrl}");
+      expect(adminNavbarCode).toContain('resolveSiteUrl("customer", "/")');
+    });
+
+    it("prints only the bill/receipt instead of the manager page behind its modal", () => {
+      expect(receiptViewCode).toContain('id="receipt-print-root"');
+      expect(receiptViewCode).toContain('data-receipt-content="true"');
+      expect(globalStylesCode).toContain("body * {");
+      expect(globalStylesCode).toContain("visibility: hidden !important");
+      expect(globalStylesCode).toContain("#receipt-print-root,");
+      expect(globalStylesCode).toContain("#receipt-print-root .print\\:hidden");
+      expect(globalStylesCode).toContain('data-print-layout="thermal"');
+    });
+  });
+
+  describe("5. Essential Actions & Tap Target Standards", () => {
     it("provides accessible min 44px tap targets for cart, stepper, and checkout CTAs", () => {
       // Quantity steppers
       expect(itemDetailSheetCode).toContain("min-h-[44px] min-w-[44px]");

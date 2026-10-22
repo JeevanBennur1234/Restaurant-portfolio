@@ -370,3 +370,97 @@ h1, h2, h3, .font-serif {
     transform: none !important;
   }
 }
+
+
+/* Print only the selected Masala Lane bill/receipt, never the dashboard behind its modal. */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@page receipt-thermal {
+  size: 80mm auto;
+  margin: 3mm;
+}
+
+@media print {
+  html,
+  body {
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #receipt-print-root,
+  #receipt-print-root * {
+    visibility: visible !important;
+  }
+
+  #receipt-print-root {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #111 !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  #receipt-print-root > div {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  #receipt-print-root [data-receipt-content] {
+    max-width: none !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 auto !important;
+    color: #111 !important;
+    background: #fff !important;
+  }
+
+  #receipt-print-root .print\:hidden {
+    display: none !important;
+  }
+
+  #receipt-print-root[data-print-layout="thermal"] {
+    page: receipt-thermal;
+    width: 74mm !important;
+    max-width: 74mm !important;
+  }
+
+  #receipt-print-root[data-print-layout="thermal"] [data-receipt-content] {
+    width: 74mm !important;
+    max-width: 74mm !important;
+    padding: 0 !important;
+  }
+}

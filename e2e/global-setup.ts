@@ -116,8 +116,8 @@ export default async function globalSetup() {
     env: {
       ...process.env,
       DATABASE_URL: cleanDbUrl,
-      SEED_KITCHEN_PASSWORD: "kitchen123",
-      SEED_MANAGER_PASSWORD: "manager123",
+      SEED_KITCHEN_PASSWORD: "kitchen@123",
+      SEED_MANAGER_PASSWORD: "manager@123",
       NODE_ENV: "development",
     },
     stdio: "inherit",

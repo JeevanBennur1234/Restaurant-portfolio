@@ -21,7 +21,7 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     // 1. Guest navigates to Table 7 and adds item to cart
     await guestPage.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
     await expect(guestPage).toHaveTitle(/Table 7/i, { timeout: 15_000 });
-    const firstCard = guestPage.locator('[data-testid="menu-item-card"]').first();
+    const firstCard = guestPage.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
 
@@ -59,7 +59,7 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     // 2. Kitchen logs in with credentials
     await kitchenPage.goto(`${KITCHEN_URL}/kitchen`);
     await kitchenPage.fill('[data-testid="kitchen-username-input"]', "kitchen");
-    await kitchenPage.fill('[data-testid="kitchen-password-input"]', "kitchen123");
+    await kitchenPage.fill('[data-testid="kitchen-password-input"]', "kitchen@123");
     await kitchenPage.click('[data-testid="kitchen-login-btn"]');
 
     // Wait for KDS board to load

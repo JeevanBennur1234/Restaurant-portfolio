@@ -69,7 +69,7 @@ test.describe("Customer Food Ordering Journey", () => {
     await expect(page.getByText(/QR Code Not Recognized/i)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/We could not find an active table session/i)).toBeVisible();
     // Static or interactive menu must NOT be displayed
-    await expect(page.locator('[data-testid="menu-item-card"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="menu-item-card"]:visible')).toHaveCount(0);
 
     // 4. Test direct navigation to /t without token redirects back to /order
     await page.goto(`${CUSTOMER_URL}/t`);
@@ -83,7 +83,7 @@ test.describe("Customer Food Ordering Journey", () => {
     // 6. Assert genuine interactive menu loads with table label
     await page.waitForURL(/\/t\/.+/, { timeout: 30_000 });
     await expect(page).toHaveTitle(/Table 7/i);
-    const itemCards = page.locator('[data-testid="menu-item-card"]');
+    const itemCards = page.locator('[data-testid="menu-item-card"]:visible');
     await expect(itemCards.first()).toBeVisible({ timeout: 15_000 });
   });
 
@@ -92,7 +92,7 @@ test.describe("Customer Food Ordering Journey", () => {
   }) => {
     // 1. Open customer ordering page using valid table QR token
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
-    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(500);
     await firstCard.click();
@@ -152,6 +152,13 @@ test.describe("Customer Food Ordering Journey", () => {
     } finally {
       await pgClient.end();
     }
+
+    // The brand mark on the tracker should return the guest to this table's menu.
+    const brandHomeLink = page.getByTestId("guest-brand-home-link");
+    await expect(brandHomeLink).toHaveAttribute("href", `/t/${DEMO_TABLE_TOKEN}`);
+    await brandHomeLink.click();
+    await expect(page).toHaveURL(new RegExp(`/t/${DEMO_TABLE_TOKEN}$`));
+    await expect(page.locator('[data-testid="menu-item-card"]:visible').first()).toBeVisible();
   });
 
   test("missing Razorpay configuration in cart does not produce fake payment success and allows Pay at Counter recovery", async ({
@@ -159,7 +166,7 @@ test.describe("Customer Food Ordering Journey", () => {
   }) => {
     // 1. Visit table ordering page
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
-    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(500);
     await firstCard.click();

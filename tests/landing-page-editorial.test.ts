@@ -17,8 +17,8 @@ describe("Editorial Landing Page (src/app/page.tsx)", () => {
     expect(pageContent).toContain("00 / Regional Indian · Bengaluru");
     // Wordmark
     expect(pageContent).toContain("Masala Lane");
-    // Tagline
-    expect(pageContent).toContain("Fired by charcoal, steeped in regional heritage");
+    // Removed charcoal subtitle from hero per user direction
+    expect(pageContent).not.toContain("Fired by charcoal, steeped in regional heritage");
     // Button 1: View signature dishes to #signature-dishes anchor
     expect(pageContent).toContain('href="#signature-dishes"');
     expect(pageContent).toContain("View signature dishes");

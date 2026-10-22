@@ -21,7 +21,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
 
     // A. Guest Menu Page
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
-    const firstCard = page.locator('[data-testid="menu-item-card"]').first();
+    const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
 
     const menuScrollWidth = await page.evaluate(
@@ -82,7 +82,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
 
     for (const name of targetDishes) {
       const card = page
-        .locator('[data-testid="menu-item-card"]')
+        .locator('[data-testid="menu-item-card"]:visible')
         .filter({ has: page.locator("h3", { hasText: name }) })
         .first();
       await expect(card).toBeVisible({ timeout: 15_000 });
@@ -110,7 +110,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     // 1. Accessibility Scan: Guest Menu
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
     await expect(
-      page.locator('[data-testid="menu-item-card"]').first()
+      page.locator('[data-testid="menu-item-card"]:visible').first()
     ).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(500);
 
@@ -142,7 +142,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     // 3. Accessibility Scan: Kitchen Board (signed in with staff credentials)
     await page.goto(`${KITCHEN_URL}/kitchen`);
     await page.fill('[data-testid="kitchen-username-input"]', "kitchen");
-    await page.fill('[data-testid="kitchen-password-input"]', "kitchen123");
+    await page.fill('[data-testid="kitchen-password-input"]', "kitchen@123");
     await page.click('[data-testid="kitchen-login-btn"]');
     await expect(page.locator("header")).toBeVisible({ timeout: 15_000 });
 

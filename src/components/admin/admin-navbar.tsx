@@ -39,6 +39,7 @@ export function AdminNavbar({
 }: AdminNavbarProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const brandHomeUrl = customerUrl ?? resolveSiteUrl("customer", "/") ?? "/";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -83,25 +84,31 @@ export function AdminNavbar({
     <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
-          {/* Logo & Restaurant Title */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-white shadow-sm ring-2 ring-[var(--primary)]/20">
-              <UtensilsCrossed className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)]">
+          {/* Authentic restaurant brand; always returns to the public Masala Lane home page. */}
+          <Link
+            href={brandHomeUrl}
+            data-testid="admin-brand-home-link"
+            aria-label={`Go to ${session.restaurantName || "Masala Lane"} main page`}
+            title={`Open ${session.restaurantName || "Masala Lane"} main page`}
+            className="group flex min-w-0 items-center gap-3 rounded-xl py-1 pr-2 transition-colors hover:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--primary)]/25 bg-[var(--primary-subtle)] text-[var(--primary)] shadow-xs transition-transform group-hover:scale-105">
+              <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="truncate font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--primary)]">
                   {session.restaurantName || "Masala Lane"}
                 </span>
-                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
                   Manager Hub
                 </span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] font-mono">
+              </span>
+              <span className="mt-0.5 block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
                 DinePulse Admin · {session.username}
-              </p>
-            </div>
-          </div>
+              </span>
+            </span>
+          </Link>
 
           {/* Center Tabs Desktop with High-Contrast Active State */}
           <nav
