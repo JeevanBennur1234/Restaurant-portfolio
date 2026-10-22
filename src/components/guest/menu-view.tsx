@@ -23,7 +23,6 @@ export interface MenuViewProps {
   categories: GuestCategory[];
   items: GuestMenuItem[];
   table: GuestTable;
-  restaurantName?: string;
   paymentsEnabled?: boolean;
   paymentsTestMode?: boolean;
 }
@@ -44,7 +43,6 @@ export function MenuView({
   categories,
   items,
   table,
-  restaurantName = "Masala Lane",
   paymentsEnabled = true,
   paymentsTestMode = false,
 }: MenuViewProps) {
@@ -262,39 +260,6 @@ export function MenuView({
 
   return (
     <div className="flex-1 flex flex-col pb-28 overflow-x-hidden">
-      {/* Compact Editorial Hero Banner (<200px tall so menu starts on screen one) */}
-      <section
-        aria-label={`Menu for ${restaurantName}`}
-        data-restaurant={restaurantName}
-        className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] py-2 sm:py-4 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
-      >
-        {/* Ambient warm tandoor glow */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[var(--primary)]/20 blur-2xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-[var(--accent)]/15 blur-2xl"
-        />
-
-        <div className="relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="eyebrow text-xs sm:text-sm text-amber-300/90 font-medium tracking-[0.16em] sm:tracking-[0.2em]">
-              00 · Table Dining
-            </span>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-sm font-semibold border border-white/15 backdrop-blur-xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              <span>{table.tableNumber}</span>
-            </div>
-          </div>
-
-          <p className="font-serif text-base sm:text-xl font-semibold tracking-tight text-[#FAF7F2] leading-tight">
-            Order fresh from our kitchen
-          </p>
-        </div>
-      </section>
-
       {/* Search Bar & Dietary/Spice Filter Section */}
       <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
         <div className="mx-auto w-full max-w-7xl space-y-1.5 px-3 py-1.5 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8">
@@ -467,14 +432,15 @@ export function MenuView({
         </div>
       </div>
 
-      {/* Sticky "Lane Rail" Category Signboards Navigation */}
-      <div className="sticky top-[49px] sm:top-[61px] z-20 border-y border-[#2E2723] bg-[#14100E]/95 shadow-xs backdrop-blur-md">
-        <nav
-          ref={navRef}
-          aria-label="Menu categories"
-          onScroll={updateCategoryScrollAffordance}
-          className="flex w-full min-w-0 gap-3 overflow-x-auto px-10 py-2.5 sm:px-11 sm:py-3 no-scrollbar scroll-smooth"
-        >
+      {/* Sticky category rail aligned to the same content grid as search and dish sections. */}
+      <div className="sticky top-[61px] sm:top-[69px] z-20 border-y border-[#2E2723] bg-[#14100E]/95 shadow-xs backdrop-blur-md">
+        <div className="relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8">
+          <nav
+            ref={navRef}
+            aria-label="Menu categories"
+            onScroll={updateCategoryScrollAffordance}
+            className="flex w-full min-w-0 gap-3 overflow-x-auto px-0 py-2.5 sm:py-3 no-scrollbar scroll-smooth"
+          >
           <div className="flex w-max min-w-max gap-3">
             {categories.map((cat) => {
               const count = itemsByCategory.get(cat.id)?.length ?? 0;
@@ -522,39 +488,40 @@ export function MenuView({
               );
             })}
           </div>
-        </nav>
-        {canScrollCategoryLeft && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-7 z-10 w-4 bg-gradient-to-r from-[#14100E] via-[#14100E]/85 to-transparent"
-          />
-        )}
-        {canScrollCategoryRight && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-7 z-10 w-4 bg-gradient-to-l from-[#14100E] via-[#14100E]/85 to-transparent"
-          />
-        )}
-        {canScrollCategoryLeft && (
-          <button
-            type="button"
-            aria-label="Scroll categories left"
-            onClick={() => scrollCategoriesBy(-1)}
-            className="absolute left-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-        )}
-        {canScrollCategoryRight && (
-          <button
-            type="button"
-            aria-label="Scroll categories right"
-            onClick={() => scrollCategoriesBy(1)}
-            className="absolute right-1 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        )}
+          </nav>
+          {canScrollCategoryLeft && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-3 sm:left-6 lg:left-8 z-10 w-4 bg-gradient-to-r from-[#14100E] via-[#14100E]/85 to-transparent"
+            />
+          )}
+          {canScrollCategoryRight && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-3 sm:right-6 lg:right-8 z-10 w-4 bg-gradient-to-l from-[#14100E] via-[#14100E]/85 to-transparent"
+            />
+          )}
+          {canScrollCategoryLeft && (
+            <button
+              type="button"
+              aria-label="Scroll categories left"
+              onClick={() => scrollCategoriesBy(-1)}
+              className="absolute left-3 sm:left-6 lg:left-8 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          {canScrollCategoryRight && (
+            <button
+              type="button"
+              aria-label="Scroll categories right"
+              onClick={() => scrollCategoriesBy(1)}
+              className="absolute right-3 sm:right-6 lg:right-8 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#3A302A] bg-[#1A1614]/95 text-[#FAF7F2] shadow-sm transition hover:bg-[#2E231D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Street Content */}

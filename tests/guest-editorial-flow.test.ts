@@ -21,14 +21,13 @@ describe("Guest Editorial Flow Polish Verification", () => {
   const sheetCode = fs.readFileSync(sheetPath, "utf-8");
   const globalsCssCode = fs.readFileSync(globalsCssPath, "utf-8");
 
-  it("1. menu-view.tsx has compact hero, scrollable sticky category tabs, responsive grid, and scroll-spy", () => {
-    // Compact hero banner without duplicated branding
-    expect(menuViewCode).toContain("table.tableNumber");
-    expect(menuViewCode).toContain("restaurantName");
-    expect(menuViewCode).toContain("Order fresh from our kitchen");
-    expect(menuViewCode).toContain("font-serif text-base sm:text-xl font-semibold");
+  it("1. menu-view.tsx removes the redundant QR hero, aligns category tabs, and keeps responsive grid/scroll-spy", () => {
+    // The table menu begins directly with search/filters; the extra dining banner is gone.
+    expect(menuViewCode).not.toContain("Table Dining");
+    expect(menuViewCode).not.toContain("Order fresh from our kitchen");
+    expect(menuViewCode).not.toContain('restaurantName = "Masala Lane"');
 
-    // Hero, search, dietary chips, and result count share the menu content grid alignment.
+    // Search, category rail, and dish sections share the same content grid alignment.
     expect(menuViewCode).toContain("relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8");
     expect(menuViewCode).toContain("mx-auto w-full max-w-7xl space-y-1.5 px-3 py-1.5 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8");
     expect(menuViewCode).toContain("relative flex w-full max-w-2xl items-center");
@@ -44,7 +43,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain('aria-current={isActive ? "location" : undefined}');
 
     // Sticky category rail centers active tabs and has fades plus explicit arrow controls.
-    expect(menuViewCode).toContain("sticky top-[49px] sm:top-[61px]");
+    expect(menuViewCode).toContain("sticky top-[61px] sm:top-[69px]");
+    expect(menuViewCode).toContain("px-0 py-2.5 sm:py-3 no-scrollbar scroll-smooth");
     expect(menuViewCode).toContain("canScrollCategoryRight");
     expect(menuViewCode).toContain("nav.scrollTo");
     expect(menuViewCode).toContain("Scroll categories left");

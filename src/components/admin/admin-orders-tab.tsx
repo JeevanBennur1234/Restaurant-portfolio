@@ -381,11 +381,11 @@ export function AdminOrdersTab({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Search & Filters Bar */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-xs">
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-[var(--bg-surface)] p-2.5 sm:p-3 rounded-xl border border-[var(--border-subtle)] shadow-xs">
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-[340px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="text"
@@ -395,12 +395,12 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             placeholder="Search order #, table, customer name..."
-            className="w-full h-11 pl-10 pr-3.5 text-sm sm:text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
+            className="w-full h-10 pl-10 pr-3.5 text-sm sm:text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
           />
         </div>
 
         {/* Filter Selects & Refresh */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
           <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
             <Filter className="h-4 w-4" />
             <span>Status:</span>
@@ -412,7 +412,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by status"
-            className="h-11 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
+            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="placed">Placed</option>
@@ -429,7 +429,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by payment status"
-            className="h-11 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
+            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
           >
             <option value="all">All Payments</option>
             <option value="paid">Paid</option>
@@ -443,7 +443,7 @@ export function AdminOrdersTab({
             size="sm"
             onClick={() => fetchOrders(true)}
             isLoading={isLoading}
-            className="h-11 px-3.5 text-sm font-semibold"
+            className="h-10 px-3.5 text-sm font-semibold"
             leftIcon={<RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />}
           >
             Refresh
@@ -469,15 +469,15 @@ export function AdminOrdersTab({
           <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin">
             <table className="w-full text-left text-sm border-collapse min-w-[760px]">
               <thead>
-                <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-xs tracking-wider">
-                  <th className="py-3.5 px-4 font-semibold">Order #</th>
-                  <th className="py-3.5 px-4 font-semibold">Table</th>
-                  <th className="py-3.5 px-4 font-semibold">Items Summary</th>
-                  <th className="py-3.5 px-4 text-right font-semibold">Total</th>
-                  <th className="py-3.5 px-4 font-semibold">Status</th>
-                  <th className="py-3.5 px-4 font-semibold">Payment</th>
-                  <th className="py-3.5 px-4 font-semibold">Time</th>
-                  <th className="py-3.5 px-4 text-right font-semibold">Actions</th>
+                <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
+                  <th className="py-2.5 px-3 font-semibold">Order #</th>
+                  <th className="py-2.5 px-3 font-semibold">Table</th>
+                  <th className="py-2.5 px-3 font-semibold">Items Summary</th>
+                  <th className="py-2.5 px-3 text-right font-semibold">Total</th>
+                  <th className="py-2.5 px-3 font-semibold">Status</th>
+                  <th className="py-2.5 px-3 font-semibold">Payment</th>
+                  <th className="py-2.5 px-3 font-semibold">Time</th>
+                  <th className="py-2.5 px-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -492,40 +492,40 @@ export function AdminOrdersTab({
                       className="hover:bg-[var(--bg-subtle)]/80 focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] transition-colors"
                     >
                       {/* Order Number */}
-                      <td className="py-4 px-4 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
+                      <td className="py-3 px-3 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
                         {order.orderNumber}
                       </td>
 
                       {/* Table */}
-                      <td className="py-4 px-4 font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+                      <td className="py-3 px-3 font-semibold text-sm sm:text-base text-[var(--text-primary)]">
                         {order.tableNumber}
                       </td>
 
                       {/* Items */}
-                      <td className="py-4 px-4 max-w-xs truncate text-sm text-[var(--text-secondary)]">
+                      <td className="py-3 px-3 max-w-xs truncate text-sm text-[var(--text-secondary)]">
                         <span title={order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}>
                           {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
                         </span>
                       </td>
 
                       {/* Total */}
-                      <td className="py-4 px-4 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono">
+                      <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono">
                         {formatPaiseToINR(order.totalPaise)}
                       </td>
 
                       {/* Status */}
-                      <td className="py-4 px-4">{getStatusBadge(order.status)}</td>
+                      <td className="py-3 px-3">{getStatusBadge(order.status)}</td>
 
                       {/* Payment */}
-                      <td className="py-4 px-4">{getPaymentBadge(order.paymentStatus)}</td>
+                      <td className="py-3 px-3">{getPaymentBadge(order.paymentStatus)}</td>
 
                       {/* Elapsed Time */}
-                      <td className="py-4 px-4 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
+                      <td className="py-3 px-3 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
                         {formatElapsedTime(order.createdAt)}
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-right space-x-1">
+                      <td className="py-2.5 px-3 text-right space-x-1">
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(order)}

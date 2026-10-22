@@ -48,10 +48,13 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
   });
 
   it("Admin Navbar: cleaner tab navigation with clear active state and focus rings", () => {
-    // Active state with primary brand color and font-semibold
-    expect(adminNavbarCode).toContain("bg-[var(--primary)] text-white shadow-xs font-semibold");
-    // Focus visible outline
-    expect(adminNavbarCode).toContain("focus-visible:ring-2 focus-visible:ring-[var(--primary)]");
+    // Reference-matched active terracotta tab and dark inactive navigation tiles.
+    expect(adminNavbarCode).toContain("bg-[#C85A32] text-white shadow-md shadow-[#C85A32]/20 font-semibold");
+    expect(adminNavbarCode).toContain("bg-[#292522] text-[#F4EFEA]");
+    expect(adminNavbarCode).toContain("hidden lg:grid w-[440px] shrink-0 grid-cols-4");
+    expect(adminNavbarCode).toContain("flex lg:hidden overflow-x-auto");
+    // Keyboard focus remains clearly visible on tabs.
+    expect(adminNavbarCode).toContain("focus-visible:ring-2 focus-visible:ring-[#C85A32]");
   });
 
   it("Admin Reports: KPI cards with large numerals and brand-coloured 7-day chart", () => {

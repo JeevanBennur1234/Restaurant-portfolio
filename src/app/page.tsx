@@ -16,13 +16,9 @@ import { SmoothScroll } from "@/components/ui/smooth-scroll";
 import { Reveal } from "@/components/ui/reveal";
 import { HeroMedia } from "@/components/landing/hero-media";
 import { SignatureCarousel, type SignatureDishItem } from "@/components/landing/signature-carousel";
-import { resolveSiteUrl } from "@/lib/site-urls";
 
 export default function HomePage() {
   const root = process.cwd();
-
-  const kitchenUrl = resolveSiteUrl("kitchen", "/kitchen");
-  const managerUrl = resolveSiteUrl("manager", "/admin");
 
   // Check on server whether custom food photos or video exist on disk
   const hasHeroVideo = fs.existsSync(path.resolve(root, "public/media/hero.mp4"));
@@ -588,7 +584,7 @@ export default function HomePage() {
 
               {/* Concept Preview by Intallo Footer */}
               <div className="pt-16 border-t border-[var(--border-subtle)] space-y-8">
-                <Reveal className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+                <Reveal className="flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left">
                   <div className="space-y-2">
                     <div className="flex items-center justify-center md:justify-start gap-2">
                       <span className="font-serif text-xl font-bold text-[var(--primary)]">
@@ -611,29 +607,6 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                    <Link href="/order" className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
-                      Table Ordering
-                    </Link>
-                    {kitchenUrl && (
-                      <Link href={kitchenUrl} className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
-                        Kitchen Board
-                      </Link>
-                    )}
-                    {managerUrl && (
-                      <Link href={managerUrl} className="hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center">
-                        Manager Admin
-                      </Link>
-                    )}
-                    <a
-                      href="https://intallo.in/contact"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#D97706] hover:underline min-h-[44px] inline-flex items-center"
-                    >
-                      Contact Intallo
-                    </a>
-                  </div>
                 </Reveal>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono text-[var(--text-muted)] pt-6 border-t border-[var(--border-subtle)]/50">

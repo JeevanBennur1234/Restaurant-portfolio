@@ -26,18 +26,15 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   const globalStylesCode = fs.readFileSync(path.resolve(root, "src/app/globals.css"), "utf-8");
   const guestTablePageCode = fs.readFileSync(path.resolve(root, "src/app/t/[token]/page.tsx"), "utf-8");
   const guestOrderPageCode = fs.readFileSync(path.resolve(root, "src/app/t/[token]/order/[id]/page.tsx"), "utf-8");
+  const homePageCode = fs.readFileSync(path.resolve(root, "src/app/page.tsx"), "utf-8");
 
   describe("1. Customer UI Branding & Grid Structure", () => {
-    it("preserves restaurant branding in GuestHeader while removing duplicated title in MenuView hero", () => {
-      // Navbar retains the restaurant branding
+    it("preserves restaurant branding in GuestHeader and removes the redundant QR dining strip", () => {
       expect(guestHeaderCode).toContain("{restaurantName}");
       expect(guestHeaderCode).toContain("font-serif");
-
-      // Hero banner replaces duplicated heading with concise, useful ordering message
-      expect(menuViewCode).toContain("Order fresh from our kitchen");
-      // Does not contain duplicated large hero h1 displaying restaurantName
-      expect(menuViewCode).not.toContain("<h1>{restaurantName}</h1>");
-      expect(menuViewCode).not.toContain("<h1 className=\"font-serif text-lg sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2\">");
+      expect(menuViewCode).not.toContain("Order fresh from our kitchen");
+      expect(menuViewCode).not.toContain("Table Dining");
+      expect(menuViewCode).not.toContain("restaurantName = \"Masala Lane\"");
     });
 
     it("enforces row-major grid flow without artificial blank holes or centering offset columns", () => {
@@ -99,12 +96,19 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
 
     it("ensures Manager dashboard tables and forms use readable typography hierarchy", () => {
       // Admin navbar tab typography
-      expect(adminNavbarCode).toContain("text-sm transition-all cursor-pointer");
-      expect(adminNavbarCode).toContain("min-h-[40px]");
+      expect(adminNavbarCode).toContain("text-sm leading-tight transition-all cursor-pointer");
+      expect(adminNavbarCode).toContain("bg-[#292522]");
+      expect(adminNavbarCode).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");
+      expect(adminNavbarCode).toContain("flex h-14 items-center justify-between gap-3");
+      expect(adminNavbarCode).toContain("Manager Hub");
+      expect(adminNavbarCode).not.toContain("DinePulse Admin");
+      expect(adminNavbarCode).toContain("min-h-[44px]");
 
       // Admin orders table
       expect(adminOrdersCode).toContain("text-sm border-collapse min-w-[760px]");
-      expect(adminOrdersCode).toContain("text-xs tracking-wider");
+      expect(adminOrdersCode).toContain("text-[10px] tracking-wider");
+      expect(adminOrdersCode).toContain("max-w-[340px]");
+      expect(fs.readFileSync(path.resolve(root, "src/components/admin/admin-dashboard.tsx"), "utf-8")).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");
       expect(adminOrdersCode).toContain("text-sm sm:text-base");
 
       // Admin menu table
@@ -120,12 +124,19 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   });
 
   describe("4. Receipt Print Isolation & Brand Navigation", () => {
-    it("makes the Customer brand mark return to the active table menu", () => {
+    it("makes the Customer menu brand mark return to the public home page and the order tracker return to the table menu", () => {
       expect(guestHeaderCode).toContain('data-testid="guest-brand-home-link"');
       expect(guestHeaderCode).toContain("href={homeHref}");
       expect(guestHeaderCode).toContain('homeHref = "/"');
-      expect(guestTablePageCode).toContain("homeHref={`/t/${token}`}");
+      expect(guestTablePageCode).toContain('homeHref="/"');
       expect(guestOrderPageCode).toContain("homeHref={`/t/${token}`}");
+    });
+
+    it("removes internal utility shortcuts from the customer landing-page footer", () => {
+      expect(homePageCode).not.toContain("Table Ordering");
+      expect(homePageCode).not.toContain("Kitchen Board");
+      expect(homePageCode).not.toContain("Manager Admin");
+      expect(homePageCode).not.toContain("Contact Intallo");
     });
 
     it("makes the Manager brand mark a link to the public restaurant home page", () => {

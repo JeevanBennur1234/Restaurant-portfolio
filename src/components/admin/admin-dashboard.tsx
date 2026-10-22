@@ -125,7 +125,7 @@ function AdminDashboardContent({
       />
 
       {/* Main Tab Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="mx-auto flex-1 w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px] py-4">
         {activeTab === "orders" && (
           <AdminOrdersTab
             onOrderUpdate={() => setRefreshKey((prev) => prev + 1)}
