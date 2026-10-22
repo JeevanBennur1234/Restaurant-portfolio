@@ -51,8 +51,12 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
     // Reference-matched active terracotta tab and dark inactive navigation tiles.
     expect(adminNavbarCode).toContain("bg-[#C85A32] text-white shadow-md shadow-[#C85A32]/20 font-semibold");
     expect(adminNavbarCode).toContain("text-[#F4EFEA]");
-    expect(adminNavbarCode).toContain("hidden lg:flex items-center gap-1.5");
+    expect(adminNavbarCode).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)_minmax(0,1fr)]");
+    expect(adminNavbarCode).toContain("hidden min-w-0 lg:grid grid-cols-4");
+    expect(adminNavbarCode).toContain("whitespace-normal break-words");
     expect(adminNavbarCode).toContain("flex lg:hidden overflow-x-auto");
+    expect(adminNavbarCode).toContain("hidden xl:inline-flex");
+    expect(adminNavbarCode).toContain("hidden 2xl:inline-flex");
     // Keyboard focus remains clearly visible on tabs.
     expect(adminNavbarCode).toContain("focus-visible:ring-2 focus-visible:ring-[#C85A32]");
   });

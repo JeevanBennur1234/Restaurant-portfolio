@@ -82,7 +82,7 @@ export function AdminNavbar({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md shadow-2xs">
       <div className="mx-auto w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className="flex min-h-16 items-center gap-3 py-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)_minmax(0,1fr)]">
           {/* Authentic restaurant brand; returns to the manager console panel. */}
           <Link
             href={brandHomeUrl}
@@ -107,7 +107,7 @@ export function AdminNavbar({
           {/* Center Tabs Desktop with High-Contrast Active State */}
           <nav
             aria-label="Admin Navigation Tabs"
-            className="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-[#201C19] border border-[#3A302A] shadow-xs"
+            className="hidden min-w-0 lg:grid grid-cols-4 items-stretch gap-1 p-1 rounded-xl bg-[#201C19] border border-[#3A302A] shadow-xs"
           >
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -117,17 +117,17 @@ export function AdminNavbar({
                   data-testid={`admin-nav-${item.id}`}
                   type="button"
                   onClick={() => onTabChange(item.id)}
-                  className={`relative flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A32] min-h-[40px] border ${
+                  className={`relative flex min-w-0 items-center justify-center gap-1.5 px-1.5 xl:px-2 py-2 rounded-lg text-xs xl:text-sm leading-tight text-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A32] min-h-[44px] border ${
                     isActive
                       ? "border-[#C85A32] bg-[#C85A32] text-white shadow-md shadow-[#C85A32]/20 font-semibold"
                       : "border-transparent bg-transparent text-[#F4EFEA] hover:border-[#6B5548] hover:bg-[#38302A] hover:text-white"
                   }`}
                 >
                   {item.icon}
-                  <span className="whitespace-nowrap">{item.label}</span>
+                  <span className="min-w-0 whitespace-normal break-words">{item.label}</span>
                   {item.badge !== undefined && (
                     <span
-                      className={`ml-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                         isActive
                           ? "bg-white text-[#C85A32]"
                           : "bg-[#C85A32] text-white"
@@ -142,12 +142,12 @@ export function AdminNavbar({
           </nav>
 
           {/* Right Controls */}
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:ml-0">
             {(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen")) && (
               <Link
                 href={(kitchenUrl !== undefined ? kitchenUrl : resolveSiteUrl("kitchen", "/kitchen"))!}
                 target="_blank"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                className="hidden xl:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 title="Open Kitchen Display System in new tab"
               >
                 <ChefHat className="h-3.5 w-3.5" />
@@ -160,7 +160,7 @@ export function AdminNavbar({
               <Link
                 href={(customerUrl !== undefined ? customerUrl : resolveSiteUrl("customer", "/"))!}
                 target="_blank"
-                className="hidden lg:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                className="hidden 2xl:inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--primary)] px-2.5 py-1.5 rounded-lg hover:bg-[var(--bg-subtle)] transition-colors border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 title="Open Guest Ordering preview"
               >
                 <span>Guest Menu</span>
@@ -173,7 +173,7 @@ export function AdminNavbar({
               size="sm"
               onClick={handleLogout}
               isLoading={isLoggingOut}
-              className="h-8.5 text-xs text-[var(--text-secondary)] hover:text-red-600 dark:hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+              className="h-9 px-2 sm:px-3 text-xs whitespace-nowrap text-[var(--text-secondary)] hover:text-red-600 dark:hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
               leftIcon={<LogOut className="h-3.5 w-3.5" />}
             >
               Sign out

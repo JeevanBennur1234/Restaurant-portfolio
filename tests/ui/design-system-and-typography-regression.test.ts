@@ -99,10 +99,10 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(adminNavbarCode).toContain("whitespace-nowrap");
       expect(adminNavbarCode).toContain("text-[#F4EFEA]");
       expect(adminNavbarCode).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");
-      expect(adminNavbarCode).toContain("flex h-16 items-center justify-between gap-4");
+      expect(adminNavbarCode).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)_minmax(0,1fr)]");
       expect(adminNavbarCode).toContain("Manager Hub");
       expect(adminNavbarCode).not.toContain("DinePulse Admin");
-      expect(adminNavbarCode).toContain("min-h-[40px]");
+      expect(adminNavbarCode).toContain("min-h-[44px]");
 
       // Admin orders table
       expect(adminOrdersCode).toContain("text-sm border-collapse min-w-[760px]");
