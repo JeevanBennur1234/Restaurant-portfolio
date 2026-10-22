@@ -90,14 +90,14 @@ export function AdminNavbar({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif text-lg font-bold tracking-tight text-[var(--text-primary)]">
+                <span className="font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)]">
                   {session.restaurantName || "Masala Lane"}
                 </span>
-                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                   Manager Hub
                 </span>
               </div>
-              <p className="text-[11px] text-[var(--text-secondary)] font-mono">
+              <p className="text-xs text-[var(--text-secondary)] font-mono">
                 DinePulse Admin · {session.username}
               </p>
             </div>
@@ -116,7 +116,7 @@ export function AdminNavbar({
                   data-testid={`admin-nav-${item.id}`}
                   type="button"
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] min-h-[36px] ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] min-h-[40px] ${
                     isActive
                       ? "bg-[var(--primary)] text-white shadow-xs font-semibold"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] font-medium"
@@ -126,7 +126,7 @@ export function AdminNavbar({
                   <span>{item.label}</span>
                   {item.badge !== undefined && (
                     <span
-                      className={`ml-1 rounded-full text-[10px] font-bold px-1.5 py-0.2 ${
+                      className={`ml-1 rounded-full text-xs font-bold px-2 py-0.5 ${
                         isActive
                           ? "bg-white text-[var(--primary)]"
                           : "bg-[var(--primary)] text-white"
@@ -190,7 +190,7 @@ export function AdminNavbar({
                 data-testid={`admin-nav-mobile-${item.id}`}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer min-h-[38px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+                className={`flex shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium cursor-pointer min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
                   isActive
                     ? "bg-[var(--primary)] text-white font-semibold shadow-xs"
                     : "text-[var(--text-secondary)] bg-[var(--bg-surface)] border border-[var(--border-subtle)]"

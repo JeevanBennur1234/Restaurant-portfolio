@@ -154,9 +154,17 @@ export async function requireTableToken(
   | { ok: true; table: TableWithRestaurant; token: string }
   | { ok: false; error: GuardError }
 > {
+  let queryToken: string | null = null;
+  try {
+    queryToken = new URL(req.url).searchParams.get("token")?.trim() || null;
+  } catch {
+    queryToken = null;
+  }
+
   const token =
     paramToken?.trim() ||
-    req.headers.get("x-table-token")?.trim();
+    req.headers.get("x-table-token")?.trim() ||
+    queryToken;
 
   if (!token) {
     return {

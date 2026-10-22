@@ -20,12 +20,11 @@ describe("Guest Editorial Flow Polish Verification", () => {
   const globalsCssCode = fs.readFileSync(globalsCssPath, "utf-8");
 
   it("1. menu-view.tsx has compact hero, scrollable sticky category tabs, responsive grid, and scroll-spy", () => {
-    // Compact hero banner
-    expect(menuViewCode).toContain("aria-label=\"Restaurant banner\"");
+    // Compact hero banner without duplicated branding
     expect(menuViewCode).toContain("table.tableNumber");
     expect(menuViewCode).toContain("restaurantName");
-    expect(menuViewCode).toContain("font-serif text-lg sm:text-3xl");
-    expect(menuViewCode).toContain("hidden text-xs text-stone-300");
+    expect(menuViewCode).toContain("Order fresh from our kitchen");
+    expect(menuViewCode).toContain("font-serif text-base sm:text-xl font-semibold");
 
     // Hero, search, dietary chips, and result count share the menu content grid alignment.
     expect(menuViewCode).toContain("relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8");
@@ -42,13 +41,14 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuViewCode).toContain("Scroll categories right");
     expect(menuViewCode).toContain("scrollCategoriesBy");
 
-    // Three-column desktop grid keeps card sizes consistent and centers incomplete final rows.
+    // Three-column desktop grid preserves row-major left-to-right order without artificial holes.
     expect(menuViewCode).toContain("max-w-7xl");
     expect(menuViewCode).toContain("lg:grid-cols-3");
-    expect(menuViewCode).toContain("lg:col-start-2");
+    expect(menuViewCode).not.toContain("lg:col-start-2");
+    expect(menuViewCode).toContain("list.sort((a, b) => a.sortOrder - b.sortOrder");
     expect(menuViewCode).toContain('aria-label="Chef\'s picks" className="space-y-3 sm:space-y-4 pt-1"');
     expect(menuViewCode).toContain("CHEF&apos;S PICKS");
-    expect(menuViewCode).toContain("hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5");
+    expect(menuViewCode).toContain("hidden sm:grid sm:grid-flow-row sm:grid-cols-2 sm:items-stretch sm:gap-4 lg:grid-cols-3 lg:gap-5");
 
     // Pill tabs with sliding active indicator
     expect(menuViewCode).toContain("activeCategoryPill");
@@ -86,7 +86,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(menuItemCardCode).toContain("absolute top-3 left-3");
 
     // Editorial typography, with complete descriptions instead of mid-sentence ellipses.
-    expect(menuItemCardCode).toContain("font-serif text-base font-bold");
+    expect(menuItemCardCode).toContain("font-serif text-lg font-bold sm:text-xl");
     expect(menuItemCardCode).toContain("item.description");
     expect(menuItemCardCode).not.toContain("line-clamp-2");
 
@@ -129,6 +129,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
   it("4. item-detail-sheet.tsx & cart-sheet.tsx feature image header, min 44px tap targets, and clear price breakdowns", () => {
     // Item detail sheet
     expect(itemDetailSheetCode).toContain("Freshly Prepared");
+    expect(itemDetailSheetCode).toContain('side="center"');
+    expect(itemDetailSheetCode).toContain("aria-label={`Close ${item.name} details`}");
     expect(itemDetailSheetCode).toContain("min-h-[44px] min-w-[44px]"); // quantity steppers
     expect(itemDetailSheetCode).toContain("min-h-[48px]"); // CTA and modifiers
     expect(itemDetailSheetCode).toContain("modifierTotalPaise"); // clear price breakdown

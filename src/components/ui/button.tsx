@@ -37,10 +37,10 @@ const variantStyles: Record<ButtonVariant, string> = {
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-xs gap-1.5 rounded-[var(--radius-sm)]",
-  md: "h-10 px-4 text-sm gap-2 rounded-[var(--radius-md)]",
-  lg: "h-12 px-6 text-base gap-2.5 rounded-[var(--radius-lg)] font-medium",
-  icon: "h-10 w-10 p-0 rounded-[var(--radius-md)] justify-center",
+  sm: "h-9 px-3.5 text-xs sm:text-sm font-medium gap-1.5 rounded-[var(--radius-sm)] min-h-[36px]",
+  md: "h-11 px-4 text-sm sm:text-base font-semibold gap-2 rounded-[var(--radius-md)] min-h-[44px]",
+  lg: "h-12 sm:h-13 px-6 text-base sm:text-lg font-semibold gap-2.5 rounded-[var(--radius-lg)] min-h-[48px]",
+  icon: "h-11 w-11 min-h-[44px] min-w-[44px] p-0 rounded-[var(--radius-md)] justify-center",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

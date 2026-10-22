@@ -122,7 +122,7 @@ export function KitchenTicketCard({
           </span>
           <span
             data-testid="ticket-order-number"
-            className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-black/40 text-amber-300/90 border border-white/10"
+            className="font-mono text-sm font-semibold px-2.5 py-0.5 rounded bg-black/40 text-amber-300/90 border border-white/10"
           >
             #{ticket.orderNumber}
           </span>
@@ -131,26 +131,26 @@ export function KitchenTicketCard({
         {/* Live Urgency Timer with Color + Distinct Icon + Explicit Text Label (Non-color reliant) */}
         <div
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono transition-colors",
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs sm:text-sm font-mono transition-colors",
             timerColorClasses
           )}
           title={`Elapsed time: ${elapsedMinutes}m ${displaySec}s`}
         >
           {isRed ? (
-            <Flame className="h-3.5 w-3.5 text-red-300 shrink-0" />
+            <Flame className="h-4 w-4 text-red-300 shrink-0" />
           ) : isAmber ? (
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-300 shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0" />
           ) : (
-            <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+            <Clock className="h-4 w-4 text-zinc-400 shrink-0" />
           )}
 
           {/* Explicit status label so it does not rely on colour alone */}
           {isRed ? (
-            <span className="text-[10px] font-black uppercase tracking-wider bg-red-900/80 px-1 rounded text-red-100">
+            <span className="text-xs font-black uppercase tracking-wider bg-red-900/80 px-1 rounded text-red-100">
               15m+ Delayed
             </span>
           ) : isAmber ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-900/80 px-1 rounded text-amber-200">
+            <span className="text-xs font-bold uppercase tracking-wider bg-amber-900/80 px-1 rounded text-amber-200">
               10m+ Wait
             </span>
           ) : null}
@@ -168,10 +168,10 @@ export function KitchenTicketCard({
             <div key={item.id} className="py-2.5 first:pt-0 last:pb-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-baseline gap-2.5">
-                  <span className="flex h-6 min-w-6 items-center justify-center rounded bg-[#2D2824] px-1.5 text-sm font-black font-mono text-amber-400 border border-[#3E3731]">
+                  <span className="flex h-7 min-w-7 items-center justify-center rounded bg-[#2D2824] px-1.5 text-base font-black font-mono text-amber-400 border border-[#3E3731]">
                     {item.quantity}
                   </span>
-                  <span className="text-sm font-semibold text-zinc-100 leading-snug">
+                  <span className="text-base sm:text-lg font-bold text-zinc-100 leading-snug">
                     {item.name}
                   </span>
                 </div>
@@ -179,11 +179,11 @@ export function KitchenTicketCard({
 
               {/* Modifiers List */}
               {item.modifiers.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1 pl-8">
+                <div className="mt-1 flex flex-wrap gap-1.5 pl-9">
                   {item.modifiers.map((mod, i) => (
                     <span
                       key={i}
-                      className="rounded bg-[#2B231D] border border-amber-900/60 px-1.5 py-0.5 text-[11px] font-medium text-amber-300"
+                      className="rounded bg-[#2B231D] border border-amber-900/60 px-2 py-0.5 text-xs sm:text-sm font-medium text-amber-300"
                     >
                       {mod}
                     </span>
@@ -192,7 +192,7 @@ export function KitchenTicketCard({
               )}
 
               {item.notes && (
-                <p className="mt-1 pl-8 text-[11px] italic text-zinc-400">
+                <p className="mt-1 pl-9 text-xs sm:text-sm italic text-zinc-300">
                   Note: {item.notes}
                 </p>
               )}
@@ -202,10 +202,10 @@ export function KitchenTicketCard({
 
         {/* Kitchen Special Instructions Banner */}
         {ticket.specialInstructions && (
-          <div className="rounded-lg border border-amber-800/60 bg-amber-950/40 p-2.5 text-xs text-amber-200 flex items-start gap-2">
+          <div className="rounded-lg border border-amber-800/60 bg-amber-950/40 p-3 text-sm text-amber-200 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
             <div>
-              <span className="font-bold text-amber-300 uppercase tracking-wider text-[10px] block">
+              <span className="font-bold text-amber-300 uppercase tracking-wider text-xs block">
                 Chef Instruction:
               </span>
               <span>{ticket.specialInstructions}</span>
@@ -223,11 +223,11 @@ export function KitchenTicketCard({
             data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("preparing")}
-            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
+            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
-            <Flame className="h-4 w-4" />
+            <Flame className="h-5 w-5" />
             <span>Start Prep</span>
-            <ChevronRight className="h-4 w-4 ml-1 opacity-70" />
+            <ChevronRight className="h-5 w-5 ml-1 opacity-70" />
           </button>
         ) : ticket.status === "preparing" ? (
           <button
@@ -235,11 +235,11 @@ export function KitchenTicketCard({
             data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("ready")}
-            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
+            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
-            <CheckCircle className="h-4 w-4" />
+            <CheckCircle className="h-5 w-5" />
             <span>Mark Ready</span>
-            <ChevronRight className="h-4 w-4 ml-1 opacity-70" />
+            <ChevronRight className="h-5 w-5 ml-1 opacity-70" />
           </button>
         ) : ticket.status === "ready" ? (
           <button
@@ -247,9 +247,9 @@ export function KitchenTicketCard({
             data-testid="ticket-action-btn"
             disabled={isPending}
             onClick={() => handleAction("served")}
-            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
+            className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
-            <CheckCircle className="h-4 w-4" />
+            <CheckCircle className="h-5 w-5" />
             <span>Served / Dispatch</span>
           </button>
         ) : null}

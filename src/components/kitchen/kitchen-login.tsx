@@ -75,7 +75,7 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
             <div>
               <label
                 htmlFor="staff-username"
-                className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1"
+                className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-zinc-400 mb-1"
               >
                 Staff Username
               </label>
@@ -86,14 +86,14 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Staff username"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[#25211D] border border-[#38332D] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
+                className="w-full h-11 px-3.5 text-base rounded-lg bg-[#25211D] border border-[#38332D] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
             <div>
               <label
                 htmlFor="staff-password"
-                className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1"
+                className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-zinc-400 mb-1"
               >
                 Password
               </label>
@@ -104,7 +104,7 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[#25211D] border border-[#38332D] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
+                className="w-full h-11 px-3.5 text-base rounded-lg bg-[#25211D] border border-[#38332D] text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
@@ -114,7 +114,7 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
               size="lg"
               variant="primary"
               isLoading={isLoading}
-              className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-sm"
+              className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-base"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
               Sign In to KDS Board

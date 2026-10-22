@@ -330,3 +330,16 @@ export const deleteTableSchema = z.object({
 
 export type DeleteTableInput = z.infer<typeof deleteTableSchema>;
 
+/**
+ * Counter payment recording schema
+ */
+export const recordCounterPaymentSchema = z.object({
+  paymentMethod: z.enum(["cash", "card", "upi"], {
+    message: "Payment method must be cash, card, or upi",
+  }),
+  transactionRef: z.string().trim().max(100).optional(),
+  note: z.string().trim().max(255).optional(),
+});
+
+export type RecordCounterPaymentInput = z.infer<typeof recordCounterPaymentSchema>;
+

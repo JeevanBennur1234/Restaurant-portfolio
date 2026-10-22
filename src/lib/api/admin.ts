@@ -15,6 +15,8 @@ import type {
   CreateTableInput,
   UpdateTableInput,
   AdminReportsData,
+  ReceiptData,
+  RecordCounterPaymentInput,
 } from "./types";
 
 export interface RequestOptions {
@@ -44,6 +46,35 @@ export const adminApi = {
       body: { reason },
       signal: opts?.signal,
     });
+  },
+
+  async getBillOrReceipt(
+    orderId: string,
+    opts?: RequestOptions
+  ): Promise<ApiResult<ReceiptData>> {
+    return apiFetch<ReceiptData>(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/bill`, {
+      method: "GET",
+      signal: opts?.signal,
+    });
+  },
+
+  async recordCounterPayment(
+    orderId: string,
+    data: RecordCounterPaymentInput,
+    opts?: RequestOptions
+  ): Promise<ApiResult<ReceiptData>> {
+    return apiFetch<ReceiptData>(
+      `/api/v1/admin/orders/${encodeURIComponent(orderId)}/pay-counter`,
+      {
+        method: "POST",
+        body: data,
+        signal: opts?.signal,
+      }
+    );
+  },
+
+  getReceiptPdfUrl(orderId: string, format: "a4" | "thermal" = "a4"): string {
+    return `/api/v1/admin/orders/${encodeURIComponent(orderId)}/receipt/pdf?format=${format}`;
   },
 
   // --- Categories ---

@@ -214,16 +214,16 @@ export function KitchenBoard({
       <main className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-y-auto md:overflow-hidden md:h-[calc(100vh-64px)]">
         {/* Column 1: NEW */}
         <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#26221E] bg-[#1E1A17]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
-                <Utensils className="h-4 w-4" />
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
+                <Utensils className="h-4.5 w-4.5" />
               </span>
-              <h2 className="text-sm font-bold tracking-wider uppercase text-zinc-100 font-mono">
+              <h2 className="text-base font-bold tracking-wider uppercase text-zinc-100 font-mono">
                 New Tickets
               </h2>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 text-black font-bold font-mono text-xs px-1.5">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-500 text-black font-extrabold font-mono text-sm px-2">
               {newTickets.length}
             </span>
           </div>
@@ -231,7 +231,7 @@ export function KitchenBoard({
           <div className="flex-1 p-3 overflow-y-auto space-y-3.5">
             {newTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center text-zinc-500">
-                <p className="text-xs font-mono uppercase tracking-wider">
+                <p className="text-sm font-mono uppercase tracking-wider">
                   No new orders in queue
                 </p>
               </div>
@@ -250,16 +250,16 @@ export function KitchenBoard({
 
         {/* Column 2: PREPARING */}
         <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#26221E] bg-[#1E1A17]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-orange-500/20 text-orange-400">
-                <Flame className="h-4 w-4" />
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-orange-500/20 text-orange-400">
+                <Flame className="h-4.5 w-4.5" />
               </span>
-              <h2 className="text-sm font-bold tracking-wider uppercase text-zinc-100 font-mono">
+              <h2 className="text-base font-bold tracking-wider uppercase text-zinc-100 font-mono">
                 Cooking / Prep
               </h2>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-500 text-black font-bold font-mono text-xs px-1.5">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-orange-500 text-black font-extrabold font-mono text-sm px-2">
               {preparingTickets.length}
             </span>
           </div>
@@ -267,7 +267,7 @@ export function KitchenBoard({
           <div className="flex-1 p-3 overflow-y-auto space-y-3.5">
             {preparingTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center text-zinc-500">
-                <p className="text-xs font-mono uppercase tracking-wider">
+                <p className="text-sm font-mono uppercase tracking-wider">
                   No tickets currently cooking
                 </p>
               </div>
@@ -286,16 +286,16 @@ export function KitchenBoard({
 
         {/* Column 3: READY */}
         <section className="flex flex-col rounded-xl bg-[#171513] border border-[#26221E] overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#26221E] bg-[#1E1A17]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">
-                <Sparkles className="h-4 w-4" />
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#26221E] bg-[#1E1A17]">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">
+                <Sparkles className="h-4.5 w-4.5" />
               </span>
-              <h2 className="text-sm font-bold tracking-wider uppercase text-zinc-100 font-mono">
+              <h2 className="text-base font-bold tracking-wider uppercase text-zinc-100 font-mono">
                 Ready to Serve
               </h2>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-500 text-black font-bold font-mono text-xs px-1.5">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-emerald-500 text-black font-extrabold font-mono text-sm px-2">
               {readyTickets.length}
             </span>
           </div>
@@ -303,7 +303,7 @@ export function KitchenBoard({
           <div className="flex-1 p-3 overflow-y-auto space-y-3.5">
             {readyTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center text-zinc-500">
-                <p className="text-xs font-mono uppercase tracking-wider">
+                <p className="text-sm font-mono uppercase tracking-wider">
                   No plated tickets ready for dispatch
                 </p>
               </div>

@@ -326,30 +326,30 @@ export function MenuItemCard({
                         />
                       ))}
                     </div>
-                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-200">
+                    <span className="text-xs font-mono font-semibold uppercase tracking-wider text-rose-200">
                       {spiceInfo.label}
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wide">
+                  <span className="text-xs font-mono text-stone-300 uppercase tracking-wide">
                     Delicate
                   </span>
                 )}
               </div>
 
-              <span className="flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 font-mono text-[10px] text-stone-200 border border-white/10 backdrop-blur-xs">
-                <Clock className="h-3 w-3 text-amber-300" />
+              <span className="flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-0.5 font-mono text-xs text-stone-200 border border-white/10 backdrop-blur-xs">
+                <Clock className="h-3.5 w-3.5 text-amber-300" />
                 {item.prepTimeMinutes} min
               </span>
             </div>
 
             {/* Dish Name */}
-            <h3 className="font-serif text-base font-bold sm:text-lg leading-snug text-white tracking-tight drop-shadow-xs transition-colors group-hover:text-amber-200">
+            <h3 className="font-serif text-lg font-bold sm:text-xl leading-snug text-white tracking-tight drop-shadow-xs transition-colors group-hover:text-amber-200">
               <HighlightedText text={item.name} query={searchQuery} />
             </h3>
 
             {/* Dish Description */}
-            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-stone-300/90 drop-shadow-xs font-sans">
+            <p className="mt-1 line-clamp-3 text-sm sm:text-base leading-relaxed text-stone-300/90 drop-shadow-xs font-sans">
               {item.description ? (
                 <HighlightedText text={item.description} query={searchQuery} />
               ) : (
@@ -360,10 +360,10 @@ export function MenuItemCard({
             {/* Price and Action Row */}
             <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-white/15">
               <div className="flex flex-col">
-                <span className="text-[9px] uppercase font-mono tracking-wider text-stone-300">
+                <span className="text-xs uppercase font-mono tracking-wider text-stone-300 font-medium">
                   Price
                 </span>
-                <span className="font-sans text-base sm:text-lg font-bold text-amber-300">
+                <span className="font-sans text-xl sm:text-2xl font-bold text-amber-300">
                   {formatPaiseToINR(item.pricePaise)}
                 </span>
               </div>
@@ -382,7 +382,7 @@ export function MenuItemCard({
                     </button>
                     <span
                       data-testid="item-card-quantity"
-                      className="min-w-6 text-center font-mono text-xs font-bold px-1"
+                      className="min-w-6 text-center font-mono text-sm font-bold px-1"
                     >
                       {totalQuantityInCart}
                     </span>

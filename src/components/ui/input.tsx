@@ -35,7 +35,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]"
+            className="block text-xs sm:text-sm font-medium uppercase tracking-wider text-[var(--text-secondary)]"
           >
             {label}
           </label>
@@ -53,7 +53,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled}
             aria-invalid={hasError ? "true" : "false"}
             className={cn(
-              "flex h-11 w-full rounded-[var(--radius-md)] border bg-[var(--bg-surface)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors",
+              "flex h-11 w-full rounded-[var(--radius-md)] border bg-[var(--bg-surface)] px-3.5 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors",
               "border-[var(--border-subtle)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]",
               "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--bg-subtle)]",
               leftIcon && "pl-10",

@@ -227,11 +227,11 @@ export function AdminTablesTab() {
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-serif text-base font-bold text-[var(--text-primary)]">
+                      <h4 className="font-serif text-lg sm:text-xl font-bold text-[var(--text-primary)]">
                         {table.tableNumber}
                       </h4>
-                      <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] mt-0.5">
-                        <Users className="h-3 w-3" />
+                      <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] mt-0.5">
+                        <Users className="h-4 w-4" />
                         <span>Seats {table.capacity} Guests</span>
                       </div>
                     </div>
@@ -242,12 +242,12 @@ export function AdminTablesTab() {
                       className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-opacity cursor-pointer"
                       title="Remove table"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
                   {/* QR Token Preview Badge */}
-                  <div className="mt-3 p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] font-mono text-[11px] text-[var(--text-secondary)] flex items-center justify-between">
+                  <div className="mt-3 p-2.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] font-mono text-xs text-[var(--text-secondary)] flex items-center justify-between">
                     <span className="truncate max-w-[150px]">
                       Token: {table.qrToken}
                     </span>
@@ -256,7 +256,7 @@ export function AdminTablesTab() {
                 </div>
 
                 {/* Footer Action Links */}
-                <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs">
+                <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-sm">
                   <Link
                     href={`/api/admin/tables/qr-pdf?token=${table.qrToken}`}
                     target="_blank"

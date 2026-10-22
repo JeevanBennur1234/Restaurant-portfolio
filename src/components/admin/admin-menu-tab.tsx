@@ -579,8 +579,8 @@ export function AdminMenuTab() {
             variant="outline"
             size="sm"
             onClick={() => openCategoryModal()}
-            className="text-xs"
-            leftIcon={<FolderPlus className="h-3.5 w-3.5" />}
+            className="text-sm font-semibold h-10 px-3.5"
+            leftIcon={<FolderPlus className="h-4 w-4" />}
           >
             Add Category
           </Button>
@@ -590,8 +590,8 @@ export function AdminMenuTab() {
             variant="primary"
             size="sm"
             onClick={() => openItemModal()}
-            className="text-xs"
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
+            className="text-sm font-semibold h-10 px-3.5"
+            leftIcon={<Plus className="h-4 w-4" />}
           >
             Add Menu Item
           </Button>
@@ -599,7 +599,7 @@ export function AdminMenuTab() {
       </div>
 
       {error && (
-        <div className="p-3.5 rounded-xl bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+        <div className="p-3.5 rounded-xl bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
@@ -607,16 +607,16 @@ export function AdminMenuTab() {
       {/* Categories Row */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-          <span className="font-mono uppercase font-semibold text-[10px] tracking-wider">
+          <span className="font-mono uppercase font-semibold text-xs tracking-wider">
             Categories ({categories.length})
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
           <button
             type="button"
             onClick={() => setSelectedCategoryId("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+            className={`px-3.5 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
               selectedCategoryId === "all"
                 ? "bg-[var(--primary)] text-white shadow-xs font-semibold"
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)]"
@@ -630,7 +630,7 @@ export function AdminMenuTab() {
             return (
               <div
                 key={cat.id}
-                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                className={`group flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors border ${
                   isSelected
                     ? "bg-[var(--primary)] text-white border-[var(--primary)] font-semibold"
                     : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]"
@@ -677,23 +677,23 @@ export function AdminMenuTab() {
       {/* Filter and Search Bar for items */}
       <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items by name..."
-            className="w-full h-8.5 pl-8.5 pr-3 text-xs rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
+            className="w-full h-11 pl-10 pr-3.5 text-sm sm:text-base rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
           />
         </div>
 
         <div className="flex items-center gap-2">
           {/* Veg Filter Pills */}
-          <div className="flex rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] p-0.5 text-xs">
+          <div className="flex rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] p-1 text-sm font-medium">
             <button
               type="button"
               onClick={() => setVegFilter("all")}
-              className={`px-2.5 py-1 rounded-md cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md cursor-pointer ${
                 vegFilter === "all"
                   ? "bg-[var(--primary)] text-white font-semibold"
                   : "text-[var(--text-secondary)]"
@@ -704,25 +704,25 @@ export function AdminMenuTab() {
             <button
               type="button"
               onClick={() => setVegFilter("veg")}
-              className={`px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer ${
                 vegFilter === "veg"
                   ? "bg-emerald-600 text-white font-semibold"
                   : "text-[var(--text-secondary)]"
               }`}
             >
-              <Leaf className="h-3 w-3" />
+              <Leaf className="h-3.5 w-3.5" />
               <span>Veg</span>
             </button>
             <button
               type="button"
               onClick={() => setVegFilter("non-veg")}
-              className={`px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer ${
                 vegFilter === "non-veg"
                   ? "bg-red-700 text-white font-semibold"
                   : "text-[var(--text-secondary)]"
               }`}
             >
-              <Beef className="h-3 w-3" />
+              <Beef className="h-3.5 w-3.5" />
               <span>Non-Veg</span>
             </button>
           </div>
@@ -747,16 +747,16 @@ export function AdminMenuTab() {
           </div>
         ) : (
           <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
+            <table className="w-full text-left text-sm border-collapse min-w-[720px]">
               <thead>
-                <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-4">Item</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Price</th>
-                  <th className="py-3 px-4">Prep Time</th>
-                  <th className="py-3 px-4">Modifiers</th>
-                  <th className="py-3 px-4 text-center">In Stock?</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 text-[var(--text-secondary)] font-mono uppercase text-xs tracking-wider">
+                  <th className="py-3.5 px-4 font-semibold">Item</th>
+                  <th className="py-3.5 px-4 font-semibold">Category</th>
+                  <th className="py-3.5 px-4 font-semibold">Price</th>
+                  <th className="py-3.5 px-4 font-semibold">Prep Time</th>
+                  <th className="py-3.5 px-4 font-semibold">Modifiers</th>
+                  <th className="py-3.5 px-4 text-center font-semibold">In Stock?</th>
+                  <th className="py-3.5 px-4 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -769,15 +769,15 @@ export function AdminMenuTab() {
                     }`}
                   >
                     {/* Item Name & Veg status */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
                         {item.imageUrl && (
-                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
                             <Image
                               src={item.imageUrl}
                               alt={item.name}
-                              width={32}
-                              height={32}
+                              width={40}
+                              height={40}
                               unoptimized
                               className="h-full w-full object-cover"
                               onError={(e) => {
@@ -790,25 +790,25 @@ export function AdminMenuTab() {
                           </div>
                         )}
                         <div
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                          className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-sm border ${
                             item.isVeg
                               ? "border-emerald-600 bg-white"
                               : "border-red-700 bg-white"
                           }`}
                         >
                           <div
-                            className={`h-2 w-2 rounded-full ${
+                            className={`h-2.5 w-2.5 rounded-full ${
                               item.isVeg ? "bg-emerald-600" : "bg-red-700"
                             }`}
                           />
                         </div>
 
                         <div>
-                          <div className="font-semibold text-[var(--text-primary)]">
+                          <div className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
                             {item.name}
                           </div>
                           {item.description && (
-                            <div className="text-[11px] text-[var(--text-secondary)] max-w-sm truncate">
+                            <div className="text-xs text-[var(--text-secondary)] max-w-sm truncate mt-0.5">
                               {item.description}
                             </div>
                           )}
@@ -817,38 +817,38 @@ export function AdminMenuTab() {
                     </td>
 
                     {/* Category */}
-                    <td className="py-3 px-4 text-[var(--text-secondary)] font-medium">
+                    <td className="py-3.5 px-4 text-[var(--text-secondary)] font-medium text-sm">
                       {item.categoryName}
                     </td>
 
                     {/* Price */}
-                    <td className="py-3 px-4 font-mono font-bold text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
                       {formatPaiseToINR(item.pricePaise)}
                     </td>
 
                     {/* Prep Time */}
-                    <td className="py-3 px-4 text-[var(--text-secondary)] font-mono text-[11px]">
+                    <td className="py-3.5 px-4 text-[var(--text-secondary)] font-mono text-xs sm:text-sm">
                       {item.prepTimeMinutes} mins
                     </td>
 
                     {/* Modifiers button */}
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       <button
                         type="button"
                         onClick={() => setManagingModifiersItem(item)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[var(--bg-subtle)] hover:bg-[var(--border-subtle)] text-[var(--text-primary)] border border-[var(--border-subtle)] cursor-pointer transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium bg-[var(--bg-subtle)] hover:bg-[var(--border-subtle)] text-[var(--text-primary)] border border-[var(--border-subtle)] cursor-pointer transition-colors"
                       >
-                        <Sliders className="h-3 w-3 text-[var(--primary)]" />
+                        <Sliders className="h-3.5 w-3.5 text-[var(--primary)]" />
                         <span>Modifiers ({item.modifiers.length})</span>
                       </button>
                     </td>
 
                     {/* Availability Switch */}
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center">
                       <button
                         type="button"
                         onClick={() => handleToggleAvailability(item)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
                           item.isAvailable
                             ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
                             : "bg-red-100 dark:bg-red-950/80 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-800"
@@ -856,7 +856,7 @@ export function AdminMenuTab() {
                         title="Click to toggle availability"
                       >
                         <div
-                          className={`h-2 w-2 rounded-full ${
+                          className={`h-2.5 w-2.5 rounded-full ${
                             item.isAvailable ? "bg-emerald-600" : "bg-red-600"
                           }`}
                         />

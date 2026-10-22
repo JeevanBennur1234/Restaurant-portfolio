@@ -8,6 +8,7 @@ import type {
   PlaceOrderInput,
   CreateUpiQrData,
   PaymentStatusData,
+  ReceiptData,
 } from "./types";
 
 export interface PlaceOrderOptions {
@@ -329,10 +330,55 @@ export async function verifyTestUpiPayment(
   );
 }
 
+/**
+ * Fetches the digital receipt for a completed/paid order.
+ */
+export async function getReceipt(
+  orderIdOrObj: string | { orderId: string; token: string },
+  tokenOrOpts?: string | { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<ReceiptData>> {
+  let orderId: string;
+  let token: string;
+  let signal: AbortSignal | undefined;
+
+  if (typeof orderIdOrObj === "string") {
+    orderId = orderIdOrObj;
+    token = tokenOrOpts as string;
+    signal = opts?.signal;
+  } else {
+    orderId = orderIdOrObj.orderId;
+    token = orderIdOrObj.token;
+    signal = (tokenOrOpts as { signal?: AbortSignal })?.signal;
+  }
+
+  return apiFetch<ReceiptData>(
+    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt`,
+    {
+      method: "GET",
+      tableToken: token,
+      signal,
+    }
+  );
+}
+
+/**
+ * Constructs direct PDF download URL for guest receipt
+ */
+export function getReceiptPdfUrl(
+  orderId: string,
+  token: string,
+  format: "a4" | "thermal" = "a4"
+): string {
+  return `/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt/pdf?token=${encodeURIComponent(token)}&format=${format}`;
+}
+
 export const customerApi = {
   getMenu,
   placeOrder,
   getOrder,
+  getReceipt,
+  getReceiptPdfUrl,
   createRazorpayOrder,
   verifyRazorpayPayment,
   createUpiQrPayment,

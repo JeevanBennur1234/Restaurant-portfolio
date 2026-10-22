@@ -15,6 +15,11 @@ import type {
   PaymentStatusData,
 } from "@/server/services/customer";
 import type {
+  ReceiptData,
+  ReceiptItem,
+  ReceiptItemModifier,
+} from "@/server/services/billing";
+import type {
   KitchenTicket,
   KitchenTicketItem,
   TransitionOrderInput,
@@ -56,6 +61,7 @@ import type {
   CreateTableInput,
   UpdateTableInput,
   DeleteTableInput,
+  RecordCounterPaymentInput,
 } from "@/lib/validations/admin";
 import type { ErrorCode as ApiErrorCode } from "@/server/services/result";
 
@@ -73,6 +79,9 @@ export type {
   OrderItemDetail,
   OrderEventDetail,
   OrderDetails,
+  ReceiptData,
+  ReceiptItem,
+  ReceiptItemModifier,
   CreateRazorpayOrderData,
   VerifyPaymentData,
   CreateUpiQrData,
@@ -110,4 +119,5 @@ export type {
   CreateTableInput,
   UpdateTableInput,
   DeleteTableInput,
+  RecordCounterPaymentInput,
 };

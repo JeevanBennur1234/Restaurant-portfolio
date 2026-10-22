@@ -80,7 +80,7 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
             <div>
               <label
                 htmlFor="admin-username"
-                className="block text-xs font-mono uppercase tracking-wider text-[var(--text-secondary)] mb-1"
+                className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[var(--text-secondary)] mb-1"
               >
                 Manager Username
               </label>
@@ -91,14 +91,14 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Manager username"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
+                className="w-full h-11 px-3.5 text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
             <div>
               <label
                 htmlFor="admin-password"
-                className="block text-xs font-mono uppercase tracking-wider text-[var(--text-secondary)] mb-1"
+                className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[var(--text-secondary)] mb-1"
               >
                 Password
               </label>
@@ -109,7 +109,7 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full h-11 px-3.5 text-sm rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
+                className="w-full h-11 px-3.5 text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] font-mono transition-colors"
               />
             </div>
 
@@ -119,7 +119,7 @@ export function AdminLogin({ kitchenUrl }: AdminLoginProps) {
               size="lg"
               variant="primary"
               isLoading={isLoading}
-              className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-sm"
+              className="w-full h-12 min-h-[48px] font-bold uppercase tracking-wider shadow-md mt-2 text-base"
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
               Sign In to Admin Hub

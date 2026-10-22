@@ -6,7 +6,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { VegIndicator } from "./veg-indicator";
 import { formatPaiseToINR } from "@/lib/currency";
-import { Clock, Minus, Plus, Utensils } from "lucide-react";
+import { Clock, Minus, Plus, Utensils, X } from "lucide-react";
 import { useCart } from "./cart-context";
 import { useToast } from "@/components/ui/toast";
 import type { GuestMenuItem, GuestModifier } from "@/lib/api/types";
@@ -111,15 +111,15 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
     <Sheet
       isOpen={isOpen}
       onClose={onClose}
-      side="bottom"
-      className="max-h-[92dvh] sm:max-h-[min(88dvh,760px)] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      side="center"
+      className="flex flex-col"
       contentClassName="p-4 sm:p-5"
       footerClassName="p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4"
       footer={
         <div className="space-y-2">
           {/* Detailed Price Breakdown */}
           {modifierTotalPaise > 0 && (
-            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] px-1">
+            <div className="flex items-center justify-between text-sm text-[var(--text-secondary)] px-1">
               <span>
                 Base {formatPaiseToINR(item.pricePaise)} + Customizations{" "}
                 {formatPaiseToINR(modifierTotalPaise)}
@@ -142,7 +142,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-8 text-center text-sm font-semibold font-mono text-[var(--text-primary)]">
+              <span className="w-8 text-center text-base font-semibold font-mono text-[var(--text-primary)]">
                 {quantity}
               </span>
               <button
@@ -163,12 +163,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               variant="primary"
               disabled={!isAvailable}
               onClick={handleAddToCart}
-              className="flex-1 justify-between shadow-md px-3 sm:px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12 font-semibold"
+              className="flex-1 justify-between shadow-md px-3 sm:px-4 text-base min-w-0 min-h-[52px] h-13 font-semibold"
             >
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
               </span>
-              <span className="font-mono text-xs sm:text-sm font-bold shrink-0">
+              <span className="font-mono text-base font-bold shrink-0">
                 · {formatPaiseToINR(lineTotalPaise)}
               </span>
             </Button>
@@ -176,7 +176,15 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         </div>
       }
     >
-      <div className="space-y-4 sm:space-y-5">
+      <div className="relative space-y-4 sm:space-y-5">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${item.name} details`}
+          className="absolute right-0 top-0 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/65 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
         {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
         {item.imageUrl && !bannerError ? (
           <div className="relative -mx-4 -mt-4 h-44 sm:-mx-5 sm:-mt-5 sm:h-52 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
@@ -193,7 +201,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               <span className="eyebrow text-[10px] text-amber-300">
                 Freshly Prepared · {item.prepTimeMinutes} mins
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/20">
+              <span className="text-xs font-mono uppercase tracking-wider text-stone-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/20">
                 {item.isVeg ? "Vegetarian" : "Non-Veg"}
               </span>
             </div>
@@ -218,7 +226,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <VegIndicator isVeg={item.isVeg} />
-            <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] font-mono">
+            <span className="flex items-center gap-1 text-sm text-[var(--text-muted)] font-mono">
               <Clock className="h-3 w-3" />
               {item.prepTimeMinutes} min prep
             </span>
@@ -228,12 +236,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             {item.name}
           </h2>
 
-          <div className="text-lg font-bold text-[var(--primary)] font-sans">
+          <div className="text-2xl font-bold text-[var(--primary)] font-sans">
             {formatPaiseToINR(item.pricePaise)}
           </div>
 
           {item.description && (
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed pt-1">
+            <p className="text-base text-[var(--text-secondary)] leading-relaxed pt-1">
               {item.description}
             </p>
           )}
@@ -249,14 +257,14 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                 <div key={groupName} className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-xs font-bold text-[var(--accent)]">
+                      <span className="font-mono text-sm font-bold text-[var(--accent)]">
                         {String(groupIndex + 1).padStart(2, "0")} /
                       </span>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)]">
                         {groupName}
                       </h3>
                     </div>
-                    <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                    <span className="text-sm font-mono text-[var(--text-muted)]">
                       {isRadio ? "Choose 1 (Required)" : "Optional"}
                     </span>
                   </div>
@@ -287,7 +295,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                             <span>{mod.name}</span>
                           </div>
 
-                          <span className="font-mono text-xs text-[var(--text-muted)] font-medium">
+                          <span className="font-mono text-sm text-[var(--text-muted)] font-medium">
                             {mod.pricePaise > 0
                               ? `+${formatPaiseToINR(mod.pricePaise)}`
                               : "Free"}

@@ -13,7 +13,6 @@ import {
   Search,
   X,
   UtensilsCrossed,
-  Sparkles,
   Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -140,14 +139,17 @@ export function MenuView({
         list.push(item);
       }
     }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    }
     return map;
   }, [categories, filteredItems]);
 
   // Chef's picks recommended items (hide if none)
   const recommendedItems = React.useMemo(() => {
-    return items.filter(
-      (item) => Boolean((item as { isRecommended?: boolean }).isRecommended || item.isBestSeller)
-    );
+    return items
+      .filter((item) => Boolean((item as { isRecommended?: boolean }).isRecommended || item.isBestSeller))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }, [items]);
 
   // The category's own slug is the source of truth for the Signature label.
@@ -251,7 +253,8 @@ export function MenuView({
     <div className="flex-1 flex flex-col pb-28 overflow-x-hidden">
       {/* Compact Editorial Hero Banner (<200px tall so menu starts on screen one) */}
       <section
-        aria-label="Restaurant banner"
+        aria-label={`Menu for ${restaurantName}`}
+        data-restaurant={restaurantName}
         className="relative overflow-hidden bg-gradient-to-br from-[#2E2723] via-[#3A312B] to-[#1F1A17] py-2 sm:py-4 text-[#FAF7F2] border-b border-[var(--border-subtle)]"
       >
         {/* Ambient warm tandoor glow */}
@@ -266,22 +269,17 @@ export function MenuView({
 
         <div className="relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="eyebrow text-[9px] sm:text-[11px] text-amber-300/90 font-medium tracking-[0.16em] sm:tracking-[0.2em]">
+            <span className="eyebrow text-xs sm:text-sm text-amber-300/90 font-medium tracking-[0.16em] sm:tracking-[0.2em]">
               00 · Table Dining
             </span>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-xs font-semibold border border-white/15 backdrop-blur-xs">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-sm font-semibold border border-white/15 backdrop-blur-xs">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               <span>{table.tableNumber}</span>
             </div>
           </div>
 
-          <h1 className="font-serif text-lg sm:text-3xl font-bold tracking-tight text-[#FAF7F2] leading-tight flex items-center gap-2">
-            <span>{restaurantName}</span>
-            <Sparkles className="h-4 w-4 text-[#D97706] opacity-75 shrink-0" />
-          </h1>
-
-          <p className="mt-1 hidden text-xs text-stone-300 leading-relaxed max-w-md line-clamp-1 sm:block">
-            Clay-pot curries, slow tandoor grills & coastal specials prepared fresh.
+          <p className="font-serif text-base sm:text-xl font-semibold tracking-tight text-[#FAF7F2] leading-tight">
+            Order fresh from our kitchen
           </p>
         </div>
       </section>
@@ -300,7 +298,7 @@ export function MenuView({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search dishes, ingredients, curries..."
               autoComplete="off"
-              className="h-10 sm:h-11 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-sm text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+              className="h-11 sm:h-12 w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/65 pl-11 pr-11 text-base text-[var(--text-primary)] shadow-inner shadow-black/[0.02] transition-[border-color,background-color,box-shadow] placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
             />
             {searchQuery.length > 0 && (
               <button
@@ -330,7 +328,7 @@ export function MenuView({
               <span>All items</span>
               <span
                 className={cn(
-                  "rounded-full px-1.5 py-0.5 font-mono text-[10px]",
+                  "rounded-full px-2 py-0.5 font-mono text-xs",
                   dietaryFilter === "all"
                     ? "bg-white/15 text-white/85"
                     : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"
@@ -511,7 +509,7 @@ export function MenuView({
                   {count > 0 && (
                     <span
                       className={cn(
-                        "ml-1.5 font-mono text-[10px] transition-colors rounded-full px-1.5 py-0.2",
+                        "ml-1.5 font-mono text-xs transition-colors rounded-full px-1.5 py-0.5",
                         isActive
                           ? "bg-white/20 text-white"
                           : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"
@@ -567,18 +565,18 @@ export function MenuView({
             <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
+                  <span className="font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
                     CHEF&apos;S PICKS
                   </span>
                   <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                     Chef&apos;s Street Picks
                   </h2>
                 </div>
-                <span className="shrink-0 font-mono text-xs font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-2.5 py-0.5 rounded-full border border-[var(--border-subtle)]">
+                <span className="shrink-0 font-mono text-sm font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
                   {recommendedItems.length} recommended
                 </span>
               </div>
-              <p className="pl-0.5 text-xs font-sans italic text-[var(--text-secondary)] max-w-2xl">
+              <p className="pl-0.5 text-sm font-sans italic text-[var(--text-secondary)] max-w-2xl">
                 Hand-crafted street favorites and daily recommendations
               </p>
             </div>
@@ -598,39 +596,19 @@ export function MenuView({
               ))}
             </div>
 
-            {/* Desktop: use the same three-column grid and centered incomplete rows as menu categories. */}
-            <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
-              {recommendedItems.map((item, itemIndex) => {
-                const isFinalItem = itemIndex === recommendedItems.length - 1;
-                const isSmallSingleFinalCard =
-                  recommendedItems.length % 2 === 1 && isFinalItem && recommendedItems.length > 1;
-                const remainderAtDesktop = recommendedItems.length % 3;
-                const isDesktopSingleFinalCard =
-                  remainderAtDesktop === 1 && isFinalItem && recommendedItems.length > 3;
-                const isDesktopFinalPairFirst =
-                  remainderAtDesktop === 2 && itemIndex === recommendedItems.length - 2;
-
-                return (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "min-w-0",
-                      isSmallSingleFinalCard &&
-                        "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-1 lg:mx-0 lg:w-full",
-                      isDesktopSingleFinalCard && "lg:col-start-2",
-                      isDesktopFinalPairFirst && "lg:col-start-2"
-                    )}
-                  >
-                    <MenuItemCard
-                      item={item}
-                      priority={itemIndex < 2}
-                      searchQuery={searchQuery}
-                      isSignature={signatureCategoryIds.has(item.categoryId)}
-                      onSelect={(selected) => setSelectedItemForSheet(selected)}
-                    />
-                  </div>
-                );
-              })}
+            {/* Desktop: strict row-major order prevents artificial holes in short final rows. */}
+            <div className="hidden sm:grid sm:grid-flow-row sm:grid-cols-2 sm:items-stretch sm:gap-4 lg:grid-cols-3 lg:gap-5">
+              {recommendedItems.map((item, itemIndex) => (
+                <div key={item.id} className="h-full min-w-0">
+                  <MenuItemCard
+                    item={item}
+                    priority={itemIndex < 2}
+                    searchQuery={searchQuery}
+                    isSignature={signatureCategoryIds.has(item.categoryId)}
+                    onSelect={(selected) => setSelectedItemForSheet(selected)}
+                  />
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -674,18 +652,18 @@ export function MenuView({
                 <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
+                      <span className="font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-xs bg-[#2E2723] text-amber-300 border border-amber-500/30 shadow-xs">
                         SHOP {String(catIndex + 1).padStart(2, "0")}
                       </span>
                       <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                         {category.name}
                       </h2>
                     </div>
-                    <span className="font-mono text-xs font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-2.5 py-0.5 rounded-full border border-[var(--border-subtle)]">
+                    <span className="font-mono text-sm font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
                       {catItems.length} {catItems.length === 1 ? "specialty" : "specialties"}
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] font-sans italic max-w-2xl pl-0.5">
+                  <p className="text-sm text-[var(--text-secondary)] font-sans italic max-w-2xl pl-0.5">
                     {SHOPFRONT_TAGLINES[category.slug] ??
                       "Artisanal specialties crafted fresh daily with traditional Indian spices."}
                   </p>
@@ -706,39 +684,19 @@ export function MenuView({
                   ))}
                 </div>
 
-                {/* Desktop: consistent shopfront grid; incomplete final rows are centered. */}
-                <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
-                  {catItems.map((item, itemIndex) => {
-                    const isFinalItem = itemIndex === catItems.length - 1;
-                    const isSmallSingleFinalCard =
-                      catItems.length % 2 === 1 && isFinalItem && catItems.length > 1;
-                    const remainderAtDesktop = catItems.length % 3;
-                    const isDesktopSingleFinalCard =
-                      remainderAtDesktop === 1 && isFinalItem && catItems.length > 3;
-                    const isDesktopFinalPairFirst =
-                      remainderAtDesktop === 2 && itemIndex === catItems.length - 2;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "min-w-0",
-                          isSmallSingleFinalCard &&
-                            "sm:col-span-2 sm:mx-auto sm:w-1/2 lg:col-span-1 lg:mx-0 lg:w-full",
-                          isDesktopSingleFinalCard && "lg:col-start-2",
-                          isDesktopFinalPairFirst && "lg:col-start-2"
-                        )}
-                      >
-                        <MenuItemCard
-                          item={item}
-                          priority={catIndex === 0 && itemIndex < 2}
-                          searchQuery={searchQuery}
-                          isSignature={signatureCategoryIds.has(item.categoryId)}
-                          onSelect={(selected) => setSelectedItemForSheet(selected)}
-                        />
-                      </div>
-                    );
-                  })}
+                {/* Desktop: strict row-major order keeps every category gap-free and left-to-right. */}
+                <div className="hidden sm:grid sm:grid-flow-row sm:grid-cols-2 sm:items-stretch sm:gap-4 lg:grid-cols-3 lg:gap-5">
+                  {catItems.map((item, itemIndex) => (
+                    <div key={item.id} className="h-full min-w-0">
+                      <MenuItemCard
+                        item={item}
+                        priority={catIndex === 0 && itemIndex < 2}
+                        searchQuery={searchQuery}
+                        isSignature={signatureCategoryIds.has(item.categoryId)}
+                        onSelect={(selected) => setSelectedItemForSheet(selected)}
+                      />
+                    </div>
+                  ))}
                 </div>
               </section>
             );

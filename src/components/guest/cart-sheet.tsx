@@ -378,13 +378,13 @@ export function CartSheet({
       onClose={() => {
         if (!isSubmitting) setIsCartOpen(false);
       }}
-      side="bottom"
-      className="max-h-[92vh] sm:max-w-md sm:mx-auto sm:rounded-t-[var(--radius-xl)]"
+      side="center"
+      className="flex flex-col"
       footer={
         items.length > 0 ? (
           <div className="space-y-3">
             {/* Clearer Bill Breakdown */}
-            <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-3.5 space-y-2 text-xs">
+            <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-4 space-y-3 text-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span>Items Subtotal ({totalItemCount} {totalItemCount === 1 ? "item" : "items"})</span>
                 <span className="font-mono font-medium text-[var(--text-primary)]">
@@ -405,7 +405,7 @@ export function CartSheet({
               <div className="hairline my-1" />
               <div className="flex items-center justify-between text-sm font-bold text-[var(--text-primary)] pt-0.5">
                 <span>Total Amount Due</span>
-                <span className="font-mono text-base text-[var(--primary)] font-extrabold">
+                <span className="font-mono text-lg text-[var(--primary)] font-extrabold">
                   {formatPaiseToINR(grandTotalPaise)}
                 </span>
               </div>
@@ -428,7 +428,7 @@ export function CartSheet({
                             variant="primary"
                             isLoading={isSubmitting}
                             onClick={() => setIsUpiQrOpen(true)}
-                            className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                            className="text-sm min-h-[48px] h-12 px-3 flex-1"
                             leftIcon={<QrCode className="h-3.5 w-3.5" />}
                           >
                             Scan UPI QR
@@ -440,7 +440,7 @@ export function CartSheet({
                             onClick={() =>
                               initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
                             }
-                            className="text-xs min-h-[44px] h-11 px-2.5 flex-1"
+                            className="text-sm min-h-[48px] h-12 px-3 flex-1"
                             leftIcon={<CreditCard className="h-3 w-3" />}
                           >
                             Cards / Netbanking
@@ -452,7 +452,7 @@ export function CartSheet({
                         variant="outline"
                         isLoading={isSubmitting}
                         onClick={handleSwitchToCounter}
-                        className="text-xs min-h-[40px] h-10 px-2.5 w-full bg-white"
+                        className="text-sm min-h-[44px] h-11 px-3 w-full bg-white"
                         leftIcon={<Banknote className="h-3.5 w-3.5" />}
                       >
                         Pay at Counter Instead
@@ -483,7 +483,7 @@ export function CartSheet({
                     isLoading={isSubmitting}
                     disabled={isSubmitting}
                     onClick={handleCheckoutSubmit}
-                    className="flex-1 font-semibold shadow-sm justify-between px-4 text-xs sm:text-sm min-w-0 min-h-[48px] h-12"
+                    className="flex-1 font-semibold shadow-sm justify-between px-4 text-base min-w-0 min-h-[52px] h-[52px]"
                   >
                     <span className="truncate pr-1">
                       {statusMessage ||
@@ -585,7 +585,7 @@ export function CartSheet({
                   <div className="space-y-0.5 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <VegIndicator isVeg={menuItem.isVeg} size="sm" />
-                      <h4 className="font-serif text-sm font-semibold text-[var(--text-primary)] truncate">
+                      <h4 className="font-serif text-base font-semibold text-[var(--text-primary)] truncate">
                         {menuItem.name}
                       </h4>
                     </div>
@@ -596,7 +596,7 @@ export function CartSheet({
                       </p>
                     )}
 
-                    <div className="pl-4 font-mono text-xs font-semibold text-[var(--primary)]">
+                    <div className="pl-4 font-mono text-sm font-semibold text-[var(--primary)]">
                       {formatPaiseToINR(itemLineTotalPaise)}
                     </div>
                   </div>
@@ -613,7 +613,7 @@ export function CartSheet({
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
-                      <span className="w-6 text-center text-xs font-mono font-bold text-[var(--text-primary)]">
+                      <span className="w-6 text-center text-sm font-mono font-bold text-[var(--text-primary)]">
                         {cartItem.quantity}
                       </span>
                       <button
@@ -644,7 +644,7 @@ export function CartSheet({
 
           {/* Payment Method Selector (min 64px tap targets) */}
           <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
-            <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] block">
+            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] block">
               Payment Choice
             </label>
 
@@ -663,14 +663,14 @@ export function CartSheet({
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <CreditCard className="h-4 w-4 text-[var(--primary)]" />
-                    <span className="text-[10px] uppercase font-bold text-[var(--primary)]">
+                    <CreditCard className="h-4.5 w-4.5 text-[var(--primary)]" />
+                    <span className="text-xs uppercase font-bold text-[var(--primary)]">
                       Fastest
                     </span>
                   </div>
                   <div>
-                    <div className="text-xs font-bold">Pay now</div>
-                    <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    <div className="text-base font-bold">Pay now</div>
+                    <div className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
                       UPI, GPay, Cards
                     </div>
                   </div>
@@ -689,14 +689,14 @@ export function CartSheet({
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <Banknote className="h-4 w-4 text-[var(--secondary)]" />
-                    <span className="text-[10px] uppercase font-semibold text-[var(--text-muted)]">
+                    <Banknote className="h-4.5 w-4.5 text-[var(--secondary)]" />
+                    <span className="text-xs uppercase font-semibold text-[var(--text-muted)]">
                       Traditional
                     </span>
                   </div>
                   <div>
-                    <div className="text-xs font-bold">Pay at counter</div>
-                    <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    <div className="text-base font-bold">Pay at counter</div>
+                    <div className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
                       Pay after meal
                     </div>
                   </div>
@@ -714,7 +714,7 @@ export function CartSheet({
                   </span>
                 </div>
                 <div>
-                  <div className="text-xs font-bold">Pay at counter</div>
+                  <div className="text-sm font-bold">Pay at counter</div>
                   <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
                     Order sent directly to kitchen; settle bill at counter
                   </div>
@@ -727,7 +727,7 @@ export function CartSheet({
           <div className="pt-2 border-t border-[var(--border-subtle)] space-y-1.5">
             <label
               htmlFor="order-kitchen-notes"
-              className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)] block"
+              className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)] block"
             >
               Kitchen Notes (Optional)
             </label>
@@ -738,7 +738,7 @@ export function CartSheet({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Less spicy, serve water with lemon, no onions"
-              className="w-full text-xs rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 px-3 py-2.5 min-h-[44px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
+              className="w-full text-base rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 px-3.5 py-2.5 min-h-[44px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
             />
           </div>
         </div>

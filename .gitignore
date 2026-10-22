@@ -27,6 +27,9 @@
 # misc
 .[D]S_[s]tore
 *.pem
+*.zip
+*.pdf
+/menu_images/
 
 # debug
 npm-debug.log*

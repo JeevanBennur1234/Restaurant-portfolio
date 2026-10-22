@@ -81,25 +81,25 @@ export function KitchenHeader({
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-serif text-lg font-bold tracking-wide">
+            <h1 className="font-serif text-lg sm:text-xl font-bold tracking-wide">
               {session.restaurantName}
             </h1>
             <Badge
               variant="outline"
               size="sm"
-              className="text-[10px] uppercase font-mono tracking-wider border-zinc-700 text-zinc-300"
+              className="text-xs uppercase font-mono tracking-wider border-zinc-700 text-zinc-300"
             >
               KDS Display
             </Badge>
           </div>
-          <p className="text-xs text-zinc-400 font-sans">
+          <p className="text-xs sm:text-sm text-zinc-400 font-sans">
             Logged in as <b className="text-zinc-200 capitalize">{session.username}</b> ({session.role})
           </p>
         </div>
       </div>
 
       {/* Ticket Counter Pills */}
-      <div className="hidden sm:flex items-center gap-2 bg-[#1F1C19] border border-[#2C2825] px-3 py-1.5 rounded-full text-xs font-mono">
+      <div className="hidden sm:flex items-center gap-2.5 bg-[#1F1C19] border border-[#2C2825] px-3.5 py-1.5 rounded-full text-sm font-mono">
         <span className="flex items-center gap-1.5 text-amber-400 font-bold">
           <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
           {activeCounts.new} New
@@ -119,7 +119,7 @@ export function KitchenHeader({
         {/* Screen Wake Lock Indicator */}
         {wakeLockActive && (
           <div
-            className="hidden xl:flex items-center gap-1.5 text-emerald-400 font-mono text-[11px] bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1.5 rounded-md"
+            className="hidden xl:flex items-center gap-1.5 text-emerald-400 font-mono text-xs bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1.5 rounded-md"
             title="Screen stays on while viewing KDS"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -128,8 +128,8 @@ export function KitchenHeader({
         )}
 
         {/* Live Clock */}
-        <div className="hidden lg:flex items-center gap-1.5 text-zinc-300 font-mono text-xs bg-[#1F1C19] border border-[#2C2825] px-3 py-2 rounded-md">
-          <Clock className="h-3.5 w-3.5 text-zinc-400" />
+        <div className="hidden lg:flex items-center gap-1.5 text-zinc-200 font-mono text-sm bg-[#1F1C19] border border-[#2C2825] px-3.5 py-2 rounded-md font-semibold">
+          <Clock className="h-4 w-4 text-zinc-400" />
           <span>{timeStr}</span>
         </div>
 
@@ -138,7 +138,7 @@ export function KitchenHeader({
           type="button"
           onClick={handleSoundClick}
           aria-label={soundEnabled ? "Chime ON" : "Enable Sound"}
-          className={`flex items-center gap-1.5 min-h-[44px] px-3.5 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 min-h-[44px] px-3.5 text-sm font-semibold rounded-md border transition-all cursor-pointer ${
             soundEnabled
               ? "bg-emerald-950/80 text-emerald-300 border-emerald-600 shadow-xs"
               : "bg-[#25211D] text-zinc-400 border-[#38332D] hover:text-white"

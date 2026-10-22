@@ -21,10 +21,10 @@ export function GuestHeader({ restaurantName, tableLabel }: GuestHeaderProps) {
           <Utensils className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <h1 className="font-serif text-base sm:text-lg font-bold leading-none tracking-tight text-[var(--text-primary)] truncate">
+          <h1 className="font-serif text-lg sm:text-xl font-bold leading-none tracking-tight text-[var(--text-primary)] truncate">
             {restaurantName}
           </h1>
-          <p className="hidden mt-0.5 text-[11px] font-sans text-[var(--text-muted)] tracking-wide uppercase sm:block">
+          <p className="hidden mt-0.5 text-xs font-sans text-[var(--text-muted)] tracking-wide uppercase sm:block">
             Digital Table Ordering
           </p>
         </div>
@@ -34,7 +34,7 @@ export function GuestHeader({ restaurantName, tableLabel }: GuestHeaderProps) {
         <Badge
           variant="secondary"
           size="md"
-          className="font-mono text-xs font-semibold px-2 sm:px-2.5 py-1 bg-[var(--bg-subtle)] text-[var(--text-primary)] border border-[var(--border-subtle)] shadow-xs"
+          className="font-mono text-xs sm:text-sm font-semibold px-2.5 sm:px-3 py-1 bg-[var(--bg-subtle)] text-[var(--text-primary)] border border-[var(--border-subtle)] shadow-xs"
         >
           {tableLabel}
         </Badge>

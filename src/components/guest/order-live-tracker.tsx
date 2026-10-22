@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatPaiseToINR } from "@/lib/currency";
 import { customerApi } from "@/lib/api/customer";
 import { userMessageFor } from "@/lib/api/errors";
-import type { OrderDetails, OrderStatus } from "@/lib/api/types";
+import type { OrderDetails, OrderStatus, ReceiptData } from "@/lib/api/types";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 import {
@@ -24,8 +24,12 @@ import {
   CreditCard,
   Banknote,
   QrCode,
+  Receipt,
+  Download,
+  Eye,
 } from "lucide-react";
 import { UpiQrModal } from "./upi-qr-modal";
+import { ReceiptModal } from "@/components/common/receipt-view";
 
 export interface OrderLiveTrackerProps {
   initialOrder: OrderDetails;
@@ -83,6 +87,38 @@ export function OrderLiveTracker({
   const [isPaying, setIsPaying] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
   const [isUpiQrOpen, setIsUpiQrOpen] = React.useState(false);
+
+  // Digital Receipt state
+  const [receiptData, setReceiptData] = React.useState<ReceiptData | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = React.useState(false);
+  const [isLoadingReceipt, setIsLoadingReceipt] = React.useState(false);
+
+  const fetchReceipt = React.useCallback(async () => {
+    setIsLoadingReceipt(true);
+    try {
+      const res = await customerApi.getReceipt({ orderId: order.id, token });
+      if (res.ok && res.data) {
+        setReceiptData(res.data);
+        return res.data;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  }, [order.id, token]);
+
+  const handleOpenReceipt = async () => {
+    if (!receiptData) {
+      const data = await fetchReceipt();
+      if (data) {
+        setIsReceiptOpen(true);
+      }
+    } else {
+      setIsReceiptOpen(true);
+    }
+  };
 
   const refreshOrder = React.useCallback(async () => {
     try {
@@ -311,22 +347,22 @@ export function OrderLiveTracker({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
           </span>
-          <span className="text-xs font-mono uppercase tracking-widest text-[var(--text-secondary)]">
+          <span className="text-xs sm:text-sm font-mono uppercase tracking-widest text-[var(--text-secondary)]">
             Live Order • {order.tableNumber}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           {order.paymentStatus === "paid" ? (
-            <Badge variant="success" size="sm" className="font-sans text-[11px]">
+            <Badge variant="success" size="sm" className="font-sans text-xs">
               Paid Online
             </Badge>
           ) : order.paymentStatus === "counter" ? (
-            <Badge variant="secondary" size="sm" className="font-sans text-[11px]">
+            <Badge variant="secondary" size="sm" className="font-sans text-xs">
               Pay at Counter
             </Badge>
           ) : (
-            <Badge variant="destructive" size="sm" className="font-sans text-[11px]">
+            <Badge variant="destructive" size="sm" className="font-sans text-xs">
               Payment Pending
             </Badge>
           )}
@@ -335,7 +371,7 @@ export function OrderLiveTracker({
             data-testid="order-number-badge"
             variant="secondary"
             size="md"
-            className="font-mono text-xs"
+            className="font-mono text-sm font-semibold"
           >
             #{order.orderNumber}
           </Badge>
@@ -434,10 +470,10 @@ export function OrderLiveTracker({
               {currentHeadline.icon}
             </div>
             <div>
-              <CardTitle data-testid="order-status-title" className="text-lg">
+              <CardTitle data-testid="order-status-title" className="text-xl font-bold">
                 {currentHeadline.title}
               </CardTitle>
-              <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+              <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
                 {currentHeadline.subtitle}
               </p>
             </div>
@@ -447,7 +483,7 @@ export function OrderLiveTracker({
           {/* Stepper (Placed -> Preparing -> Ready -> Served) */}
           <OrderStepper status={order.status} />
 
-          <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--text-muted)] border-t border-[var(--border-subtle)] pt-3">
+          <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)] border-t border-[var(--border-subtle)] pt-3">
             <span>
               Placed at{" "}
               {new Date(order.createdAt).toLocaleTimeString([], {
@@ -456,44 +492,98 @@ export function OrderLiveTracker({
               })}
             </span>
             <span className="flex items-center gap-1 font-mono">
-              <RotateCw className="h-3 w-3 animate-spin opacity-50" />
+              <RotateCw className="h-3.5 w-3.5 animate-spin opacity-50" />
               Sync ({lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })})
             </span>
           </div>
         </CardContent>
       </Card>
 
+      {/* Paid Receipt Access Card */}
+      {order.paymentStatus === "paid" && (
+        <Card className="border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/25 shadow-xs">
+          <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="rounded-full bg-emerald-100 dark:bg-emerald-900/60 p-2.5 text-emerald-700 dark:text-emerald-300 shrink-0">
+                <Receipt className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm sm:text-base text-[var(--text-primary)]">
+                    Official Payment Receipt
+                  </h4>
+                  <Badge variant="success" className="text-[10px] font-mono uppercase">
+                    PAID
+                  </Badge>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  Payment has been confirmed. View your itemized digital receipt, print, or download PDF.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 sm:pt-0 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                isLoading={isLoadingReceipt}
+                onClick={handleOpenReceipt}
+                className="h-9 px-3.5 text-xs font-semibold bg-white dark:bg-[var(--bg-surface)] shadow-xs"
+                leftIcon={<Eye className="h-3.5 w-3.5" />}
+              >
+                View Receipt
+              </Button>
+              <a
+                href={customerApi.getReceiptPdfUrl(order.id, token)}
+                target="_blank"
+                rel="noreferrer"
+                download
+              >
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="h-9 px-3.5 text-xs font-semibold shadow-xs"
+                  leftIcon={<Download className="h-3.5 w-3.5" />}
+                >
+                  Download PDF
+                </Button>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Itemized Order Summary */}
       <Card className="shadow-xs">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Order Summary</CardTitle>
-            <span className="text-xs text-[var(--text-muted)] font-mono">
+            <CardTitle className="text-lg font-bold">Order Summary</CardTitle>
+            <span className="text-sm text-[var(--text-muted)] font-mono">
               {order.items.reduce((s, i) => s + i.quantity, 0)} items
             </span>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="divide-y divide-[var(--border-subtle)] text-xs">
+          <div className="divide-y divide-[var(--border-subtle)] text-sm">
             {order.items.map((item) => (
               <div
                 key={item.id}
-                className="py-2.5 flex items-start justify-between gap-2"
+                className="py-3 flex items-start justify-between gap-2"
               >
                 <div className="space-y-0.5">
-                  <div className="font-medium text-[var(--text-primary)]">
+                  <div className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
                     <span className="font-mono font-bold text-[var(--primary)] mr-1.5">
                       {item.quantity}×
                     </span>
                     {item.itemName}
                   </div>
                   {item.selectedModifiers.length > 0 && (
-                    <div className="text-[11px] text-[var(--text-muted)] pl-5">
+                    <div className="text-xs sm:text-sm text-[var(--text-muted)] pl-5">
                       {item.selectedModifiers.map((m) => m.name).join(", ")}
                     </div>
                   )}
                 </div>
-                <span className="font-mono font-semibold text-[var(--text-primary)] shrink-0">
+                <span className="font-mono font-bold text-sm sm:text-base text-[var(--text-primary)] shrink-0">
                   {formatPaiseToINR(item.totalPaise)}
                 </span>
               </div>
@@ -501,20 +591,20 @@ export function OrderLiveTracker({
           </div>
 
           {/* Pricing Breakdown (Server Computed) */}
-          <div className="border-t border-[var(--border-subtle)] pt-3 space-y-1.5 text-xs">
+          <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2 text-sm">
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>Subtotal</span>
-              <span className="font-mono">
+              <span className="font-mono font-medium">
                 {formatPaiseToINR(order.subtotalPaise)}
               </span>
             </div>
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>GST (5%)</span>
-              <span className="font-mono">{formatPaiseToINR(order.taxPaise)}</span>
+              <span className="font-mono font-medium">{formatPaiseToINR(order.taxPaise)}</span>
             </div>
-            <div className="flex justify-between text-sm font-bold text-[var(--text-primary)] pt-1 border-t border-[var(--border-subtle)]">
+            <div className="flex justify-between text-base font-bold text-[var(--text-primary)] pt-1.5 border-t border-[var(--border-subtle)]">
               <span>Total Amount</span>
-              <span className="font-mono text-base text-[var(--primary)]">
+              <span className="font-mono text-xl text-[var(--primary)] font-extrabold">
                 {formatPaiseToINR(order.totalPaise)}
               </span>
             </div>
@@ -568,6 +658,14 @@ export function OrderLiveTracker({
           }}
         />
       )}
+
+      {/* Digital Receipt Modal */}
+      <ReceiptModal
+        isOpen={isReceiptOpen}
+        onClose={() => setIsReceiptOpen(false)}
+        receipt={receiptData}
+        pdfDownloadUrl={customerApi.getReceiptPdfUrl(order.id, token)}
+      />
     </div>
   );
 }

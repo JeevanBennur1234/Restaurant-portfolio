@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
-export type SheetSide = "bottom" | "right" | "left";
+export type SheetSide = "bottom" | "right" | "left" | "center";
 
 export interface SheetProps {
   isOpen: boolean;
@@ -47,7 +47,9 @@ export function Sheet({
     }
 
     const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
 
     // Set initial focus inside sheet after mount
     const timer = setTimeout(() => {
@@ -101,6 +103,7 @@ export function Sheet({
       clearTimeout(timer);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscroll;
 
       // Return focus on close
       const triggerEl = triggerRef.current;
@@ -121,6 +124,8 @@ export function Sheet({
       "inset-x-0 bottom-0 max-h-[90vh] rounded-t-[var(--radius-xl)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-sheet)] animate-sheet-slide-up",
     right:
       "inset-y-0 right-0 h-full w-full sm:max-w-md border-l border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] animate-in slide-in-from-right duration-250",
+    center:
+      "inset-x-0 bottom-0 max-h-[94dvh] h-auto rounded-t-[var(--radius-xl)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-sheet)] animate-sheet-slide-up sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[min(92vw,680px)] sm:max-h-[88dvh] sm:rounded-[var(--radius-xl)] sm:border sm:shadow-[var(--shadow-elevated)] sm:animate-in sm:fade-in sm:zoom-in-95 sm:duration-200",
     left:
       "inset-y-0 left-0 h-full w-full sm:max-w-md border-r border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] animate-in slide-in-from-left duration-250",
   };
@@ -149,9 +154,9 @@ export function Sheet({
           className
         )}
       >
-        {/* Mobile drag handle indicator for bottom sheet */}
-        {side === "bottom" && (
-          <div className="flex justify-center pt-3 pb-1">
+        {/* Mobile drag handle indicator for bottom and center sheets */}
+        {(side === "bottom" || side === "center") && (
+          <div className="flex sm:hidden justify-center pt-3 pb-1">
             <div className="h-1.5 w-12 rounded-full bg-[var(--border-strong)] opacity-60" />
           </div>
         )}
