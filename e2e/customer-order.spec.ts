@@ -154,7 +154,7 @@ test.describe("Customer Food Ordering Journey", () => {
     }
 
     // The brand mark on the tracker should return the guest to this table's menu.
-    const brandHomeLink = page.getByTestId("guest-brand-home-link");
+    const brandHomeLink = page.locator('[data-testid="guest-brand-home-link"]:visible').first();
     await expect(brandHomeLink).toHaveAttribute("href", `/t/${DEMO_TABLE_TOKEN}`);
     await brandHomeLink.click();
     await expect(page).toHaveURL(new RegExp(`/t/${DEMO_TABLE_TOKEN}$`));

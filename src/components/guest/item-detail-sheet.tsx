@@ -112,19 +112,19 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       isOpen={isOpen}
       onClose={onClose}
       side="center"
-      className="flex flex-col"
-      contentClassName="p-4 sm:p-5"
-      footerClassName="p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-4"
+      className="flex flex-col overflow-hidden rounded-3xl border border-[#3A3026] bg-[#181412] text-[#FAF7F2] shadow-2xl"
+      contentClassName="p-0"
+      footerClassName="border-t border-[#2F2722] bg-[#181412] p-4 sm:p-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-5"
       footer={
         <div className="space-y-2">
           {/* Detailed Price Breakdown */}
           {modifierTotalPaise > 0 && (
-            <div className="flex items-center justify-between text-sm text-[var(--text-secondary)] px-1">
+            <div className="flex items-center justify-between gap-2 px-1 text-sm text-stone-300">
               <span>
                 Base {formatPaiseToINR(item.pricePaise)} + Customizations{" "}
                 {formatPaiseToINR(modifierTotalPaise)}
               </span>
-              <span className="font-mono text-[var(--text-muted)]">
+              <span className="font-mono text-stone-400">
                 {quantity} × {formatPaiseToINR(unitTotalPaise)}
               </span>
             </div>
@@ -132,24 +132,24 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
 
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Quantity Stepper (min 44px tap targets) */}
-            <div className="flex shrink-0 items-center border border-[var(--border-strong)] rounded-[var(--radius-md)] bg-[var(--bg-surface)]">
+            <div className="flex shrink-0 items-center rounded-full border border-[#3A3026] bg-[#221B17]">
               <button
                 type="button"
                 disabled={quantity <= 1 || !isAvailable}
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 cursor-pointer"
+                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 text-stone-300 transition-colors hover:text-amber-400 disabled:opacity-30 cursor-pointer"
                 aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-8 text-center text-base font-semibold font-mono text-[var(--text-primary)]">
+              <span className="w-8 text-center font-mono text-base font-semibold text-[#FAF7F2]">
                 {quantity}
               </span>
               <button
                 type="button"
                 disabled={quantity >= 20 || !isAvailable}
                 onClick={() => setQuantity((q) => Math.min(20, q + 1))}
-                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 cursor-pointer"
+                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 text-stone-300 transition-colors hover:text-amber-400 disabled:opacity-30 cursor-pointer"
                 aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
@@ -163,12 +163,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               variant="primary"
               disabled={!isAvailable}
               onClick={handleAddToCart}
-              className="flex-1 justify-between shadow-md px-3 sm:px-4 text-base min-w-0 min-h-[52px] h-13 font-semibold"
+              className="min-h-[52px] h-[52px] min-w-0 flex-1 justify-between rounded-full bg-gradient-to-r from-[#C85A32] to-[#B34B24] px-5 text-base font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
             >
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
               </span>
-              <span className="font-mono text-base font-bold shrink-0">
+              <span className="shrink-0 font-mono text-base font-bold text-white">
                 · {formatPaiseToINR(lineTotalPaise)}
               </span>
             </Button>
@@ -176,7 +176,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         </div>
       }
     >
-      <div className="relative space-y-4 sm:space-y-5">
+      <div className="relative space-y-0 bg-[#181412] text-[#FAF7F2]">
         <button
           type="button"
           onClick={onClose}
@@ -185,71 +185,82 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         >
           <X className="h-5 w-5" />
         </button>
-        {/* Full-bleed Photography Banner with WCAG AA Dark Overlay & Graceful Fallback */}
+        {/* Full-frame 4:3 food photography keeps the dish and garnishes visible without cropping. */}
         {item.imageUrl && !bannerError ? (
-          <div className="relative -mx-4 -mt-4 h-44 sm:-mx-5 sm:-mt-5 sm:h-52 overflow-hidden rounded-t-[var(--radius-xl)] bg-[var(--bg-subtle)]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#241E1A]">
             <Image
               src={item.imageUrl}
               alt={item.name}
               fill
-              sizes="(max-width: 640px) 100vw, 480px"
-              className="object-cover"
+              priority
+              sizes="(max-width: 640px) 100vw, 680px"
+              className="object-contain"
               onError={() => setBannerError(true)}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-            <div className="absolute bottom-3 left-4 right-4 text-white flex items-center justify-between">
-              <span className="eyebrow text-[10px] text-amber-300">
-                Freshly Prepared · {item.prepTimeMinutes} mins
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#181412]/90 via-transparent to-black/35" />
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 sm:bottom-4 sm:left-4 sm:right-4">
+              <span className="rounded-full border border-white/10 bg-black/70 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-amber-300 backdrop-blur-sm sm:text-[11px]">
+                FRESHLY PREPARED &middot; {item.prepTimeMinutes || 18} MINS
               </span>
-              <span className="text-xs font-mono uppercase tracking-wider text-stone-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/20">
-                {item.isVeg ? "Vegetarian" : "Non-Veg"}
+              <span className="rounded-full border border-emerald-500/30 bg-black/70 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-emerald-300 backdrop-blur-sm sm:text-[11px]">
+                {item.isVeg ? "Vegetarian" : "Non-Vegetarian"}
               </span>
             </div>
           </div>
         ) : (
-          <div className="relative -mx-4 -mt-4 h-44 sm:-mx-5 sm:-mt-5 sm:h-52 overflow-hidden rounded-t-[var(--radius-xl)] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] flex flex-col justify-end p-4 border-b border-[var(--border-subtle)]">
-            <div className="flex items-center justify-between text-white">
+          <div className="relative flex aspect-[4/3] w-full flex-col justify-end overflow-hidden border-b border-[#3A3026] bg-gradient-to-br from-[#2E2723] via-[#3D332D] to-[#1F1A18] p-4">
+            <div className="absolute inset-0 bg-gradient-to-t from-[#181412] via-transparent to-black/30" />
+            <div className="relative flex items-center justify-between gap-2 text-white">
               <div className="flex items-center gap-2">
-                <Utensils className="h-4 w-4 text-[#D97706]" />
-                <span className="eyebrow text-[10px] text-amber-300">
-                  Freshly Prepared · {item.prepTimeMinutes} mins
+                <Utensils className="h-4 w-4 text-[#D97706]" aria-hidden="true" />
+                <span className="font-mono text-[10px] uppercase tracking-wider text-amber-300">
+                  FRESHLY PREPARED &middot; {item.prepTimeMinutes || 18} MINS
                 </span>
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-stone-300 bg-white/10 px-2 py-0.5 rounded-full">
-                {item.isVeg ? "Vegetarian" : "Non-Veg"}
+              <span className="rounded-full border border-emerald-500/30 bg-black/50 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-300">
+                {item.isVeg ? "Vegetarian" : "Non-Vegetarian"}
               </span>
             </div>
           </div>
         )}
 
-        {/* Item Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
+        {/* Dish details use a separate charcoal surface under the uncropped image. */}
+        <div className="space-y-3 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2">
             <VegIndicator isVeg={item.isVeg} />
-            <span className="flex items-center gap-1 text-sm text-[var(--text-muted)] font-mono">
-              <Clock className="h-3 w-3" />
-              {item.prepTimeMinutes} min prep
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3026] bg-[#221B17] px-3 py-1.5 font-mono text-xs text-stone-300">
+              <Clock className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+              {item.prepTimeMinutes || 18} min prep
             </span>
           </div>
 
-          <h2 className="font-serif text-2xl font-bold leading-tight text-[var(--text-primary)]">
+          <h2 className="font-serif text-2xl font-bold leading-tight tracking-tight text-[#FAF7F2] sm:text-3xl">
             {item.name}
           </h2>
 
-          <div className="text-2xl font-bold text-[var(--primary)] font-sans">
+          <div className="font-serif text-2xl font-bold text-amber-400 sm:text-3xl">
             {formatPaiseToINR(item.pricePaise)}
           </div>
 
           {item.description && (
-            <p className="text-base text-[var(--text-secondary)] leading-relaxed pt-1">
+            <p className="pt-0.5 font-sans text-sm leading-relaxed text-stone-300 sm:text-base">
               {item.description}
             </p>
           )}
+
+          <div className="rounded-xl border border-[#3A3026] bg-[#221B17] p-3.5 sm:p-4">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-amber-300">
+              Masala Lane &middot; Heritage Kitchen
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-stone-300">
+              Inspired by traditional Indian recipes and prepared fresh to order.
+            </p>
+          </div>
         </div>
 
         {/* Modifiers List */}
         {modifierGroups.size > 0 && (
-          <div className="space-y-4 border-t border-[var(--border-subtle)] pt-3 sm:pt-4">
+          <div className="space-y-4 border-t border-[#2F2722] pt-4">
             {Array.from(modifierGroups.entries()).map(([groupName, mods], groupIndex) => {
               const isRadio = mods.some((m) => m.isRequired);
 
@@ -257,14 +268,14 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                 <div key={groupName} className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-sm font-bold text-[var(--accent)]">
+                      <span className="font-mono text-sm font-bold text-amber-400">
                         {String(groupIndex + 1).padStart(2, "0")} /
                       </span>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-[#FAF7F2]">
                         {groupName}
                       </h3>
                     </div>
-                    <span className="text-sm font-mono text-[var(--text-muted)]">
+                    <span className="text-xs font-mono text-stone-400 sm:text-sm">
                       {isRadio ? "Choose 1 (Required)" : "Optional"}
                     </span>
                   </div>
@@ -280,8 +291,8 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                           onClick={() => toggleModifier(mod, isRadio)}
                           className={`flex items-center justify-between p-3 sm:p-4 rounded-[var(--radius-md)] border text-sm transition-colors cursor-pointer min-h-[48px] select-none ${
                             isSelected
-                              ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 text-[var(--text-primary)] font-medium ring-1 ring-[var(--primary)]"
-                              : "border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)]/55 text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
+                              ? "border-[#C85A32] bg-[#C85A32]/10 text-[#FAF7F2] font-medium ring-1 ring-[#C85A32]"
+                              : "border-dashed border-[#3A3026] bg-[#221B17] text-stone-300 hover:border-[#70513F] hover:bg-[#2A211C]"
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -290,12 +301,12 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                               name={groupName}
                               checked={isSelected}
                               onChange={() => {}} // Controlled by label click
-                              className="accent-[var(--primary)] h-4 w-4 cursor-pointer"
+                              className="h-4 w-4 cursor-pointer accent-[#C85A32]"
                             />
                             <span>{mod.name}</span>
                           </div>
 
-                          <span className="font-mono text-sm text-[var(--text-muted)] font-medium">
+                          <span className="font-mono text-sm font-medium text-stone-300">
                             {mod.pricePaise > 0
                               ? `+${formatPaiseToINR(mod.pricePaise)}`
                               : "Free"}

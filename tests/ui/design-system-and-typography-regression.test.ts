@@ -9,6 +9,7 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   const guestHeaderCode = fs.readFileSync(path.resolve(root, "src/components/guest/guest-header.tsx"), "utf-8");
   const menuItemCardCode = fs.readFileSync(path.resolve(root, "src/components/guest/menu-item-card.tsx"), "utf-8");
   const itemDetailSheetCode = fs.readFileSync(path.resolve(root, "src/components/guest/item-detail-sheet.tsx"), "utf-8");
+  const pairingCardCode = fs.readFileSync(path.resolve(root, "src/components/guest/pairing-card.tsx"), "utf-8");
   const cartSheetCode = fs.readFileSync(path.resolve(root, "src/components/guest/cart-sheet.tsx"), "utf-8");
   const sheetCode = fs.readFileSync(path.resolve(root, "src/components/ui/sheet.tsx"), "utf-8");
   const buttonCode = fs.readFileSync(path.resolve(root, "src/components/ui/button.tsx"), "utf-8");
@@ -131,6 +132,17 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(adminNavbarCode).toContain('data-testid="admin-brand-home-link"');
       expect(adminNavbarCode).toContain("href={brandHomeUrl}");
       expect(adminNavbarCode).toContain('resolveSiteUrl("customer", "/")');
+    });
+
+    it("uses an uncropped 4:3 dark editorial item modal with readable metadata and terracotta CTA", () => {
+      expect(itemDetailSheetCode).toContain('aspect-[4/3] w-full overflow-hidden bg-[#241E1A]');
+      expect(itemDetailSheetCode).toContain('className="object-contain"');
+      expect(itemDetailSheetCode).toContain('bg-[#181412] text-[#FAF7F2]');
+      expect(itemDetailSheetCode).toContain('border border-[#3A3026]');
+      expect(itemDetailSheetCode).toContain('Masala Lane &middot; Heritage Kitchen');
+      expect(itemDetailSheetCode).toContain('from-[#C85A32] to-[#B34B24]');
+      expect(guestHeaderCode).toContain('Digital Table Ordering home');
+      expect(pairingCardCode).toContain('aria-label={`Add standard pair:');
     });
 
     it("prints only the bill/receipt instead of the manager page behind its modal", () => {

@@ -143,7 +143,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
 
   it("4. item-detail-sheet.tsx & cart-sheet.tsx feature image header, min 44px tap targets, and clear price breakdowns", () => {
     // Item detail sheet
-    expect(itemDetailSheetCode).toContain("Freshly Prepared");
+    expect(itemDetailSheetCode).toContain("FRESHLY PREPARED");
     expect(itemDetailSheetCode).toContain('side="center"');
     expect(itemDetailSheetCode).toContain("aria-label={`Close ${item.name} details`}");
     expect(itemDetailSheetCode).toContain("min-h-[44px] min-w-[44px]"); // quantity steppers
