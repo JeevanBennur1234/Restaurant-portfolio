@@ -198,11 +198,15 @@ describe("Client Login Security (Authentic Credentials Only)", () => {
 
     // Must not contain hardcoded credentials
     expect(kitchenLoginCode).not.toContain("kitchen123");
+    expect(kitchenLoginCode).not.toContain("kitchen@123");
     expect(kitchenLoginCode).not.toContain("manager123");
+    expect(kitchenLoginCode).not.toContain("manager@123");
     expect(kitchenLoginCode).not.toContain("handleQuickLogin");
 
     expect(adminLoginCode).not.toContain("kitchen123");
+    expect(adminLoginCode).not.toContain("kitchen@123");
     expect(adminLoginCode).not.toContain("manager123");
+    expect(adminLoginCode).not.toContain("manager@123");
     expect(adminLoginCode).not.toContain("handleQuickLogin");
 
     // Must not contain demo login shortcuts

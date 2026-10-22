@@ -207,8 +207,8 @@ async function seed() {
   let managerPassword = env.SEED_MANAGER_PASSWORD;
 
   if (isDevOrTest) {
-    kitchenPassword = kitchenPassword || "kitchen123";
-    managerPassword = managerPassword || "manager123";
+    kitchenPassword = kitchenPassword || "kitchen@123";
+    managerPassword = managerPassword || "manager@123";
   } else {
     if (!kitchenPassword) {
       kitchenPassword = crypto.randomBytes(12).toString("base64url");

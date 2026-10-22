@@ -23,7 +23,7 @@ async function loginKitchen(page: Page) {
   const usernameInput = page.locator('[data-testid="kitchen-username-input"]');
   if (await usernameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
     await usernameInput.fill("kitchen");
-    await page.locator('[data-testid="kitchen-password-input"]').fill("kitchen123");
+    await page.locator('[data-testid="kitchen-password-input"]').fill("kitchen@123");
     await page.locator('[data-testid="kitchen-login-btn"]').click();
   }
 }
@@ -32,7 +32,7 @@ async function loginManager(page: Page) {
   const usernameInput = page.locator('[data-testid="admin-username-input"]');
   if (await usernameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
     await usernameInput.fill("manager");
-    await page.locator('[data-testid="admin-password-input"]').fill("manager123");
+    await page.locator('[data-testid="admin-password-input"]').fill("manager@123");
     await page.locator('[data-testid="admin-login-btn"]').click();
   }
 }
@@ -193,8 +193,8 @@ export async function main() {
         ...process.env,
         DATABASE_URL: cleanDbUrl,
         DEV_TABLE_TOKEN: "demo-table-7",
-        SEED_KITCHEN_PASSWORD: "kitchen123",
-        SEED_MANAGER_PASSWORD: "manager123",
+        SEED_KITCHEN_PASSWORD: "kitchen@123",
+        SEED_MANAGER_PASSWORD: "manager@123",
         NODE_ENV: "development",
       },
       stdio: "inherit",
