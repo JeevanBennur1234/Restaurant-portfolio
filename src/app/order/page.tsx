@@ -140,7 +140,7 @@ export default function OrderEntryPage() {
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-primary)]">
       {/* Top Header */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-4 sm:px-8 py-3.5 backdrop-blur-md shadow-xs">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/order" className="flex items-center gap-2.5 group">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-[var(--primary)] group-hover:opacity-90 transition-opacity">
             <Utensils className="h-4 w-4" />
           </div>
@@ -155,10 +155,10 @@ export default function OrderEntryPage() {
         </Link>
 
         <Link
-          href="/"
+          href="/order"
           className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors min-h-[44px] inline-flex items-center"
         >
-          Back to Restaurant
+          Table Dining
         </Link>
       </header>
 

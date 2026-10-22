@@ -124,11 +124,11 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   });
 
   describe("4. Receipt Print Isolation & Brand Navigation", () => {
-    it("makes the Customer menu brand mark return to the public home page and the order tracker return to the table menu", () => {
+    it("makes the Customer menu brand mark and order tracker return to the active table menu", () => {
       expect(guestHeaderCode).toContain('data-testid="guest-brand-home-link"');
       expect(guestHeaderCode).toContain("href={homeHref}");
       expect(guestHeaderCode).toContain('homeHref = "/"');
-      expect(guestTablePageCode).toContain('homeHref="/"');
+      expect(guestTablePageCode).toContain('homeHref={`/t/${token}`}');
       expect(guestOrderPageCode).toContain("homeHref={`/t/${token}`}");
     });
 
@@ -139,10 +139,10 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(homePageCode).not.toContain("Contact Intallo");
     });
 
-    it("makes the Manager brand mark a link to the public restaurant home page", () => {
+    it("makes the Manager brand mark a link to the manager console panel", () => {
       expect(adminNavbarCode).toContain('data-testid="admin-brand-home-link"');
       expect(adminNavbarCode).toContain("href={brandHomeUrl}");
-      expect(adminNavbarCode).toContain('resolveSiteUrl("customer", "/")');
+      expect(adminNavbarCode).toContain('brandHomeUrl = "/admin"');
     });
 
     it("uses an uncropped 4:3 dark editorial item modal with readable metadata and terracotta CTA", () => {

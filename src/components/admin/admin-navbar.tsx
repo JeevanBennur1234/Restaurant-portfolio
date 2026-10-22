@@ -38,7 +38,7 @@ export function AdminNavbar({
 }: AdminNavbarProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
-  const brandHomeUrl = customerUrl ?? resolveSiteUrl("customer", "/") ?? "/";
+  const brandHomeUrl = "/admin";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -83,12 +83,13 @@ export function AdminNavbar({
     <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md shadow-2xs">
       <div className="mx-auto w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]">
         <div className="flex h-14 items-center justify-between gap-3">
-          {/* Authentic restaurant brand; always returns to the public Masala Lane home page. */}
+          {/* Authentic restaurant brand; returns to the manager console panel. */}
           <Link
             href={brandHomeUrl}
+            onClick={() => onTabChange("orders")}
             data-testid="admin-brand-home-link"
-            aria-label={`Go to ${session.restaurantName || "Masala Lane"} main page`}
-            title={`Open ${session.restaurantName || "Masala Lane"} main page`}
+            aria-label={`Go to ${session.restaurantName || "Masala Lane"} manager panel`}
+            title={`Return to ${session.restaurantName || "Masala Lane"} manager panel`}
             className="group flex min-w-0 items-center gap-3 rounded-xl py-1 pr-2 transition-colors hover:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
           >
             <span className="min-w-0">

@@ -64,7 +64,7 @@ export default async function GuestTablePage({ params }: GuestPageProps) {
     <CartProvider menuItems={items} tableId={table.id}>
       <div className="min-h-screen flex flex-col bg-[var(--bg-app)]">
         <GuestHeader
-          homeHref="/"
+          homeHref={`/t/${token}`}
           restaurantName={restaurant.name}
           tableLabel={table.tableNumber}
         />
