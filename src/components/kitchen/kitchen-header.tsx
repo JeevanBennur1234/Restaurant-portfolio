@@ -130,7 +130,7 @@ export function KitchenHeader({
             disabled={isRefreshing}
             className="flex items-center gap-1.5 text-emerald-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
             title="Click to refresh instantly"
-            aria-label="Click to refresh tickets instantly"
+            aria-label="Live Auto-Refresh: click to refresh tickets instantly"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             <span className="hidden md:inline font-sans font-medium text-xs">Live Auto-Refresh</span>

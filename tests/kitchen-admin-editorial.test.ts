@@ -5,6 +5,7 @@ import * as path from "node:path";
 describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
   const kitchenTicketPath = path.resolve(process.cwd(), "src/components/kitchen/kitchen-ticket.tsx");
   const kitchenLoginPath = path.resolve(process.cwd(), "src/components/kitchen/kitchen-login.tsx");
+  const kitchenHeaderPath = path.resolve(process.cwd(), "src/components/kitchen/kitchen-header.tsx");
   const adminNavbarPath = path.resolve(process.cwd(), "src/components/admin/admin-navbar.tsx");
   const adminReportsPath = path.resolve(process.cwd(), "src/components/admin/admin-reports-tab.tsx");
   const adminOrdersPath = path.resolve(process.cwd(), "src/components/admin/admin-orders-tab.tsx");
@@ -15,6 +16,7 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
 
   const kitchenTicketCode = fs.readFileSync(kitchenTicketPath, "utf-8");
   const kitchenLoginCode = fs.readFileSync(kitchenLoginPath, "utf-8");
+  const kitchenHeaderCode = fs.readFileSync(kitchenHeaderPath, "utf-8");
   const adminNavbarCode = fs.readFileSync(adminNavbarPath, "utf-8");
   const adminReportsCode = fs.readFileSync(adminReportsPath, "utf-8");
   const adminOrdersCode = fs.readFileSync(adminOrdersPath, "utf-8");
@@ -45,6 +47,11 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
 
     // 5. Large touch targets (min 48px)
     expect(kitchenTicketCode).toContain("min-h-[48px]");
+  });
+
+  it("Kitchen refresh control includes its visible label in its accessible name", () => {
+    expect(kitchenHeaderCode).toContain('aria-label="Live Auto-Refresh: click to refresh tickets instantly"');
+    expect(kitchenHeaderCode).toContain('text-xs">Live Auto-Refresh</span>');
   });
 
   it("Admin Navbar: cleaner tab navigation with clear active state and focus rings", () => {
