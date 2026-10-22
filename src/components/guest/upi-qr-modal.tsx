@@ -180,9 +180,9 @@ export function UpiQrModal({
       aria-modal="true"
       aria-labelledby="upi-qr-title"
     >
-      <div className="relative w-full max-w-md bg-[var(--surface)] text-[var(--text-primary)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-md bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[var(--border-subtle)] flex items-start justify-between bg-[var(--surface-raised)]/40">
+        <div className="p-4 sm:p-5 border-b border-[var(--border-subtle)] flex items-start justify-between bg-[var(--bg-subtle)]">
           <div>
             <div className="flex items-center gap-2">
               <QrCode className="w-5 h-5 text-[var(--primary)]" />
@@ -196,7 +196,7 @@ export function UpiQrModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors"
+            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition-colors"
             aria-label="Close payment modal"
           >
             <X className="w-5 h-5" />
@@ -330,19 +330,19 @@ export function UpiQrModal({
 
               {qrData?.isTestMode ? (
                 /* Documented Test Mode Explanation */
-                <div className="w-full p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+                <div className="w-full p-4 rounded-xl bg-amber-50 border border-amber-300 text-left space-y-3 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
                     <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
                     <span>Razorpay Test Mode Notice</span>
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  <p className="text-xs text-stone-700 leading-relaxed">
                     Mobile UPI apps (Google Pay, PhonePe, Paytm) cannot scan test QR codes because banking UPI networks only process live transactions.
                   </p>
-                  <div className="p-3 bg-[var(--surface)]/90 rounded-lg border border-amber-500/20 text-xs space-y-1.5">
-                    <p className="font-semibold text-amber-900 dark:text-amber-200 text-xs">
+                  <div className="p-3 bg-white rounded-lg border border-amber-200 text-xs space-y-1.5">
+                    <p className="font-semibold text-amber-950 text-xs">
                       Simulate UPI Payment via Razorpay Checkout:
                     </p>
-                    <p className="text-[11px] text-[var(--text-secondary)]">
+                    <p className="text-[11px] text-stone-700">
                       Click <strong>Open Test Checkout</strong> below, select <strong>UPI</strong>, and enter the simulated VPA:
                     </p>
                     <div className="flex flex-col gap-1 font-mono text-[11px] pt-1">
@@ -362,7 +362,7 @@ export function UpiQrModal({
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>UPI QR Unavailable</span>
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  <p className="text-xs text-stone-700 leading-relaxed">
                     {qrData?.message ||
                       "Live dynamic UPI QR codes are not currently active on this Razorpay merchant account. Please use Cards / Netbanking or Pay at Counter."}
                   </p>
@@ -400,7 +400,7 @@ export function UpiQrModal({
                     <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-purple-600" />
                     <span>Local Development Simulation</span>
                   </div>
-                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  <p className="text-[11px] text-stone-700 leading-relaxed">
                     Opt-in simulation enabled (local dev database only). Simulate instant payment callback:
                   </p>
                   <Button
@@ -425,7 +425,7 @@ export function UpiQrModal({
 
         {/* Footer with Alternative Actions (Shown only when QR is actively displayed) */}
         {!isPaid && qrData?.qrAvailable && (
-          <div className="p-4 bg-[var(--surface-raised)]/60 border-t border-[var(--border-subtle)] space-y-2">
+          <div className="p-4 bg-[var(--bg-subtle)] border-t border-[var(--border-subtle)] space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
