@@ -89,6 +89,7 @@ export async function apiFetch<T>(
       method,
       headers,
       credentials: "same-origin",
+      cache: "no-store",
       body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
       signal: controller.signal,
     });

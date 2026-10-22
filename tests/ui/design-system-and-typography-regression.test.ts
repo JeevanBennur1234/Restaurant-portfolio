@@ -96,13 +96,13 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
 
     it("ensures Manager dashboard tables and forms use readable typography hierarchy", () => {
       // Admin navbar tab typography
-      expect(adminNavbarCode).toContain("text-sm leading-tight transition-all cursor-pointer");
-      expect(adminNavbarCode).toContain("bg-[#292522]");
+      expect(adminNavbarCode).toContain("whitespace-nowrap");
+      expect(adminNavbarCode).toContain("text-[#F4EFEA]");
       expect(adminNavbarCode).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");
-      expect(adminNavbarCode).toContain("flex h-14 items-center justify-between gap-3");
+      expect(adminNavbarCode).toContain("flex h-16 items-center justify-between gap-4");
       expect(adminNavbarCode).toContain("Manager Hub");
       expect(adminNavbarCode).not.toContain("DinePulse Admin");
-      expect(adminNavbarCode).toContain("min-h-[44px]");
+      expect(adminNavbarCode).toContain("min-h-[40px]");
 
       // Admin orders table
       expect(adminOrdersCode).toContain("text-sm border-collapse min-w-[760px]");

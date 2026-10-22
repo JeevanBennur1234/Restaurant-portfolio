@@ -82,7 +82,7 @@ export function AdminNavbar({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-md shadow-2xs">
       <div className="mx-auto w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]">
-        <div className="flex h-14 items-center justify-between gap-3">
+        <div className="flex h-16 items-center justify-between gap-4">
           {/* Authentic restaurant brand; returns to the manager console panel. */}
           <Link
             href={brandHomeUrl}
@@ -107,7 +107,7 @@ export function AdminNavbar({
           {/* Center Tabs Desktop with High-Contrast Active State */}
           <nav
             aria-label="Admin Navigation Tabs"
-            className="hidden lg:grid w-[440px] shrink-0 grid-cols-4 items-stretch gap-1.5 bg-transparent p-0 rounded-xl border-0"
+            className="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-[#201C19] border border-[#3A302A] shadow-xs"
           >
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -117,17 +117,17 @@ export function AdminNavbar({
                   data-testid={`admin-nav-${item.id}`}
                   type="button"
                   onClick={() => onTabChange(item.id)}
-                  className={`relative flex w-full min-w-0 items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-sm leading-tight transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A32] min-h-[44px] border ${
+                  className={`relative flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C85A32] min-h-[40px] border ${
                     isActive
                       ? "border-[#C85A32] bg-[#C85A32] text-white shadow-md shadow-[#C85A32]/20 font-semibold"
-                      : "border-[#3A302A] bg-[#292522] text-[#F4EFEA] hover:border-[#6B5548] hover:bg-[#38302A] hover:text-white font-medium"
+                      : "border-transparent bg-transparent text-[#F4EFEA] hover:border-[#6B5548] hover:bg-[#38302A] hover:text-white"
                   }`}
                 >
                   {item.icon}
-                  <span className="max-w-[58px] whitespace-normal text-left leading-tight">{item.label}</span>
+                  <span className="whitespace-nowrap">{item.label}</span>
                   {item.badge !== undefined && (
                     <span
-                      className={`absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      className={`ml-1 rounded-full px-2 py-0.5 text-xs font-bold ${
                         isActive
                           ? "bg-white text-[#C85A32]"
                           : "bg-[#C85A32] text-white"

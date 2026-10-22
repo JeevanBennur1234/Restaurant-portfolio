@@ -25,6 +25,7 @@ export function KitchenBoard({
   const [tickets, setTickets] = React.useState<KitchenTicket[]>(initialTickets);
   const [highlightedIds, setHighlightedIds] = React.useState<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   // Sound ref to access current value in realtime callbacks without stale closure
   const soundEnabledRef = React.useRef(soundEnabled);
@@ -46,6 +47,29 @@ export function KitchenBoard({
       });
     }, 6000);
   }, []);
+
+  const refreshTickets = React.useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await kitchenApi.listTickets();
+      if (res.ok) {
+        setTickets((current) => {
+          const currentIds = new Set(current.map((t) => t.id));
+          const brandNewTickets = res.data.filter((t) => !currentIds.has(t.id));
+          for (const newTicket of brandNewTickets) {
+            triggerNewOrderAlert(newTicket.id);
+          }
+          return res.data;
+        });
+      } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
+        router.refresh();
+      }
+    } catch {
+      // tolerate background network hiccup
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [triggerNewOrderAlert, router]);
 
   // Supabase client instantiated once per component
   const supabase = React.useMemo(() => {
@@ -116,13 +140,13 @@ export function KitchenBoard({
     };
   }, [supabase, realtimeChannel, triggerNewOrderAlert, router]);
 
-  // 2. Polling Fallback with 401 redirect and 429 backoff using Retry-After
+  // 2. Continuous 3s Polling with visibilitychange listener and 429 backoff
   React.useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let isCancelled = false;
 
     const poll = async () => {
-      let delayMs = 5000;
+      let delayMs = 3000;
       try {
         const res = await kitchenApi.listTickets();
         if (isCancelled) return;
@@ -138,11 +162,9 @@ export function KitchenBoard({
             return res.data;
           });
         } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
-          // 401: Refresh to login view
           router.refresh();
           return;
         } else if (res.status === 429) {
-          // 429: Back off using Retry-After header
           const retryAfterSec =
             res.retryAfter && res.retryAfter > 0 ? res.retryAfter : 15;
           delayMs = retryAfterSec * 1000;
@@ -156,11 +178,20 @@ export function KitchenBoard({
       }
     };
 
-    timeoutId = setTimeout(poll, 5000);
+    // Initial poll after 1s
+    timeoutId = setTimeout(poll, 1000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void poll();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isCancelled = true;
       clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [triggerNewOrderAlert, router]);
 
@@ -208,6 +239,8 @@ export function KitchenBoard({
         activeCounts={activeCounts}
         soundEnabled={soundEnabled}
         onToggleSound={setSoundEnabled}
+        isRefreshing={isRefreshing}
+        onRefresh={refreshTickets}
       />
 
       {/* 3-Column Board (Designed for Tablet Landscape & Touch) */}

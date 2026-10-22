@@ -3,6 +3,8 @@ import { listKitchenTickets } from "@/server/services/kitchen";
 import { withApi } from "@/server/api/handler";
 import { fromServiceResult } from "@/server/api/envelope";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const GET = withApi(
   async ({ actor }) => {

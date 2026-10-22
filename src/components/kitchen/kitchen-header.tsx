@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, VolumeX, Maximize2, Minimize2, LogOut, Clock, ChefHat } from "lucide-react";
+import { Volume2, VolumeX, Maximize2, Minimize2, LogOut, Clock, ChefHat, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { unlockAudioContext } from "@/lib/sound";
@@ -19,6 +19,8 @@ export interface KitchenHeaderProps {
   };
   soundEnabled: boolean;
   onToggleSound: (enabled: boolean) => void;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export function KitchenHeader({
@@ -26,6 +28,8 @@ export function KitchenHeader({
   activeCounts,
   soundEnabled,
   onToggleSound,
+  isRefreshing = false,
+  onRefresh,
 }: KitchenHeaderProps) {
   const [timeStr, setTimeStr] = React.useState("");
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -113,6 +117,25 @@ export function KitchenHeader({
           {activeCounts.ready} Ready
         </span>
       </div>
+
+        {/* Live Auto-Refresh Indicator & Action */}
+        <div
+          className="flex items-center gap-1.5 text-xs font-mono bg-[#1F1C19] border border-[#2C2825] px-2.5 py-1.5 rounded-md text-emerald-400"
+          title="Kitchen board automatically refreshes every 3 seconds"
+        >
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 text-emerald-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            title="Click to refresh instantly"
+            aria-label="Click to refresh tickets instantly"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span className="hidden md:inline font-sans font-medium text-xs">Live Auto-Refresh</span>
+          </button>
+        </div>
 
       {/* Controls & Clock */}
       <div className="flex items-center gap-2.5">
