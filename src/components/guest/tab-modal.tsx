@@ -23,6 +23,7 @@ import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay"
 export interface TabModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAddMoreDishes?: () => void;
   token: string;
   tableLabel: string;
   paymentsEnabled?: boolean;
@@ -32,6 +33,7 @@ export interface TabModalProps {
 export function TabModal({
   isOpen,
   onClose,
+  onAddMoreDishes,
   token,
   tableLabel,
   paymentsEnabled = true,
@@ -371,7 +373,7 @@ export function TabModal({
                 <Button
                   variant="outline"
                   size="md"
-                  onClick={onClose}
+                  onClick={onAddMoreDishes ?? onClose}
                   className="flex-1 text-xs"
                   leftIcon={<Plus className="h-4 w-4" />}
                 >

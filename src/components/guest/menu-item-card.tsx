@@ -213,7 +213,7 @@ export function MenuItemCard({
                 alt={item.name}
                 fill
                 priority={priority || item.sortOrder <= 3}
-                sizes={compact ? "(max-width: 359px) calc(100vw - 24px), (max-width: 639px) calc((100vw - 36px) / 2), 280px" : "(max-width: 639px) 280px, (max-width: 1023px) 50vw, 33vw"}
+                sizes={compact ? "(max-width: 359px) calc(100vw - 24px), (max-width: 639px) calc((100vw - 36px) / 2), 280px" : "(max-width: 639px) calc(100vw - 24px), (max-width: 1023px) 50vw, 33vw"}
                 className={cn(
                   "object-cover transition-[opacity,transform] duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
                   imageLoading ? "opacity-0" : "opacity-100"

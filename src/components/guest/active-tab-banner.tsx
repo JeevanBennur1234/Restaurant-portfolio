@@ -120,6 +120,11 @@ export function ActiveTabBanner({
           setIsModalOpen(false);
           refreshTab();
         }}
+        onAddMoreDishes={() => {
+          setIsModalOpen(false);
+          refreshTab();
+          window.dispatchEvent(new CustomEvent("dinepulse:add-more-dishes"));
+        }}
         token={token}
         tableLabel={tableLabel}
         paymentsEnabled={paymentsEnabled}

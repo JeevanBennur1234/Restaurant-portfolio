@@ -85,6 +85,15 @@ export function CartSheet({
   } = useCart();
 
   React.useEffect(() => {
+    const handleAddMoreDishes = () => {
+      setSelectedPaymentMethod("open_tab");
+      setIsCartOpen(true);
+    };
+    window.addEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
+    return () => window.removeEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
+  }, [setIsCartOpen]);
+
+  React.useEffect(() => {
     if (!isCartOpen) return;
     customerApi
       .getActiveTab(token)
