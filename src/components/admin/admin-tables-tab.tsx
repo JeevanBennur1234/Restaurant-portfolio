@@ -18,6 +18,7 @@ import { formatPaiseToINR } from "@/lib/currency";
 import { userMessageFor } from "@/lib/api/errors";
 import type { AdminTableData } from "@/lib/api/types";
 import { resolveSiteUrl } from "@/lib/site-urls";
+import { formatTableDisplayName } from "@/lib/table-label";
 
 export function AdminTablesTab() {
   const [tables, setTables] = React.useState<AdminTableData[]>([]);
@@ -257,8 +258,8 @@ export function AdminTablesTab() {
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-serif text-lg sm:text-xl font-bold text-[var(--text-primary)]">
-                        {table.tableNumber}
+                      <h4 className="text-lg sm:text-xl font-semibold text-[var(--text-primary)]">
+                        {formatTableDisplayName(table.tableNumber)}
                       </h4>
                       <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] mt-0.5">
                         <Users className="h-4 w-4" />
@@ -294,14 +295,11 @@ export function AdminTablesTab() {
                         <span className="font-bold text-amber-900 dark:text-amber-200">
                           {table.activeTab.status === "bill_requested" ? "🔔 Bill Requested" : "Open Tab"}
                         </span>
-                        <span className="font-mono font-bold text-amber-900 dark:text-amber-200 tabular-nums">
+                        <span className="text-base text-[var(--text-primary)] tabular-nums">
                           {formatPaiseToINR(table.activeTab.totalPaise)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-300">
-                        <span>
-                          {table.activeTab.roundCount} {table.activeTab.roundCount === 1 ? "round" : "rounds"} ordered
-                        </span>
+                      <div className="flex items-center justify-end gap-2 text-sm text-amber-800 dark:text-amber-300">
                         <div className="flex items-center gap-2">
                           <Link
                             href={adminApi.tabReceiptPdfUrl(table.activeTab.id)}

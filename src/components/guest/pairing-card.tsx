@@ -93,7 +93,7 @@ export function PairingCard({ bread, side }: PairingCardProps) {
             <PairingImage key={side.id} item={side} />
           </div>
         </div>
-        <p className="font-mono text-xs leading-relaxed text-stone-400">
+        <p className="text-sm leading-relaxed text-stone-400">
           Standard options · {formatPaiseToINR(totalPaise)} for both
         </p>
       </div>
@@ -106,7 +106,7 @@ export function PairingCard({ bread, side }: PairingCardProps) {
         className="mt-4 flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl bg-[#FAF7F2] px-3 py-3 text-left text-sm font-semibold text-[#1F1A17] transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
       >
         <span>{canAdd ? "Add standard pair" : "Currently unavailable"}</span>
-        <span className="flex shrink-0 items-center gap-2 font-mono">
+        <span className="flex shrink-0 items-center gap-2 text-base">
           {formatPaiseToINR(totalPaise)}
           <Plus className="h-4 w-4" aria-hidden="true" />
         </span>

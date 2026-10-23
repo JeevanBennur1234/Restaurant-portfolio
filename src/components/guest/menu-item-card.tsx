@@ -346,7 +346,7 @@ export function MenuItemCard({
               <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
                 Price
               </span>
-              <span className={cn("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem] font-mono tabular-nums tracking-tight", compact && "text-base sm:text-lg")}>
+              <span className={cn("text-lg font-normal text-current tabular-nums", compact && "text-lg")}>
                 {formatPaiseToINR(item.pricePaise)}
               </span>
             </div>

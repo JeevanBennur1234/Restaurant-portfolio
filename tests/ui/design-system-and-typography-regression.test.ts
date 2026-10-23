@@ -73,9 +73,9 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
   });
 
   describe("3. Global Typography & Minimum Legibility Targets", () => {
-    it("maintains readable dish card titles (18-22px) and prominent prices (20-24px)", () => {
+    it("maintains readable dish titles and simple, legible prices", () => {
       expect(menuItemCardCode).toContain("font-serif text-xl font-bold");
-      expect(menuItemCardCode).toContain("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem]");
+      expect(menuItemCardCode).toContain("text-lg font-normal text-current tabular-nums");
     });
 
     it("ensures form inputs use 16px (text-base) to prevent iOS auto-zoom and maximize legibility", () => {
@@ -105,7 +105,7 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(adminNavbarCode).toContain("min-h-[44px]");
 
       // Admin orders table
-      expect(adminOrdersCode).toContain("text-sm border-collapse min-w-[760px]");
+      expect(adminOrdersCode).toContain("text-left text-base border-collapse min-w-[1520px]");
       expect(adminOrdersCode).toContain("text-[10px] tracking-wider");
       expect(adminOrdersCode).toContain("max-w-[340px]");
       expect(fs.readFileSync(path.resolve(root, "src/components/admin/admin-dashboard.tsx"), "utf-8")).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");
@@ -116,7 +116,7 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(adminMenuCode).toContain("text-sm sm:text-base");
 
       // Admin tables cards
-      expect(adminTablesCode).toContain("font-serif text-lg sm:text-xl font-bold");
+      expect(adminTablesCode).toContain("text-lg sm:text-xl font-semibold");
 
       // Admin reports KPI cards
       expect(adminReportsCode).toContain("font-serif text-3xl sm:text-4xl font-extrabold");

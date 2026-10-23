@@ -249,7 +249,7 @@ export function UpiQrModal({
                 <span className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">
                   Total Payable Amount
                 </span>
-                <span className="text-3xl font-extrabold text-[var(--text-primary)] mt-0.5">
+                <span className="text-xl font-normal text-[var(--text-primary)] mt-0.5 tabular-nums">
                   {formatPaiseToINR(totalPaise)}
                 </span>
               </div>
@@ -323,7 +323,7 @@ export function UpiQrModal({
                 <span className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">
                   Total Payable Amount
                 </span>
-                <span className="text-3xl font-extrabold text-[var(--text-primary)] mt-0.5">
+                <span className="text-xl font-normal text-[var(--text-primary)] mt-0.5 tabular-nums">
                   {formatPaiseToINR(totalPaise)}
                 </span>
               </div>

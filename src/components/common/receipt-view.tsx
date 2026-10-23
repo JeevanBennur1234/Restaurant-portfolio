@@ -284,7 +284,7 @@ export function ReceiptModal({
                       </div>
                     )}
                   </div>
-                  <div className="font-mono font-bold text-sm text-[var(--text-primary)] shrink-0">
+                  <div className="text-sm text-[var(--text-primary)] tabular-nums shrink-0">
                     {formatPaiseToINR(item.totalPaise)}
                   </div>
                 </div>
@@ -293,10 +293,10 @@ export function ReceiptModal({
           </div>
 
           {/* Totals & Tax Calculation Breakdown */}
-          <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 space-y-2 font-mono text-xs sm:text-sm">
+          <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 space-y-2 text-sm sm:text-base">
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>Subtotal</span>
-              <span className="font-semibold">{receipt.formattedSubtotal}</span>
+              <span className="font-normal tabular-nums">{receipt.formattedSubtotal}</span>
             </div>
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>CGST (2.5%)</span>
@@ -306,7 +306,7 @@ export function ReceiptModal({
               <span>SGST (2.5%)</span>
               <span>{receipt.formattedSgst}</span>
             </div>
-            <div className="flex justify-between text-[var(--text-muted)] text-[11px] pt-0.5">
+            <div className="flex justify-between text-[var(--text-muted)] text-sm pt-0.5">
               <span>Total GST (5%)</span>
               <span>{receipt.formattedTax}</span>
             </div>
@@ -315,7 +315,7 @@ export function ReceiptModal({
               <>
                 <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-subtle)] font-bold text-[var(--text-primary)]">
                   <span>Consolidated Tab Total</span>
-                  <span className="tabular-nums">{receipt.formattedTotal}</span>
+                  <span className="tabular-nums font-normal">{receipt.formattedTotal}</span>
                 </div>
                 {Boolean(receipt.alreadyPaidPaise) && (receipt.alreadyPaidPaise ?? 0) > 0 && (
                   <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
@@ -325,7 +325,7 @@ export function ReceiptModal({
                 )}
                 <div className="flex justify-between items-center pt-2 border-t border-[var(--border-subtle)] text-base sm:text-lg font-bold text-[var(--text-primary)]">
                   <span>{isPaid ? "Collected at settlement" : "Amount Due"}</span>
-                  <span className="font-extrabold text-[var(--primary)] text-xl">
+                  <span className="font-normal text-[var(--primary)] text-base tabular-nums">
                     {isPaid
                       ? receipt.formattedSettlementAmount ?? receipt.formattedAmountDue ?? receipt.formattedTotal
                       : receipt.formattedAmountDue ?? receipt.formattedTotal}
@@ -335,7 +335,7 @@ export function ReceiptModal({
             ) : (
               <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-subtle)] text-base sm:text-lg font-bold text-[var(--text-primary)]">
                 <span>{isPaid ? "Amount Paid" : "Total Due"}</span>
-                <span className="font-extrabold text-[var(--primary)] text-xl">
+                <span className="font-normal text-[var(--primary)] text-base tabular-nums">
                   {receipt.formattedTotal}
                 </span>
               </div>

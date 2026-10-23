@@ -16,16 +16,19 @@ import type { KitchenTicket, OrderStatus } from "@/lib/api/types";
 export interface KitchenTicketProps {
   ticket: KitchenTicket;
   isHighlighted?: boolean;
+  isPending?: boolean;
   onTransition?: (orderId: string, toStatus: OrderStatus) => Promise<void>;
 }
 
 export function KitchenTicketCard({
   ticket,
   isHighlighted = false,
+  isPending: externalIsPending = false,
   onTransition,
 }: KitchenTicketProps) {
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
-  const [isPending, setIsPending] = React.useState(false);
+  const [isLocalPending, setIsLocalPending] = React.useState(false);
+  const isPending = isLocalPending || externalIsPending;
 
   // Live timer tick with clock skew compensation
   React.useEffect(() => {
@@ -82,7 +85,7 @@ export function KitchenTicketCard({
 
   const handleAction = async (toStatus: OrderStatus) => {
     if (isPending) return;
-    setIsPending(true);
+    setIsLocalPending(true);
     try {
       if (onTransition) {
         await onTransition(ticket.id, toStatus);
@@ -90,7 +93,7 @@ export function KitchenTicketCard({
         await kitchenApi.transition(ticket.id, toStatus);
       }
     } finally {
-      setIsPending(false);
+      setIsLocalPending(false);
     }
   };
 
@@ -239,7 +242,7 @@ export function KitchenTicketCard({
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
             <Flame className="h-5 w-5" />
-            <span>Start Prep</span>
+            <span>{isPending ? "Starting Prep…" : "Start Prep"}</span>
             <ChevronRight className="h-5 w-5 ml-1 opacity-70" />
           </button>
         ) : ticket.status === "preparing" ? (
@@ -251,7 +254,7 @@ export function KitchenTicketCard({
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
             <CheckCircle className="h-5 w-5" />
-            <span>Mark Ready</span>
+            <span>{isPending ? "Marking Ready…" : "Mark Ready"}</span>
             <ChevronRight className="h-5 w-5 ml-1 opacity-70" />
           </button>
         ) : ticket.status === "ready" ? (
@@ -263,7 +266,7 @@ export function KitchenTicketCard({
             className="w-full h-12 min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-base tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
             <CheckCircle className="h-5 w-5" />
-            <span>Served / Dispatch</span>
+            <span>{isPending ? "Serving…" : "Served / Dispatch"}</span>
           </button>
         ) : null}
       </div>

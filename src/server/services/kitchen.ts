@@ -152,6 +152,11 @@ export async function transitionOrderStatus(
       return fail("NOT_FOUND", "Order not found", 404);
     }
 
+    // Idempotency: if order is already at target status, return success immediately
+    if (existing.status === toStatus) {
+      return ok({ newStatus: toStatus });
+    }
+
     const allowed = VALID_TRANSITIONS[existing.status] ?? [];
     if (!allowed.includes(toStatus)) {
       return fail(

@@ -3,7 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getAdminOrders } from "@/server/services/manager";
 import type { Ctx } from "@/server/services/result";
-import { AdminOrdersTab } from "@/components/admin/admin-orders-tab";
+import { AdminOrdersTab, getConsolidatedGroupItems } from "@/components/admin/admin-orders-tab";
 import { adminApi } from "@/lib/api/admin";
 import type { AdminOrderRow } from "@/lib/api/types";
 
@@ -612,34 +612,58 @@ describe("Task T2: Admin Orders Grouping by Dining Tab", () => {
       },
     ];
 
-    it("renders one consolidated row for Table 1 with total ₹1,858.50, Tab badge, settle button and expand toggle", () => {
+    it("consolidates item quantities for the eye viewer and excludes cancelled rounds", () => {
+      const orders = mock5RoundOrders.map((order) => ({ ...order }));
+      orders[1] = { ...orders[1], status: "cancelled" };
+
+      const items = getConsolidatedGroupItems(orders);
+      const dalMakhani = items.find((item) => item.name === "Dal Makhani");
+      const garlicNaan = items.find((item) => item.name === "Garlic Naan");
+
+      expect(dalMakhani).toBeUndefined();
+      expect(garlicNaan).toMatchObject({ quantity: 2, totalPaise: 22000 });
+      expect(items.some((item) => item.name === "Paneer Tikka")).toBe(true);
+      expect(items.every((item) => item.key.length > 0)).toBe(true);
+    });
+
+    it("renders one consolidated row with order IDs, simple total, and item viewer", () => {
       const html = renderToStaticMarkup(
         React.createElement(AdminOrdersTab, {
-          initialOrders: mock5RoundOrders,
+          initialOrders: mock5RoundOrders.map((order) => ({ ...order, tableNumber: "Table Table 1" })),
           initialPagination: { page: 1, pageSize: 10, totalCount: 1, totalPages: 1 },
         })
       );
 
-      // The table tracks kitchen fulfillment, not per-round payment status.
+      // Kitchen status remains the main status; the payment column is not shown.
       expect(html).toContain(">Final Status</th>");
+      expect(html).toContain(">Order ID</th>");
       expect(html).not.toContain(">Payment</th>");
       expect(html).not.toContain("Paid (Online)");
 
-      // 1. Grouped row rendered
-      expect(html).toContain('data-testid="tab-group-row"');
+      // The repeated table prefix and rounds badge are gone.
       expect(html).toContain("Table 1");
-      expect(html).toContain("Tab · 5 rounds");
+      expect(html).not.toContain("Table Table 1");
+      expect(html).not.toContain("5 rounds");
+      expect(html).not.toContain("Tab Breakdown");
+      expect(html).not.toContain('data-testid="round-row"');
 
-      // 2. Consolidated total ₹1,858.50 rendered
-      expect(html).toContain("₹1,858.50");
-      expect(html).toContain("Sub: ₹1,770 + GST: ₹88.50");
+      // All order IDs and item names remain available in the consolidated row.
+      for (const orderId of ["ML-0034", "ML-0035", "ML-0036", "ML-0037", "ML-0039"]) {
+        expect(html).toContain(orderId);
+      }
+      expect(html).toContain("Paneer Tikka");
+      expect(html).toContain("Dal Makhani");
+      expect(html).toContain("Gulab Jamun");
+      expect(html).toContain("aria-label=\"View items for Table 1\"");
 
-      // 3. Expand and Settle buttons rendered
-      expect(html).toContain('data-testid="expand-tab-btn"');
+      // Total is shown as one plain amount without a tax/subtotal subline.
+      expect(html).toContain("1,858.50");
+      expect(html).not.toContain("Sub:");
+      expect(html).not.toContain("GST:");
+
       expect(html).toContain('data-testid="settle-tab-btn"');
+      expect(html).toContain('data-testid="view-tab-items-btn"');
       expect(html).toContain("Settle Tab");
-
-      // 4. Individual "Record payment" button is NOT rendered for tab rounds
       expect(html).not.toContain('aria-label="Record payment for ML-0034"');
       expect(html).not.toContain('aria-label="Record payment for ML-0039"');
     });
@@ -688,7 +712,7 @@ describe("Task T2: Admin Orders Grouping by Dining Tab", () => {
       // Verify mobile elements include min-h-[44px]
       expect(html).toContain("min-h-[44px]");
       expect(html).toContain('data-testid="settle-tab-btn"');
-      expect(html).toContain('data-testid="expand-tab-btn"');
+      expect(html).toContain('data-testid="view-tab-items-btn"');
     });
 
     it("renders single legacy order with Record payment button while omitting it from tab rounds", () => {

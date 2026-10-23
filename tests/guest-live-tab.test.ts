@@ -424,33 +424,37 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(formatStageTime("invalid-date")).toBeNull();
     });
 
-    it("newest round starts expanded (Round 3 in 3-round tab), older rounds start collapsed", () => {
-      mockLiveTabState = {
-        ...mockLiveTabState,
-        tab: baseMockTab,
-      };
+    it("shows a consolidated item list without a round-by-round breakdown", () => {
+      mockLiveTabState = { ...mockLiveTabState, tab: baseMockTab };
 
       const html = renderToStaticMarkup(
         React.createElement(TabModal, {
           isOpen: true,
           onClose: vi.fn(),
           token: "token_table_1",
-          tableLabel: "Table 1",
+          tableLabel: "Table Table 1",
         })
       );
 
-      // Round 3 is the newest round: aria-expanded="true" and content rendered
-      expect(html).toMatch(/aria-expanded="true"[^>]*data-testid="round-toggle-3"|data-testid="round-toggle-3"[^>]*aria-expanded="true"/);
-      expect(html).toContain('data-testid="round-content-3"');
-
-      // Round 1 and Round 2 are older rounds: aria-expanded="false" and content collapsed
-      expect(html).toMatch(/aria-expanded="false"[^>]*data-testid="round-toggle-1"|data-testid="round-toggle-1"[^>]*aria-expanded="false"/);
-      expect(html).not.toContain('data-testid="round-content-1"');
-      expect(html).toMatch(/aria-expanded="false"[^>]*data-testid="round-toggle-2"|data-testid="round-toggle-2"[^>]*aria-expanded="false"/);
-      expect(html).not.toContain('data-testid="round-content-2"');
+      expect(html).toContain('data-testid="tab-items-summary"');
+      expect(html).toContain("Items Ordered");
+      expect(html).toContain("Table 1");
+      expect(html).not.toContain("Table Table 1");
+      expect(html).not.toContain("Dishes Ordered by Round");
+      expect(html).not.toContain('data-testid="tab-round-');
+      expect(html).not.toContain('data-testid="round-toggle-');
+      expect(html).not.toContain("Round 1");
+      expect(html).not.toContain("rounds");
+      expect(html).not.toContain("stage-step-");
+      expect(html).toContain("Paneer Tikka");
+      expect(html).toContain("Dal Makhani");
+      expect(html).toContain("Garlic Naan");
+      expect(html).toContain("2 × Dal Makhani");
+      expect(html).toContain("3 × Garlic Naan");
+      expect(html).not.toContain("font-serif text-2xl font-bold");
     });
 
-    it("displays pre-paid 'Already paid' line badge and cancelled round strike-through", () => {
+    it("keeps the consolidated bill correct while omitting cancelled items and per-round badges", () => {
       mockLiveTabState = {
         ...mockLiveTabState,
         tab: {
@@ -459,13 +463,10 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
           orders: [
             {
               ...baseMockTab.orders[0],
-              paymentStatus: "paid", // Pre-paid round from T1
+              paymentStatus: "paid",
               alreadyPaidBeforeTab: true,
             },
-            {
-              ...baseMockTab.orders[1],
-              status: "cancelled", // Cancelled round
-            },
+            { ...baseMockTab.orders[1], status: "cancelled" },
             baseMockTab.orders[2],
           ],
         },
@@ -480,15 +481,13 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
         })
       );
 
-      // Pre-paid round shows Already paid badge
-      expect(html).toContain('data-testid="round-already-paid-1"');
+      expect(html).toContain('data-testid="tab-items-summary"');
+      expect(html).not.toContain("Dal Makhani");
+      expect(html).not.toContain('data-testid="round-already-paid-1"');
+      expect(html).not.toContain("line-through");
+      expect(html).not.toContain("stage-step-");
       expect(html).toContain("Already paid");
-
-      // Bill financial breakdown shows already paid deduction
-      expect(html).toContain("-₹525");
-
-      // Cancelled round shows struck-through text
-      expect(html).toContain("line-through");
+      expect(html).toContain("Total Amount Due");
     });
   });
 
@@ -550,7 +549,7 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).toContain("Reconnecting…");
     });
 
-    it("ActiveTabBanner integrates useLiveTab and renders live total and round count", () => {
+    it("ActiveTabBanner integrates useLiveTab and renders a simple live total", () => {
       mockLiveTabState = {
         ...mockLiveTabState,
         tab: baseMockTab,
@@ -565,7 +564,9 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       );
 
       expect(html).toContain('data-testid="active-tab-banner"');
-      expect(html).toContain("Open Tab Active • Round 3");
+      expect(html).toContain("Open Dining Tab");
+      expect(html).not.toContain("rounds");
+      expect(html).toContain("Current bill:");
       expect(html).toContain("₹1,858.50");
       expect(html).toContain('data-testid="view-tab-btn"');
     });

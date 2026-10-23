@@ -124,7 +124,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                 Base {formatPaiseToINR(item.pricePaise)} + Customizations{" "}
                 {formatPaiseToINR(modifierTotalPaise)}
               </span>
-              <span className="font-mono text-stone-400 tabular-nums">
+              <span className="text-stone-400 tabular-nums">
                 {quantity} × {formatPaiseToINR(unitTotalPaise)}
               </span>
             </div>
@@ -168,7 +168,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
               </span>
-              <span className="shrink-0 font-mono text-base font-bold text-white tabular-nums">
+              <span className="shrink-0 text-base text-white tabular-nums">
                 · {formatPaiseToINR(lineTotalPaise)}
               </span>
             </Button>
@@ -238,7 +238,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
             {item.name}
           </h2>
 
-          <div className="font-serif text-2xl font-bold text-amber-400 sm:text-3xl font-mono tabular-nums tracking-tight">
+          <div className="text-base font-normal text-white tabular-nums">
             {formatPaiseToINR(item.pricePaise)}
           </div>
 
@@ -306,7 +306,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
                             <span>{mod.name}</span>
                           </div>
 
-                          <span className="font-mono text-sm font-medium text-stone-300">
+                          <span className="text-sm text-stone-300 tabular-nums">
                             {mod.pricePaise > 0
                               ? `+${formatPaiseToINR(mod.pricePaise)}`
                               : "Free"}

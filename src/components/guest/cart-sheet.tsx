@@ -484,7 +484,7 @@ export function CartSheet({
             <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-4 space-y-3 text-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span>Items Subtotal ({totalItemCount} {totalItemCount === 1 ? "item" : "items"})</span>
-                <span className="font-mono font-medium text-[var(--text-primary)] tabular-nums">
+                <span className="text-[var(--text-primary)] tabular-nums">
                   {formatPaiseToINR(totalPaise)}
                 </span>
               </div>
@@ -495,14 +495,14 @@ export function CartSheet({
                     (CGST 2.5% + SGST 2.5%)
                   </span>
                 </span>
-                <span className="font-mono font-medium text-[var(--text-primary)] tabular-nums">
+                <span className="font-normal text-[var(--text-primary)] tabular-nums">
                   {formatPaiseToINR(taxPreviewPaise)}
                 </span>
               </div>
               <div className="hairline my-1" />
               <div className="flex items-center justify-between text-sm font-bold text-[var(--text-primary)] pt-0.5">
                 <span>Total Amount Due</span>
-                <span className="font-mono text-lg text-[var(--primary)] font-extrabold tabular-nums tracking-tight">
+                <span className="text-base font-normal text-[var(--text-primary)] tabular-nums">
                   {formatPaiseToINR(grandTotalPaise)}
                 </span>
               </div>
@@ -590,7 +590,7 @@ export function CartSheet({
                           ? "Pay Now"
                           : "Pay at Counter")}
                     </span>
-                    <span className="font-mono font-bold shrink-0 tabular-nums tracking-tight">
+                    <span className="text-sm shrink-0 tabular-nums">
                       {formatPaiseToINR(grandTotalPaise)}
                     </span>
                   </Button>
@@ -712,7 +712,7 @@ export function CartSheet({
                       </p>
                     )}
 
-                    <div className="pl-4 font-mono text-sm font-semibold text-[var(--primary)] tabular-nums tracking-tight">
+                    <div className="pl-4 text-sm text-[var(--text-primary)] tabular-nums">
                       {formatPaiseToINR(itemLineTotalPaise)}
                     </div>
                   </div>

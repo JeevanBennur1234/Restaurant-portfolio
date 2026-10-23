@@ -822,7 +822,7 @@ export function AdminMenuTab() {
                     </td>
 
                     {/* Price */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
+                    <td className="py-3.5 px-4 text-base font-normal text-[var(--text-primary)] tabular-nums">
                       {formatPaiseToINR(item.pricePaise)}
                     </td>
 

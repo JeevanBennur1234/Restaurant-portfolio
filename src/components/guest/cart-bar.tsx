@@ -67,7 +67,7 @@ export function CartBar() {
             <span className="truncate text-[10px] font-medium uppercase tracking-wide leading-tight opacity-85 sm:text-[11px]">
               {isEmpty ? "Browse dishes" : totalCount === 1 ? "1 item added" : `${totalCount} items added`}
             </span>
-            <span className={cn("truncate text-xs font-semibold leading-tight sm:text-sm", isEmpty && "hidden")}>
+            <span className={cn("truncate text-sm font-normal leading-tight", isEmpty && "hidden")}>
               {isEmpty ? "Choose dishes to begin" : `${formatPaiseToINR(totalPaise)} · ${totalCount} ${totalCount === 1 ? "item" : "items"}`}
             </span>
           </div>

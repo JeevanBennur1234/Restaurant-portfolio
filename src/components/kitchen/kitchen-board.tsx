@@ -16,6 +16,22 @@ export interface KitchenBoardProps {
   realtimeChannel: string;
 }
 
+// Order status progression rank: strictly monotonic forward progression
+const STATUS_RANK: Record<OrderStatus, number> = {
+  placed: 1,
+  accepted: 1, // placed and accepted both reside in the "New" column
+  preparing: 2, // Cook column
+  ready: 3, // Ready column
+  served: 4, // Terminal / cleared
+  cancelled: 5, // Terminal / cleared
+};
+
+interface PendingTransition {
+  toStatus: OrderStatus;
+  targetRank: number;
+  timestamp: number;
+}
+
 export function KitchenBoard({
   initialTickets,
   session,
@@ -27,6 +43,13 @@ export function KitchenBoard({
   const [soundEnabled, setSoundEnabled] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [mobileTab, setMobileTab] = React.useState<"all" | "new" | "preparing" | "ready">("all");
+  const [inFlightOrderIds, setInFlightOrderIds] = React.useState<Set<string>>(new Set());
+
+  // Pending transitions map to prevent race conditions from background polls or realtime re-fetches
+  const pendingTransitionsRef = React.useRef<Map<string, PendingTransition>>(new Map());
+
+  // Set of order IDs already seen to prevent repeat alerts if tickets are re-fetched
+  const seenOrderIdsRef = React.useRef<Set<string>>(new Set(initialTickets.map((t) => t.id)));
 
   // Sound ref to access current value in realtime callbacks without stale closure
   const soundEnabledRef = React.useRef(soundEnabled);
@@ -49,19 +72,111 @@ export function KitchenBoard({
     }, 6000);
   }, []);
 
+  /**
+   * Reconciles incoming server tickets with current client tickets and pending transitions.
+   * Guarantees monotonic forward status progression: an order that has moved forward
+   * (e.g. to preparing or ready) will NEVER jump backwards due to a stale in-flight poll.
+   */
+  const reconcileTickets = React.useCallback(
+    (incoming: KitchenTicket[], current: KitchenTicket[]): KitchenTicket[] => {
+      const currentMap = new Map(current.map((t) => [t.id, t]));
+      const now = Date.now();
+
+      // Clean up expired pending transitions (older than 10 seconds)
+      for (const [id, pt] of pendingTransitionsRef.current.entries()) {
+        if (now - pt.timestamp > 10000) {
+          pendingTransitionsRef.current.delete(id);
+        }
+      }
+
+      const reconciled: KitchenTicket[] = [];
+
+      for (const ticket of incoming) {
+        // If cancelled on server, drop from board and clear any pending transition
+        if (ticket.status === "cancelled") {
+          pendingTransitionsRef.current.delete(ticket.id);
+          continue;
+        }
+
+        const pending = pendingTransitionsRef.current.get(ticket.id);
+        const existing = currentMap.get(ticket.id);
+
+        let effectiveStatus: OrderStatus = ticket.status;
+
+        // 1. Guard against stale poll if we have an active pending transition
+        if (pending && now - pending.timestamp <= 10000) {
+          if (STATUS_RANK[effectiveStatus] < pending.targetRank) {
+            effectiveStatus = pending.toStatus;
+          } else if (STATUS_RANK[effectiveStatus] >= pending.targetRank) {
+            pendingTransitionsRef.current.delete(ticket.id);
+          }
+        }
+
+        // 2. Monotonic guard: never downgrade an existing ticket's forward progress
+        if (existing && existing.status !== "cancelled") {
+          if (STATUS_RANK[effectiveStatus] < STATUS_RANK[existing.status]) {
+            effectiveStatus = existing.status;
+          }
+        }
+
+        // 3. Exclude served or cancelled from active kitchen board
+        if (effectiveStatus === "served" || effectiveStatus === "cancelled") {
+          continue;
+        }
+
+        reconciled.push({
+          ...ticket,
+          status: effectiveStatus,
+        });
+      }
+
+      // 4. Preserve any tickets that were optimistically updated but not yet returned by server
+      for (const cur of current) {
+        if (
+          !incoming.some((inc) => inc.id === cur.id) &&
+          pendingTransitionsRef.current.has(cur.id)
+        ) {
+          const pt = pendingTransitionsRef.current.get(cur.id)!;
+          if (pt.toStatus !== "served" && pt.toStatus !== "cancelled") {
+            reconciled.push(cur);
+          }
+        }
+      }
+
+      return reconciled;
+    },
+    []
+  );
+
+  /**
+   * Applies incoming server tickets, reconciling them and alerting only for genuinely new orders.
+   */
+  const applyIncomingTickets = React.useCallback(
+    (incoming: KitchenTicket[]) => {
+      setTickets((current) => {
+        const reconciled = reconcileTickets(incoming, current);
+
+        // Alert only for genuinely brand-new tickets never seen on this board before
+        const brandNewTickets = reconciled.filter(
+          (t) => !seenOrderIdsRef.current.has(t.id)
+        );
+        for (const newTicket of brandNewTickets) {
+          seenOrderIdsRef.current.add(newTicket.id);
+          triggerNewOrderAlert(newTicket.id);
+        }
+
+        return reconciled;
+      });
+    },
+    [reconcileTickets, triggerNewOrderAlert]
+  );
+
   const refreshTickets = React.useCallback(async () => {
     setIsRefreshing(true);
     try {
       const res = await kitchenApi.listTickets();
       if (res.ok) {
-        setTickets((current) => {
-          const currentIds = new Set(current.map((t) => t.id));
-          const brandNewTickets = res.data.filter((t) => !currentIds.has(t.id));
-          for (const newTicket of brandNewTickets) {
-            triggerNewOrderAlert(newTicket.id);
-          }
-          return res.data;
-        });
+        applyIncomingTickets(res.data);
       } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
         router.refresh();
       }
@@ -70,7 +185,7 @@ export function KitchenBoard({
     } finally {
       setIsRefreshing(false);
     }
-  }, [triggerNewOrderAlert, router]);
+  }, [applyIncomingTickets, router]);
 
   // Supabase client instantiated once per component
   const supabase = React.useMemo(() => {
@@ -98,13 +213,14 @@ export function KitchenBoard({
         .channel(realtimeChannel)
         .on("broadcast", { event: "order.created" }, (payload) => {
           const orderId = payload.payload?.orderId as string | undefined;
-          if (orderId) {
+          if (orderId && !seenOrderIdsRef.current.has(orderId)) {
+            seenOrderIdsRef.current.add(orderId);
             triggerNewOrderAlert(orderId);
           }
           // Refresh tickets via API client
           kitchenApi.listTickets().then((res) => {
             if (res.ok) {
-              setTickets(res.data);
+              applyIncomingTickets(res.data);
             } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
               router.refresh();
             }
@@ -120,10 +236,10 @@ export function KitchenBoard({
                 .filter((t) => t.status !== "served" && t.status !== "cancelled")
             );
           }
-          // Re-fetch via API client as event is a hint
+          // Re-fetch via API client and reconcile monotonically
           kitchenApi.listTickets().then((res) => {
             if (res.ok) {
-              setTickets(res.data);
+              applyIncomingTickets(res.data);
             } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
               router.refresh();
             }
@@ -139,7 +255,7 @@ export function KitchenBoard({
         supabase.removeChannel(channel);
       }
     };
-  }, [supabase, realtimeChannel, triggerNewOrderAlert, router]);
+  }, [supabase, realtimeChannel, triggerNewOrderAlert, applyIncomingTickets, router]);
 
   // 2. Continuous 3s Polling with visibilitychange listener and 429 backoff
   React.useEffect(() => {
@@ -153,15 +269,7 @@ export function KitchenBoard({
         if (isCancelled) return;
 
         if (res.ok) {
-          setTickets((current) => {
-            const currentIds = new Set(current.map((t) => t.id));
-            const brandNewTickets = res.data.filter((t) => !currentIds.has(t.id));
-
-            for (const newTicket of brandNewTickets) {
-              triggerNewOrderAlert(newTicket.id);
-            }
-            return res.data;
-          });
+          applyIncomingTickets(res.data);
         } else if (res.status === 401 || res.code === "UNAUTHENTICATED") {
           router.refresh();
           return;
@@ -194,28 +302,62 @@ export function KitchenBoard({
       clearTimeout(timeoutId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [triggerNewOrderAlert, router]);
+  }, [applyIncomingTickets, router]);
 
   // Handle transition tap action (enforcing valid transition server-side)
   const handleTransition = async (orderId: string, toStatus: OrderStatus) => {
-    // Optimistic UI update
+    // Prevent duplicate in-flight transition on the same order
+    if (inFlightOrderIds.has(orderId)) return;
+
+    setInFlightOrderIds((prev) => new Set([...prev, orderId]));
+
+    // 1. Register pending transition with target status and rank
+    pendingTransitionsRef.current.set(orderId, {
+      toStatus,
+      targetRank: STATUS_RANK[toStatus],
+      timestamp: Date.now(),
+    });
+
+    // 2. Optimistic UI update immediately
     setTickets((prev) =>
       prev
         .map((t) => (t.id === orderId ? { ...t, status: toStatus } : t))
         .filter((t) => t.status !== "served" && t.status !== "cancelled")
     );
 
-    const result = await kitchenApi.transition(orderId, toStatus);
-    if (!result.ok) {
-      if (result.status === 401 || result.code === "UNAUTHENTICATED") {
-        router.refresh();
-        return;
+    try {
+      const result = await kitchenApi.transition(orderId, toStatus);
+      if (!result.ok) {
+        if (result.status === 401 || result.code === "UNAUTHENTICATED") {
+          router.refresh();
+          return;
+        }
+        // Transition genuinely failed: delete pending transition and revert to server state
+        pendingTransitionsRef.current.delete(orderId);
+        const refreshed = await kitchenApi.listTickets();
+        if (refreshed.ok) {
+          setTickets(refreshed.data.filter((t) => t.status !== "served" && t.status !== "cancelled"));
+        }
+      } else {
+        // Transition confirmed by server: retain pending transition for 3s buffer
+        // to protect against any delayed in-flight polls started before DB commit
+        setTimeout(() => {
+          pendingTransitionsRef.current.delete(orderId);
+        }, 3000);
       }
-      // Revert if server rejected transition
+    } catch {
+      // In case of unexpected network failure, clear pending and restore
+      pendingTransitionsRef.current.delete(orderId);
       const refreshed = await kitchenApi.listTickets();
       if (refreshed.ok) {
-        setTickets(refreshed.data);
+        setTickets(refreshed.data.filter((t) => t.status !== "served" && t.status !== "cancelled"));
       }
+    } finally {
+      setInFlightOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
@@ -326,6 +468,7 @@ export function KitchenBoard({
                   key={ticket.id}
                   ticket={ticket}
                   isHighlighted={highlightedIds.has(ticket.id)}
+                  isPending={inFlightOrderIds.has(ticket.id)}
                   onTransition={handleTransition}
                 />
               ))
@@ -362,6 +505,7 @@ export function KitchenBoard({
                   key={ticket.id}
                   ticket={ticket}
                   isHighlighted={highlightedIds.has(ticket.id)}
+                  isPending={inFlightOrderIds.has(ticket.id)}
                   onTransition={handleTransition}
                 />
               ))
@@ -398,6 +542,7 @@ export function KitchenBoard({
                   key={ticket.id}
                   ticket={ticket}
                   isHighlighted={highlightedIds.has(ticket.id)}
+                  isPending={inFlightOrderIds.has(ticket.id)}
                   onTransition={handleTransition}
                 />
               ))

@@ -12,16 +12,14 @@ import {
   X,
   Plus,
   RefreshCw,
-  ChevronDown,
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPaiseToINR } from "@/lib/currency";
+import { formatTableDisplayName } from "@/lib/table-label";
 import { customerApi } from "@/lib/api/customer";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import { useLiveTab } from "./use-live-tab";
-import { RoundStageTrack } from "./round-stage-track";
-import { cn } from "@/lib/utils";
 import type { TabDetailsData } from "@/lib/api/types";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 
@@ -62,29 +60,6 @@ export function TabModal({
   const [isActionLoading, setIsActionLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
-  const [expandedRounds, setExpandedRounds] = React.useState<Record<number, boolean>>({});
-
-  // Compute newest round: starts expanded by default
-  const orders = tab?.orders;
-  const newestRoundNumber = React.useMemo(() => {
-    if (!orders || orders.length === 0) return 0;
-    return Math.max(...orders.map((o) => o.roundNumber));
-  }, [orders]);
-
-  const isRoundExpanded = (roundNum: number) => {
-    if (roundNum in expandedRounds) {
-      return Boolean(expandedRounds[roundNum]);
-    }
-    return roundNum === newestRoundNumber;
-  };
-
-  const toggleRound = (roundNum: number) => {
-    setExpandedRounds((prev) => ({
-      ...prev,
-      [roundNum]: !isRoundExpanded(roundNum),
-    }));
-  };
-
   // Auto-close modal after short moment when tab is closed and settled
   React.useEffect(() => {
     if (!isOpen || tab?.status !== "closed") return;
@@ -226,6 +201,24 @@ export function TabModal({
     ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse motion-reduce:animate-none"
     : "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800";
 
+  // Aggregate active rounds into one item summary so the customer sees a clean list, not repeated round-by-round details.
+  const itemTotals = new Map<string, { itemName: string; modifiers: string[]; quantity: number; totalPaise: number }>();
+  for (const order of tab?.orders ?? []) {
+    if (order.status === "cancelled") continue;
+    for (const item of order.items) {
+      const modifiers = item.selectedModifiers.map((modifier) => modifier.name);
+      const key = JSON.stringify([item.itemName, modifiers]);
+      const existing = itemTotals.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.totalPaise += item.totalPaise;
+      } else {
+        itemTotals.set(key, { itemName: item.itemName, modifiers, quantity: item.quantity, totalPaise: item.totalPaise });
+      }
+    }
+  }
+  const consolidatedItems = [...itemTotals.entries()];
+
   // Calm status card wording following requirements
   const statusCardWording = isClosed
     ? "Paid. Thank you!"
@@ -241,7 +234,7 @@ export function TabModal({
       aria-modal="true"
       aria-labelledby="tab-modal-title"
       data-testid="tab-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 motion-reduce:transition-none"
     >
       <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-2xl overflow-hidden">
         {/* Header */}
@@ -252,7 +245,7 @@ export function TabModal({
             </div>
             <div>
               <h3 id="tab-modal-title" className="font-serif text-lg font-bold text-[var(--text-primary)]">
-                Dining Tab • {tableLabel}
+                Dining Tab • {formatTableDisplayName(tableLabel)}
               </h3>
               <p className="text-xs text-[var(--text-secondary)]">
                 {isClosed
@@ -328,7 +321,7 @@ export function TabModal({
                     </span>
                     <div
                       data-testid="tab-grand-total"
-                      className="font-serif text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums leading-tight"
+                      className="text-lg font-normal text-[var(--text-primary)] tabular-nums leading-tight"
                     >
                       {tab.formattedTotal}
                     </div>
@@ -352,16 +345,13 @@ export function TabModal({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs">
+                <div className="pt-2 border-t border-[var(--border-subtle)] text-sm">
                   <p
                     data-testid="status-card-wording"
-                    className="text-[var(--text-secondary)] font-medium leading-relaxed"
+                    className="text-[var(--text-secondary)] font-normal leading-relaxed"
                   >
                     {statusCardWording}
                   </p>
-                  <span className="text-[11px] text-[var(--text-muted)] font-mono shrink-0 pl-2">
-                    {tab.roundCount} {tab.roundCount === 1 ? "round" : "rounds"}
-                  </span>
                 </div>
 
                 {/* For closed and paid: show receipt download button directly in card */}
@@ -381,154 +371,64 @@ export function TabModal({
                 )}
               </div>
 
-              {/* Rounds List with Expandable Stage Track */}
-              <div className="space-y-2.5">
-                <h4 className="font-serif text-sm font-bold text-[var(--text-primary)] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Utensils className="h-4 w-4 text-[var(--primary)]" />
-                    <span>Dishes Ordered by Round</span>
-                  </span>
-                  <span className="text-xs font-mono text-[var(--text-secondary)]">
-                    {tab.orders.length} {tab.orders.length === 1 ? "round" : "rounds"}
-                  </span>
+              {/* Consolidated items list: keep the food summary without redundant per-round IDs and stage timelines. */}
+              <section className="space-y-2.5" data-testid="tab-items-summary">
+                <h4 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Utensils className="h-4 w-4 text-[var(--primary)]" />
+                  <span>Items Ordered</span>
                 </h4>
-
-                {tab.orders.map((round) => {
-                  const isExpanded = isRoundExpanded(round.roundNumber);
-                  const isCancelled = round.status === "cancelled";
-                  const isPaid = Boolean(round.alreadyPaidBeforeTab);
-
-                  return (
-                    <div
-                      key={round.orderId}
-                      data-testid={`tab-round-${round.roundNumber}`}
-                      className={cn(
-                        "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden transition-all motion-reduce:transition-none shadow-xs",
-                        isCancelled && "opacity-75 bg-[var(--bg-subtle)]/40"
-                      )}
-                    >
-                      {/* Round Header / Expand Toggle Button with min 44px touch target */}
-                      <button
-                        type="button"
-                        onClick={() => toggleRound(round.roundNumber)}
-                        aria-expanded={isExpanded}
-                        aria-controls={`round-content-${round.roundNumber}`}
-                        data-testid={`round-toggle-${round.roundNumber}`}
-                        className="w-full min-h-[44px] flex items-center justify-between p-3.5 text-left font-mono text-xs cursor-pointer hover:bg-[var(--bg-subtle)]/60 transition-colors motion-reduce:transition-none"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={cn(
-                              "font-bold text-[var(--text-primary)]",
-                              isCancelled && "line-through text-[var(--text-muted)]"
-                            )}
-                          >
-                            Round {round.roundNumber} (#{round.orderNumber})
-                          </span>
-                          <span className="text-[11px] text-[var(--text-secondary)] truncate">
-                            • {round.items.length} {round.items.length === 1 ? "item" : "items"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isPaid && (
-                            <span
-                              data-testid={`round-already-paid-${round.roundNumber}`}
-                              className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800"
-                            >
-                              Already paid
-                            </span>
+                {consolidatedItems.length > 0 ? (
+                  <ul className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] px-3">
+                    {consolidatedItems.map(([key, item]) => (
+                      <li key={key} className="flex items-start justify-between gap-4 py-3 text-base text-[var(--text-primary)]">
+                        <div className="min-w-0">
+                          <span className="font-normal">{item.quantity} × {item.itemName}</span>
+                          {item.modifiers.length > 0 && (
+                            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+                              {item.modifiers.join(", ")}
+                            </p>
                           )}
-                          <span
-                            className={cn(
-                              "text-[11px] px-2 py-0.5 rounded capitalize font-semibold",
-                              isCancelled
-                                ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                                : "bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
-                            )}
-                          >
-                            {round.status}
-                          </span>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-[var(--text-secondary)] transition-transform motion-reduce:transition-none",
-                              isExpanded && "rotate-180"
-                            )}
-                          />
                         </div>
-                      </button>
-
-                      {/* Collapsible Content */}
-                      {isExpanded && (
-                        <div
-                          id={`round-content-${round.roundNumber}`}
-                          data-testid={`round-content-${round.roundNumber}`}
-                          className="p-3.5 pt-1 border-t border-[var(--border-subtle)] space-y-3"
-                        >
-                          {/* Per-round Stage Track: Placed → Preparing → Ready → Served */}
-                          <RoundStageTrack
-                            status={round.status}
-                            createdAt={round.createdAt}
-                          />
-
-                          {/* Dishes list */}
-                          <ul className="space-y-1.5 pt-1 border-t border-[var(--border-subtle)] text-xs">
-                            {round.items.map((item) => (
-                              <li
-                                key={item.id}
-                                className={cn(
-                                  "flex items-start justify-between text-[var(--text-primary)]",
-                                  isCancelled && "line-through opacity-60 text-[var(--text-muted)]"
-                                )}
-                              >
-                                <span className="font-medium">
-                                  {item.quantity}× {item.itemName}
-                                  {item.selectedModifiers.length > 0 && (
-                                    <span className="text-[11px] text-[var(--text-secondary)] block">
-                                      + {item.selectedModifiers.map((m) => m.name).join(", ")}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="font-mono tabular-nums shrink-0 font-semibold text-[var(--text-secondary)]">
-                                  {formatPaiseToINR(item.totalPaise)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        <span className="shrink-0 text-base font-normal tabular-nums">
+                          {formatPaiseToINR(item.totalPaise)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]">
+                    No active items on this tab.
+                  </p>
+                )}
+              </section>
 
               {/* Bill Financial Breakdown */}
-              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 space-y-1.5 text-xs font-mono">
+              <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 space-y-2 text-sm">
                 <div className="flex justify-between text-[var(--text-secondary)]">
                   <span>Subtotal</span>
-                  <span className="tabular-nums font-semibold">{tab.formattedSubtotal}</span>
+                  <span className="tabular-nums font-normal">{tab.formattedSubtotal}</span>
                 </div>
                 <div className="flex justify-between text-[var(--text-secondary)]">
                   <span>5% GST (2.5% CGST + 2.5% SGST)</span>
-                  <span className="tabular-nums font-semibold">{tab.formattedTax}</span>
+                  <span className="tabular-nums font-normal">{tab.formattedTax}</span>
                 </div>
                 {tab.paidPaise && tab.paidPaise > 0 ? (
                   <>
                     <div className="flex justify-between text-[var(--text-secondary)] pt-1 border-t border-[var(--border-subtle)]">
                       <span>Tab Total</span>
-                      <span className="tabular-nums font-semibold">{tab.formattedTotal}</span>
+                      <span className="tabular-nums font-normal">{tab.formattedTotal}</span>
                     </div>
                     <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
                       <span>Already paid</span>
-                      <span className="tabular-nums">-{formatPaiseToINR(tab.paidPaise)}</span>
+                      <span className="font-normal tabular-nums">-{formatPaiseToINR(tab.paidPaise)}</span>
                     </div>
-                    <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-bold text-[var(--text-primary)]">
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-normal text-[var(--text-primary)]">
                       <span>Total Amount Due</span>
                       <span className="tabular-nums">{tab.formattedAmountDue || tab.formattedTotal}</span>
                     </div>
                   </>
                 ) : (
-                  <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-bold text-[var(--text-primary)]">
+                  <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-normal text-[var(--text-primary)]">
                     <span>Total Amount Due</span>
                     <span className="tabular-nums">{tab.formattedAmountDue || tab.formattedTotal}</span>
                   </div>

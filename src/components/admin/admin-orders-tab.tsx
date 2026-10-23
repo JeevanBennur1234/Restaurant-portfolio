@@ -14,8 +14,6 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Printer,
   Download,
@@ -23,14 +21,12 @@ import {
   CreditCard,
   QrCode,
   CheckCircle2,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { formatPaiseToINR } from "@/lib/currency";
 import { adminApi } from "@/lib/api/admin";
-import { kitchenApi } from "@/lib/api/kitchen";
 import { userMessageFor } from "@/lib/api/errors";
 import type {
   AdminOrderRow,
@@ -39,6 +35,7 @@ import type {
 } from "@/lib/api/types";
 import type { OrderStatus } from "@/server/db/schema";
 import { ReceiptModal } from "@/components/common/receipt-view";
+import { formatTableDisplayName as getTableDisplayName } from "@/lib/table-label";
 
 export interface AdminOrdersTabProps {
   onOrderUpdate?: () => void;
@@ -63,7 +60,50 @@ interface DisplayGroup {
   isBillRequested: boolean;
 }
 
-const STAGE_ORDER: OrderStatus[] = ["placed", "preparing", "ready", "served"];
+export interface ConsolidatedDisplayItem {
+  key: string;
+  name: string;
+  modifiers: string[];
+  quantity: number;
+  totalPaise: number;
+}
+
+export function getConsolidatedGroupItems(orders: AdminOrderRow[]): ConsolidatedDisplayItem[] {
+  const items = new Map<string, ConsolidatedDisplayItem>();
+
+  for (const order of orders) {
+    if (order.status === "cancelled") continue;
+
+    for (const item of order.items) {
+      const modifiers = item.modifiers ?? [];
+      const key = JSON.stringify([item.name, modifiers]);
+      const existing = items.get(key);
+
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.totalPaise += item.pricePaise * item.quantity;
+      } else {
+        items.set(key, {
+          key,
+          name: item.name,
+          modifiers,
+          quantity: item.quantity,
+          totalPaise: item.pricePaise * item.quantity,
+        });
+      }
+    }
+  }
+
+  return [...items.values()];
+}
+
+function summarizeGroupItems(group: DisplayGroup): string {
+  const quantities = new Map<string, number>();
+  for (const item of getConsolidatedGroupItems(group.orders)) {
+    quantities.set(item.name, (quantities.get(item.name) ?? 0) + item.quantity);
+  }
+  return [...quantities.entries()].map(([name, quantity]) => `${quantity}x ${name}`).join(", ") || "No items";
+}
 
 export function AdminOrdersTab({
   onOrderUpdate,
@@ -87,14 +127,9 @@ export function AdminOrdersTab({
   const [isLoading, setIsLoading] = React.useState(initialOrders ? false : true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Expanded Tab Rows State (Set of diningSessionIds)
-  const [expandedTabs, setExpandedTabs] = React.useState<Set<string>>(() => new Set());
-
-  // Transitioning order status loading map
-  const [transitioningOrderId, setTransitioningOrderId] = React.useState<string | null>(null);
-
   // Detail & Cancel Modal States
   const [selectedOrder, setSelectedOrder] = React.useState<AdminOrderRow | null>(null);
+  const [selectedTabItemsGroup, setSelectedTabItemsGroup] = React.useState<DisplayGroup | null>(null);
   const [cancelModalOrder, setCancelModalOrder] = React.useState<AdminOrderRow | null>(null);
   const [cancelReason, setCancelReason] = React.useState("");
   const [isCancelling, setIsCancelling] = React.useState(false);
@@ -119,18 +154,6 @@ export function AdminOrdersTab({
   const [tabPaymentNote, setTabPaymentNote] = React.useState("");
   const [isSettlingTab, setIsSettlingTab] = React.useState(false);
   const [tabSettleError, setTabSettleError] = React.useState<string | null>(null);
-
-  const toggleTabExpand = (tabId: string) => {
-    setExpandedTabs((prev) => {
-      const next = new Set(prev);
-      if (next.has(tabId)) {
-        next.delete(tabId);
-      } else {
-        next.add(tabId);
-      }
-      return next;
-    });
-  };
 
   // Group orders into DisplayGroups (tabs or legacy singles)
   const groups = React.useMemo<DisplayGroup[]>(() => {
@@ -332,27 +355,6 @@ export function AdminOrdersTab({
     return () => clearInterval(interval);
   }, [page, pageSize, statusFilter, paymentFilter, searchQuery]);
 
-  // Handle stage transition for a specific round/order
-  const handleTransition = async (orderId: string, toStatus: OrderStatus) => {
-    setTransitioningOrderId(orderId);
-    try {
-      const res = await kitchenApi.transition(orderId, toStatus);
-      if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: toStatus } : o))
-        );
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder((prev) => (prev ? { ...prev, status: toStatus } : null));
-        }
-        onOrderUpdate?.();
-      }
-    } catch (err) {
-      console.error("Failed to transition order status:", err);
-    } finally {
-      setTransitioningOrderId(null);
-    }
-  };
-
   // Settle whole tab action
   const handleOpenSettleTab = (group: DisplayGroup) => {
     setSettleModalGroup(group);
@@ -531,37 +533,37 @@ export function AdminOrdersTab({
     switch (status) {
       case "placed":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
             Placed
           </span>
         );
       case "accepted":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
             Accepted
           </span>
         );
       case "preparing":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 animate-pulse">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 animate-pulse">
             Preparing
           </span>
         );
       case "ready":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             Ready
           </span>
         );
       case "served":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs sm:text-sm font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
             Served
           </span>
         );
       case "cancelled":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs sm:text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-300 border border-red-200 dark:border-red-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-950/80 dark:text-red-300 border border-red-200 dark:border-red-800">
             Cancelled
           </span>
         );
@@ -573,7 +575,7 @@ export function AdminOrdersTab({
   const getTabStatusBadge = (group: DisplayGroup) => {
     if (group.isBillRequested) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
           Bill Requested
         </span>
       );
@@ -581,14 +583,14 @@ export function AdminOrdersTab({
     const tabStatus = group.tabSummary?.status;
     if (tabStatus === "closed") {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
           Closed
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
         Open Tab
       </span>
     );
@@ -604,7 +606,7 @@ export function AdminOrdersTab({
           ? `Paid (${method === "counter" || method === "cash" ? "Counter" : method.toUpperCase()})`
           : "Paid (Online)";
         return (
-          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          <span className="inline-flex items-center text-sm font-medium text-emerald-700 dark:text-emerald-400">
             ● {label}
           </span>
         );
@@ -612,25 +614,25 @@ export function AdminOrdersTab({
       case "counter":
       case "open":
         return (
-          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400">
+          <span className="inline-flex items-center text-sm font-medium text-amber-700 dark:text-amber-400">
             ● Pay at Counter
           </span>
         );
       case "bill_requested":
         return (
-          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400 font-semibold">
+          <span className="inline-flex items-center text-sm font-medium text-amber-600 dark:text-amber-400 font-semibold">
             ● Bill Requested
           </span>
         );
       case "failed":
         return (
-          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-red-600 dark:text-red-400">
+          <span className="inline-flex items-center text-sm font-medium text-red-600 dark:text-red-400">
             ● Payment Failed
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-zinc-500">
+          <span className="inline-flex items-center text-sm font-medium text-zinc-500">
             ● Pending
           </span>
         );
@@ -649,6 +651,8 @@ export function AdminOrdersTab({
     }
   };
 
+  const selectedTabItems = selectedTabItemsGroup ? getConsolidatedGroupItems(selectedTabItemsGroup.orders) : [];
+
   return (
     <div className="space-y-3 w-full max-w-full overflow-x-hidden">
       {/* Search & Filters Bar */}
@@ -664,13 +668,13 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             placeholder="Search order #, table, customer, item..."
-            className="w-full h-10 pl-10 pr-3.5 text-sm sm:text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
+            className="w-full h-10 pl-10 pr-3.5 text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
           />
         </div>
 
         {/* Filter Selects & Refresh */}
         <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--text-secondary)]">
+          <div className="flex items-center gap-1.5 text-base font-medium text-[var(--text-secondary)]">
             <Filter className="h-4 w-4" />
             <span>Status:</span>
           </div>
@@ -681,7 +685,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by status"
-            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
+            className="h-10 px-3 text-base font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
           >
             <option value="all">All Statuses</option>
             <option value="placed">Placed</option>
@@ -698,7 +702,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by payment status"
-            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
+            className="h-10 px-3 text-base font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
           >
             <option value="all">All Payments</option>
             <option value="paid">Paid</option>
@@ -736,35 +740,28 @@ export function AdminOrdersTab({
           <div className="w-full">
             {/* Desktop Table View (>= 768px) */}
             <div className="hidden md:block w-full overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse min-w-[760px]">
+              <table className="w-full table-fixed text-left text-base border-collapse min-w-[1520px]">
                 <thead>
-                  <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
-                    <th className="py-2.5 px-3 font-semibold w-10"></th>
-                    <th className="py-2.5 px-3 font-semibold">Table / Order</th>
-                    <th className="py-2.5 px-3 font-semibold">Items Summary</th>
-                    <th className="py-2.5 px-3 text-right font-semibold">Total</th>
-                    <th className="py-2.5 px-3 font-semibold">Final Status</th>
-                    <th className="py-2.5 px-3 font-semibold">Time</th>
-                    <th className="py-2.5 px-3 text-right font-semibold">Actions</th>
+                  <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-sm tracking-wide">
+                    <th className="w-[170px] py-4 px-5 font-semibold">Table</th>
+                    <th className="w-[240px] py-4 px-5 font-semibold">Order ID</th>
+                    <th className="w-[380px] py-4 px-5 font-semibold">Items Summary</th>
+                    <th className="w-[160px] py-4 px-5 text-right font-semibold">Total</th>
+                    <th className="w-[190px] py-4 px-5 font-semibold">Final Status</th>
+                    <th className="w-[140px] py-4 px-5 font-semibold">Time</th>
+                    <th className="w-[240px] py-4 px-5 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-subtle)]">
                   {groups.map((group) => {
                     const isTab = group.type === "tab" && group.diningSessionId;
-                    const isExpanded = Boolean(isTab && expandedTabs.has(group.id));
                     const isPaid =
                       (group.tabSummary?.paymentStatus === "paid" ||
                         group.orders.every((o) => o.paymentStatus === "paid")) &&
                       group.tabSummary?.amountDuePaise === 0;
 
                     const activeRounds = group.orders.filter((o) => o.status !== "cancelled");
-                    const totalItems = activeRounds.reduce(
-                      (acc, r) => acc + r.items.reduce((sum, i) => sum + i.quantity, 0),
-                      0
-                    );
-                    const itemsSummaryText = isTab
-                      ? `${totalItems} items across ${group.orders.length} rounds`
-                      : group.orders[0]?.items.map((i) => `${i.quantity}x ${i.name}`).join(", ") ?? "";
+                    const itemsSummaryText = summarizeGroupItems(group);
 
                     const totalAmountPaise = group.tabSummary
                       ? group.tabSummary.totalPaise
@@ -781,77 +778,48 @@ export function AdminOrdersTab({
                           tabIndex={0}
                           className={`${rowBgClass} focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]`}
                         >
-                          {/* Expand/Collapse Toggle */}
-                          <td className="py-3 px-2 text-center">
-                            {isTab ? (
-                              <button
-                                type="button"
-                                data-testid="expand-tab-btn"
-                                aria-expanded={isExpanded}
-                                aria-label={`Expand Tab for Table ${group.tableNumber}`}
-                                onClick={() => toggleTabExpand(group.id)}
-                                className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </button>
-                            ) : null}
+                          {/* Table */}
+                          <td className="py-4 px-4 align-top">
+                            <div className="font-semibold text-base text-[var(--text-primary)]">
+                              {getTableDisplayName(group.tableNumber)}
+                            </div>
                           </td>
 
-                          {/* Table & Rounds / Order # */}
-                          <td className="py-3 px-3">
-                            <div className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-                              Table {group.tableNumber}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {isTab ? (
-                                <span className="text-xs font-mono font-medium text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700">
-                                  Tab · {group.orders.length} round{group.orders.length !== 1 ? "s" : ""}
-                                </span>
-                              ) : (
-                                <span className="font-mono text-xs text-[var(--text-muted)] font-medium">
-                                  {group.orders[0]?.orderNumber}
-                                </span>
-                              )}
+                          {/* Dedicated order IDs column */}
+                          <td className="py-4 px-4 align-top">
+                            <div className="flex flex-wrap gap-x-2 gap-y-1 text-base leading-6 text-[var(--text-secondary)]" title={group.orders.map((order) => order.orderNumber).join(", ")}>
+                              {group.orders.map((order) => <span key={order.id} className="whitespace-nowrap">#{order.orderNumber}</span>)}
                             </div>
                           </td>
 
                           {/* Items Summary */}
-                          <td className="py-3 px-3 max-w-xs truncate text-sm text-[var(--text-secondary)]">
+                          <td className="py-5 px-5 align-top text-base leading-7 text-[var(--text-secondary)]">
                             <span title={itemsSummaryText}>{itemsSummaryText}</span>
                           </td>
 
-                          {/* Total */}
-                          <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono tabular-nums">
-                            <div>{formatPaiseToINR(totalAmountPaise)}</div>
-                            {group.tabSummary && (
-                              <div className="text-[10px] text-[var(--text-muted)] font-normal">
-                                Sub: {formatPaiseToINR(group.tabSummary.subtotalPaise)} + GST:{" "}
-                                {formatPaiseToINR(group.tabSummary.taxPaise)}
-                              </div>
-                            )}
+                          {/* Plain total amount; subtotal and tax belong on the bill. */}
+                          <td className="py-5 px-5 text-right align-top text-lg font-normal text-[var(--text-primary)] tabular-nums whitespace-nowrap">
+                            {formatPaiseToINR(totalAmountPaise)}
                           </td>
 
-                          {/* Final kitchen stage is the primary table status; tab billing state is shown separately. */}
-                          <td className="py-3 px-3">
-                            <div className="flex flex-col items-start gap-1">
+                          {/* Final kitchen stage is the primary table status; tab billing remains secondary. */}
+                          <td className="py-4 px-4 align-top">
+                            <div className="flex flex-col items-start gap-1.5">
                               {getStatusBadge((activeRounds[activeRounds.length - 1] ?? group.orders[group.orders.length - 1])?.status ?? "placed")}
-                              {isTab && <span className="text-[10px] text-[var(--text-muted)]">{getTabStatusBadge(group)}</span>}
+                              {isTab && <span className="text-sm text-[var(--text-muted)]">{getTabStatusBadge(group)}</span>}
                             </div>
                           </td>
 
-                          {/* Elapsed Time */}
-                          <td className="py-3 px-3 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
+                          {/* Time */}
+                          <td className="py-5 px-5 align-top text-base text-[var(--text-muted)] tabular-nums">
                             {formatElapsedTime(group.createdAt)}
                           </td>
 
                           {/* Actions */}
-                          <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                          <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap align-top">
                             {isTab ? (
                               <>
+                                <button type="button" onClick={() => setSelectedTabItemsGroup(group)} className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer" title="View all ordered items" aria-label={`View items for ${getTableDisplayName(group.tableNumber)}`}><Eye className="h-5 w-5" /></button>
                                 {!isPaid && (
                                   <Button
                                     type="button"
@@ -859,9 +827,9 @@ export function AdminOrdersTab({
                                     size="sm"
                                     variant="primary"
                                     onClick={() => handleOpenSettleTab(group)}
-                                    aria-label={`Settle Tab for Table ${group.tableNumber}`}
-                                    className="h-9 px-3 text-xs font-semibold shadow-xs"
-                                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
+                                    aria-label={`Settle ${getTableDisplayName(group.tableNumber)} tab`}
+                                    className="h-10 px-3 text-base font-semibold shadow-xs"
+                                    leftIcon={<Banknote className="h-4 w-4" />}
                                   >
                                     Settle Tab
                                   </Button>
@@ -870,11 +838,11 @@ export function AdminOrdersTab({
                                   <button
                                     type="button"
                                     onClick={() => handleViewBillOrReceipt(group.orders[0])}
-                                    className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                                     title={isPaid ? "Print Tab Receipt" : "Print Tab Bill"}
-                                    aria-label={`Print for Table ${group.tableNumber}`}
+                                    aria-label={`Print for ${getTableDisplayName(group.tableNumber)}`}
                                   >
-                                    <Printer className="h-4 w-4" />
+                                    <Printer className="h-5 w-5" />
                                   </button>
                                 )}
                               </>
@@ -934,186 +902,6 @@ export function AdminOrdersTab({
                           </td>
                         </tr>
 
-                        {/* Expanded Tab Rounds Accordion Row */}
-                        {isTab && isExpanded && (
-                          <tr className="bg-[var(--bg-subtle)]/40">
-                            <td colSpan={8} className="p-3 sm:p-4">
-                              <div className="space-y-3 pl-2 sm:pl-6 border-l-2 border-amber-300 dark:border-amber-700">
-                                <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                                  Tab Breakdown · Table {group.tableNumber} ({group.orders.length} Rounds)
-                                </div>
-
-                                <div className="space-y-2.5">
-                                  {group.orders.map((round) => {
-                                    const isCancelled = round.status === "cancelled";
-                                    const canCancelRound =
-                                      round.status !== "served" && round.status !== "cancelled";
-                                    const stageIndex = STAGE_ORDER.indexOf(round.status);
-
-                                    return (
-                                      <div
-                                        key={round.id}
-                                        data-testid="round-row"
-                                        className={`p-3 rounded-lg border ${
-                                          isCancelled
-                                            ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20 opacity-70"
-                                            : "border-[var(--border-subtle)] bg-[var(--bg-surface)]"
-                                        }`}
-                                      >
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                          {/* Round info */}
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <span
-                                              data-testid="order-round-badge"
-                                              className="px-2 py-0.5 rounded text-xs font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-                                            >
-                                              Round {round.roundNumber ?? 1}
-                                            </span>
-                                            <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">
-                                              #{round.orderNumber}
-                                            </span>
-                                            <span className="text-xs text-[var(--text-muted)] font-mono">
-                                              {formatElapsedTime(round.createdAt)}
-                                            </span>
-                                            {isCancelled && (
-                                              <span className="text-xs font-semibold text-red-600 dark:text-red-400 italic">
-                                                (Cancelled · Excluded from tab total)
-                                              </span>
-                                            )}
-                                          </div>
-
-                                          {/* Total & Action shortcuts */}
-                                          <div className="flex items-center gap-3">
-                                            <span
-                                              className={`font-mono font-bold text-sm tabular-nums ${
-                                                isCancelled
-                                                  ? "line-through text-[var(--text-muted)]"
-                                                  : "text-[var(--text-primary)]"
-                                              }`}
-                                            >
-                                              {formatPaiseToINR(round.totalPaise)}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => setSelectedOrder(round)}
-                                              className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--primary)]"
-                                              title="View round details"
-                                              aria-label={`View round ${round.orderNumber}`}
-                                            >
-                                              <Eye className="h-4 w-4" />
-                                            </button>
-                                            {canCancelRound && (
-                                              <button
-                                                type="button"
-                                                data-testid="cancel-order-btn"
-                                                onClick={() => {
-                                                  setCancelModalOrder(round);
-                                                  setCancelReason("");
-                                                  setCancelError(null);
-                                                }}
-                                                className="p-1 rounded text-red-500 hover:text-red-700"
-                                                title="Cancel this round"
-                                                aria-label={`Cancel round ${round.orderNumber}`}
-                                              >
-                                                <XCircle className="h-4 w-4" />
-                                              </button>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        {/* Items in this round */}
-                                        <div
-                                          className={`mt-2 text-xs sm:text-sm text-[var(--text-secondary)] ${
-                                            isCancelled ? "line-through" : ""
-                                          }`}
-                                        >
-                                          {round.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                                        </div>
-
-                                        {/* Stage Track & Kitchen Action Pipeline */}
-                                        {!isCancelled && (
-                                          <div className="mt-3 pt-2.5 border-t border-[var(--border-subtle)] flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-                                            {/* Stage Track */}
-                                            <div
-                                              data-testid="stage-track"
-                                              className="flex items-center gap-1.5 text-xs font-medium"
-                                            >
-                                              {STAGE_ORDER.map((stage, idx) => {
-                                                const isCompleted = stageIndex > idx;
-                                                const isCurrent = stageIndex === idx;
-
-                                                return (
-                                                  <React.Fragment key={stage}>
-                                                    <div
-                                                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${
-                                                        isCurrent
-                                                          ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 font-bold"
-                                                          : isCompleted
-                                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                                                          : "text-[var(--text-muted)] bg-[var(--bg-subtle)]"
-                                                      }`}
-                                                    >
-                                                      {isCompleted ? (
-                                                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                                                      ) : null}
-                                                      <span>{stage}</span>
-                                                    </div>
-                                                    {idx < STAGE_ORDER.length - 1 && (
-                                                      <span className="text-[var(--text-muted)] text-[10px]">
-                                                        →
-                                                      </span>
-                                                    )}
-                                                  </React.Fragment>
-                                                );
-                                              })}
-                                            </div>
-
-                                            {/* Kitchen Action Buttons */}
-                                            <div className="flex items-center gap-1.5">
-                                              {(round.status === "placed" || round.status === "accepted") && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  isLoading={transitioningOrderId === round.id}
-                                                  onClick={() => handleTransition(round.id, "preparing")}
-                                                  className="h-7 px-2.5 text-xs font-semibold"
-                                                >
-                                                  Mark Preparing
-                                                </Button>
-                                              )}
-                                              {round.status === "preparing" && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  isLoading={transitioningOrderId === round.id}
-                                                  onClick={() => handleTransition(round.id, "ready")}
-                                                  className="h-7 px-2.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
-                                                >
-                                                  Mark Ready
-                                                </Button>
-                                              )}
-                                              {round.status === "ready" && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  isLoading={transitioningOrderId === round.id}
-                                                  onClick={() => handleTransition(round.id, "served")}
-                                                  className="h-7 px-2.5 text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-300 dark:border-zinc-700"
-                                                >
-                                                  Mark Served
-                                                </Button>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
                       </React.Fragment>
                     );
                   })}
@@ -1125,20 +913,13 @@ export function AdminOrdersTab({
             <div className="block md:hidden divide-y divide-[var(--border-subtle)]">
               {groups.map((group) => {
                 const isTab = group.type === "tab" && group.diningSessionId;
-                const isExpanded = Boolean(isTab && expandedTabs.has(group.id));
                 const isPaid =
                   (group.tabSummary?.paymentStatus === "paid" ||
                     group.orders.every((o) => o.paymentStatus === "paid")) &&
                   group.tabSummary?.amountDuePaise === 0;
 
                 const activeRounds = group.orders.filter((o) => o.status !== "cancelled");
-                const totalItems = activeRounds.reduce(
-                  (acc, r) => acc + r.items.reduce((sum, i) => sum + i.quantity, 0),
-                  0
-                );
-                const itemsSummaryText = isTab
-                  ? `${totalItems} items across ${group.orders.length} rounds`
-                  : group.orders[0]?.items.map((i) => `${i.quantity}x ${i.name}`).join(", ") ?? "";
+                const itemsSummaryText = summarizeGroupItems(group);
 
                 const totalAmountPaise = group.tabSummary
                   ? group.tabSummary.totalPaise
@@ -1157,27 +938,17 @@ export function AdminOrdersTab({
                     {/* Card Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-base text-[var(--text-primary)]">
-                            Table {group.tableNumber}
+                          <span className="font-semibold text-lg text-[var(--text-primary)]">
+                            {getTableDisplayName(group.tableNumber)}
                           </span>
-                          {isTab ? (
-                            <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700">
-                              Tab · {group.orders.length} round{group.orders.length !== 1 ? "s" : ""}
-                            </span>
-                          ) : (
-                            <span className="font-mono text-xs text-[var(--text-muted)]">
-                              #{group.orders[0]?.orderNumber}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                          {formatElapsedTime(group.createdAt)}
+                        <div className="mt-1 space-y-0.5 text-base text-[var(--text-secondary)]">
+                          <div>{group.orders.length > 1 ? "Order IDs" : "Order ID"}: {group.orders.map((order) => order.orderNumber).join(", ")}</div>
+                          <div className="text-[var(--text-muted)]">{formatElapsedTime(group.createdAt)}</div>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className="font-bold text-lg font-mono text-[var(--text-primary)] tabular-nums">
+                        <div className="text-base font-normal text-[var(--text-primary)] tabular-nums">
                           {formatPaiseToINR(totalAmountPaise)}
                         </div>
                         <div className="mt-1">
@@ -1187,19 +958,12 @@ export function AdminOrdersTab({
                     </div>
 
                     {/* Items summary */}
-                    <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-base text-[var(--text-secondary)] leading-relaxed">
                       {itemsSummaryText}
                     </p>
 
-                    {/* Billing state is a tab-level label; never show individual round "Paid" badges here. */}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border-subtle)]">
-                      <div>{isTab ? getTabStatusBadge(group) : null}</div>
-                      {group.tabSummary && (
-                        <div className="text-[11px] text-[var(--text-muted)] font-mono">
-                          GST 5%: {formatPaiseToINR(group.tabSummary.taxPaise)}
-                        </div>
-                      )}
-                    </div>
+                    {/* Billing state is distinct from the kitchen stage. */}
+                    {isTab && <div className="text-base pt-1">{getTabStatusBadge(group)}</div>}
 
                     {/* Mobile Touch Action Buttons (at least 44px min height) */}
                     <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">
@@ -1211,8 +975,8 @@ export function AdminOrdersTab({
                               data-testid="settle-tab-btn"
                               variant="primary"
                               onClick={() => handleOpenSettleTab(group)}
-                              aria-label={`Settle Tab for Table ${group.tableNumber}`}
-                              className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold shadow-xs"
+                              aria-label={`Settle ${getTableDisplayName(group.tableNumber)} tab`}
+                              className="h-11 min-h-[44px] flex-1 justify-center text-base font-semibold shadow-xs"
                               leftIcon={<Banknote className="h-4 w-4" />}
                             >
                               Settle Tab
@@ -1220,21 +984,14 @@ export function AdminOrdersTab({
                           )}
                           <Button
                             type="button"
-                            data-testid="expand-tab-btn"
+                            data-testid="view-tab-items-btn"
                             variant="outline"
-                            aria-expanded={isExpanded}
-                            aria-label={`Expand Tab for Table ${group.tableNumber}`}
-                            onClick={() => toggleTabExpand(group.id)}
-                            className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
-                            rightIcon={
-                              isExpanded ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )
-                            }
+                            aria-label={`View items for ${getTableDisplayName(group.tableNumber)}`}
+                            onClick={() => setSelectedTabItemsGroup(group)}
+                            className="h-11 min-h-[44px] flex-1 justify-center text-base font-semibold"
+                            leftIcon={<Eye className="h-4 w-4" />}
                           >
-                            {isExpanded ? "Hide Rounds" : `View Rounds (${group.orders.length})`}
+                            View Items
                           </Button>
                           {group.orders[0] && (
                             <Button
@@ -1243,7 +1000,7 @@ export function AdminOrdersTab({
                               variant="outline"
                               onClick={() => handleViewBillOrReceipt(group.orders[0])}
                               isLoading={isLoadingBill}
-                              className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                              className="h-11 min-h-[44px] flex-1 justify-center text-base font-semibold"
                               leftIcon={<Printer className="h-4 w-4" />}
                             >
                               View / Print Bill
@@ -1257,7 +1014,7 @@ export function AdminOrdersTab({
                             type="button"
                             variant="outline"
                             onClick={() => setSelectedOrder(group.orders[0])}
-                            className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                            className="h-11 min-h-[44px] flex-1 justify-center text-base font-semibold"
                             leftIcon={<Eye className="h-4 w-4" />}
                           >
                             Details
@@ -1269,7 +1026,7 @@ export function AdminOrdersTab({
                                 type="button"
                                 variant="primary"
                                 onClick={() => handleOpenRecordPayment(group.orders[0])}
-                                className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold shadow-xs"
+                                className="h-11 min-h-[44px] flex-1 justify-center text-base font-semibold shadow-xs"
                                 leftIcon={<Banknote className="h-4 w-4" />}
                               >
                                 Record Payment
@@ -1279,153 +1036,6 @@ export function AdminOrdersTab({
                       )}
                     </div>
 
-                    {/* Mobile Expanded Rounds Accordion */}
-                    {isTab && isExpanded && (
-                      <div className="space-y-3 pt-3 border-t border-[var(--border-subtle)]">
-                        <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                          Rounds in this Tab ({group.orders.length})
-                        </div>
-                        {group.orders.map((round) => {
-                          const isCancelled = round.status === "cancelled";
-                          const canCancelRound =
-                            round.status !== "served" && round.status !== "cancelled";
-                          const stageIndex = STAGE_ORDER.indexOf(round.status);
-
-                          return (
-                            <div
-                              key={round.id}
-                              data-testid="round-row"
-                              className={`p-3 rounded-xl border space-y-2.5 ${
-                                isCancelled
-                                  ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20 opacity-70"
-                                  : "border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    data-testid="order-round-badge"
-                                    className="px-2 py-0.5 rounded text-xs font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-                                  >
-                                    Round {round.roundNumber ?? 1}
-                                  </span>
-                                  <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">
-                                    #{round.orderNumber}
-                                  </span>
-                                </div>
-                                <span
-                                  className={`font-mono font-bold text-sm tabular-nums ${
-                                    isCancelled ? "line-through text-[var(--text-muted)]" : ""
-                                  }`}
-                                >
-                                  {formatPaiseToINR(round.totalPaise)}
-                                </span>
-                              </div>
-
-                              <div
-                                className={`text-xs text-[var(--text-secondary)] ${
-                                  isCancelled ? "line-through" : ""
-                                }`}
-                              >
-                                {round.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                              </div>
-
-                              {!isCancelled && (
-                                <>
-                                  {/* Mobile Stage Track */}
-                                  <div
-                                    data-testid="stage-track"
-                                    className="flex items-center justify-between text-[11px] font-medium pt-1 border-t border-[var(--border-subtle)]"
-                                  >
-                                    {STAGE_ORDER.map((stage, idx) => {
-                                      const isCompleted = stageIndex > idx;
-                                      const isCurrent = stageIndex === idx;
-
-                                      return (
-                                        <div
-                                          key={stage}
-                                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize ${
-                                            isCurrent
-                                              ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200"
-                                              : isCompleted
-                                              ? "text-emerald-700 dark:text-emerald-400 font-medium"
-                                              : "text-[var(--text-muted)]"
-                                          }`}
-                                        >
-                                          {isCompleted ? "✓ " : ""}
-                                          {stage}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-
-                                  {/* Kitchen action button on mobile (min 44px) */}
-                                  <div className="flex items-center gap-2 pt-1">
-                                    {(round.status === "placed" || round.status === "accepted") && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        isLoading={transitioningOrderId === round.id}
-                                        onClick={() => handleTransition(round.id, "preparing")}
-                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
-                                      >
-                                        Mark Preparing
-                                      </Button>
-                                    )}
-                                    {round.status === "preparing" && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        isLoading={transitioningOrderId === round.id}
-                                        onClick={() => handleTransition(round.id, "ready")}
-                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300"
-                                      >
-                                        Mark Ready
-                                      </Button>
-                                    )}
-                                    {round.status === "ready" && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        isLoading={transitioningOrderId === round.id}
-                                        onClick={() => handleTransition(round.id, "served")}
-                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                                      >
-                                        Mark Served
-                                      </Button>
-                                    )}
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => setSelectedOrder(round)}
-                                      className="h-11 min-h-[44px] px-3 text-xs"
-                                      aria-label={`Details for round ${round.orderNumber}`}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                    {canCancelRound && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setCancelModalOrder(round);
-                                          setCancelReason("");
-                                          setCancelError(null);
-                                        }}
-                                        className="h-11 min-h-[44px] px-3 text-red-500 hover:text-red-700"
-                                        aria-label={`Cancel round ${round.orderNumber}`}
-                                      >
-                                        <XCircle className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -1497,16 +1107,16 @@ export function AdminOrdersTab({
               </div>
               <div>
                 <h3 id="settle-tab-title" className="font-bold text-base">
-                  Settle Table {settleModalGroup.tableNumber} Tab
+                  Settle {getTableDisplayName(settleModalGroup.tableNumber)} Tab
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Consolidated bill across {settleModalGroup.orders.length} round{settleModalGroup.orders.length !== 1 ? "s" : ""}
+                  Consolidated bill across {settleModalGroup.orders.length} order{settleModalGroup.orders.length !== 1 ? "s" : ""}
                 </p>
               </div>
             </div>
 
             {/* Financial breakdown */}
-            <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] mb-4 space-y-1.5 font-mono text-xs tabular-nums">
+            <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] mb-4 space-y-2 text-sm tabular-nums">
               <div className="flex justify-between text-[var(--text-secondary)]">
                 <span>Subtotal</span>
                 <span>
@@ -1601,7 +1211,7 @@ export function AdminOrdersTab({
               <div>
                 <label
                   htmlFor="tab-settle-note"
-                  className="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
+                  className="block text-sm font-medium text-[var(--text-secondary)] mb-1"
                 >
                   Cashier Audit Note (Optional)
                 </label>
@@ -1642,6 +1252,55 @@ export function AdminOrdersTab({
         </div>
       )}
 
+      {/* Consolidated tab items drawer */}
+      <Sheet
+        isOpen={Boolean(selectedTabItemsGroup)}
+        onClose={() => setSelectedTabItemsGroup(null)}
+        side="right"
+        title={selectedTabItemsGroup ? "Items for " + getTableDisplayName(selectedTabItemsGroup.tableNumber) : "Tab Items"}
+      >
+        {selectedTabItemsGroup && (
+          <div className="space-y-4 text-base" data-testid="tab-items-drawer">
+            <h4 className="text-base font-semibold text-[var(--text-primary)]">Items Ordered</h4>
+            {selectedTabItems.length > 0 ? (
+              <ul className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] px-3">
+                {selectedTabItems.map((item) => (
+                  <li key={item.key} className="flex items-start justify-between gap-4 py-3 text-base text-[var(--text-primary)]">
+                    <div className="min-w-0">
+                      <span className="font-normal">{item.quantity} × {item.name}</span>
+                      {item.modifiers.length > 0 && (
+                        <p className="mt-0.5 text-sm text-[var(--text-secondary)]">{item.modifiers.join(", ")}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-base font-normal tabular-nums">{formatPaiseToINR(item.totalPaise)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]">No active items on this tab.</p>
+            )}
+            <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3 text-base">
+              <span>Total</span>
+              <span className="tabular-nums font-normal text-[var(--text-primary)]">{formatPaiseToINR(selectedTabItemsGroup.tabSummary?.totalPaise ?? 0)}</span>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full min-h-11 justify-center text-sm"
+              isLoading={isLoadingBill}
+              onClick={() => {
+                const firstOrder = selectedTabItemsGroup.orders[0];
+                setSelectedTabItemsGroup(null);
+                if (firstOrder) void handleViewBillOrReceipt(firstOrder);
+              }}
+              leftIcon={<Printer className="h-4 w-4" />}
+            >
+              View / Print Consolidated Bill
+            </Button>
+          </div>
+        )}
+      </Sheet>
+
       {/* View Order Detail Sheet */}
       <Sheet
         isOpen={Boolean(selectedOrder)}
@@ -1659,7 +1318,7 @@ export function AdminOrdersTab({
             {/* Status & Payment header */}
             <div className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
               <div>
-                <span className="text-xs text-[var(--text-muted)] uppercase font-mono block">
+                <span className="text-sm text-[var(--text-muted)] uppercase block">
                   Kitchen Status
                 </span>
                 <div className="mt-1">{getStatusBadge(selectedOrder.status)}</div>
@@ -1737,7 +1396,7 @@ export function AdminOrdersTab({
                         </div>
                       )}
                     </div>
-                    <div className="font-mono font-semibold text-sm sm:text-base text-[var(--text-primary)] text-right">
+                    <div className="text-sm sm:text-base text-[var(--text-primary)] text-right tabular-nums">
                       {formatPaiseToINR(item.pricePaise * item.quantity)}
                     </div>
                   </div>
@@ -1746,7 +1405,7 @@ export function AdminOrdersTab({
             </div>
 
             {/* Financial Summary */}
-            <div className="p-3 rounded-lg border border-[var(--border-subtle)] space-y-1.5 font-mono text-xs tabular-nums">
+            <div className="p-3 rounded-lg border border-[var(--border-subtle)] space-y-2 text-sm tabular-nums">
               <div className="flex justify-between text-[var(--text-secondary)]">
                 <span>Subtotal</span>
                 <span>{formatPaiseToINR(selectedOrder.subtotalPaise)}</span>
@@ -1755,7 +1414,7 @@ export function AdminOrdersTab({
                 <span>GST (5%)</span>
                 <span>{formatPaiseToINR(selectedOrder.taxPaise)}</span>
               </div>
-              <div className="flex justify-between pt-1.5 border-t border-[var(--border-subtle)] font-bold text-sm text-[var(--text-primary)]">
+              <div className="flex justify-between pt-1.5 border-t border-[var(--border-subtle)] text-base text-[var(--text-primary)]">
                 <span>Total Bill</span>
                 <span>{formatPaiseToINR(selectedOrder.totalPaise)}</span>
               </div>
@@ -1777,7 +1436,7 @@ export function AdminOrdersTab({
                         ? "success"
                         : "secondary"
                   }
-                  className="text-[10px] font-mono uppercase"
+                  className="text-sm uppercase"
                 >
                   {selectedOrder.diningSessionId
                     ? selectedOrder.alreadyPaidBeforeTab
@@ -2025,7 +1684,7 @@ export function AdminOrdersTab({
               <span className="text-xs text-[var(--text-muted)] uppercase font-mono block">
                 Total Amount Due
               </span>
-              <span className="text-2xl font-extrabold text-[var(--primary)] font-mono tabular-nums tracking-tight">
+              <span className="text-base font-normal text-[var(--text-primary)] tabular-nums">
                 {formatPaiseToINR(paymentModalOrder.totalPaise)}
               </span>
             </div>

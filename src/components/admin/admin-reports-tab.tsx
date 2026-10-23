@@ -140,7 +140,7 @@ export function AdminReportsTab() {
                 <IndianRupee className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none font-mono tabular-nums">
+            <div className="text-2xl font-normal text-[var(--text-primary)] leading-none tabular-nums">
               {formatPaiseToINR(reports.todayRevenuePaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -180,7 +180,7 @@ export function AdminReportsTab() {
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] leading-none font-mono tabular-nums">
+            <div className="text-2xl font-normal text-[var(--text-primary)] leading-none tabular-nums">
               {formatPaiseToINR(reports.todayAvgTicketPaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -252,7 +252,7 @@ export function AdminReportsTab() {
                 >
                   {/* Tooltip / Value on hover */}
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 text-center text-[10px] font-mono bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 px-2 py-1 rounded-md shadow-lg pointer-events-none whitespace-nowrap z-10 tabular-nums">
-                    <div className="font-bold">{formatPaiseToINR(day.revenuePaise)}</div>
+                    <div className="font-normal">{formatPaiseToINR(day.revenuePaise)}</div>
                     <div className="text-[9px] opacity-80">{day.orderCount} orders</div>
                   </div>
 
@@ -290,7 +290,7 @@ export function AdminReportsTab() {
                     <div className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
                       {day.date.slice(5)}
                     </div>
-                    <div className="text-[10px] sm:text-[11px] font-mono font-semibold text-[var(--text-secondary)] tabular-nums mt-0.5">
+                    <div className="text-sm text-[var(--text-secondary)] tabular-nums mt-0.5">
                       {formatPaiseToINR(day.revenuePaise)}
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export function AdminReportsTab() {
                     </td>
 
                     {/* Revenue */}
-                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-[var(--text-primary)] tabular-nums">
+                    <td className="py-3.5 px-4 text-right text-base text-[var(--text-primary)] tabular-nums">
                       {formatPaiseToINR(item.totalRevenuePaise)}
                     </td>
                   </tr>

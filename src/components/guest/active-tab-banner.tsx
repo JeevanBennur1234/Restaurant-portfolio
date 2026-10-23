@@ -50,8 +50,8 @@ export function ActiveTabBanner({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-serif font-bold text-xs sm:text-sm tracking-wide truncate">
-                    Open Tab Active • Round {tab.roundCount}
+                  <span className="text-sm font-semibold tracking-wide truncate">
+                    Open Dining Tab
                   </span>
                   <span
                     className={`text-[10px] font-mono uppercase font-bold px-1.5 py-0.5 rounded ${
@@ -72,8 +72,8 @@ export function ActiveTabBanner({
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-stone-300 font-mono tabular-nums truncate">
-                  Current Bill: <strong className="text-white">{tab.formattedTotal}</strong> ({tab.roundCount} {tab.roundCount === 1 ? "round" : "rounds"})
+                <p className="text-sm text-stone-300 tabular-nums truncate">
+                  Current bill: <span className="text-white font-normal">{tab.formattedTotal}</span>
                 </p>
               </div>
             </div>

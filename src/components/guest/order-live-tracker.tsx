@@ -585,7 +585,7 @@ export function OrderLiveTracker({
                     </div>
                   )}
                 </div>
-                <span className="font-mono font-bold text-sm sm:text-base text-[var(--text-primary)] shrink-0">
+                <span className="text-sm sm:text-base text-[var(--text-primary)] tabular-nums shrink-0">
                   {formatPaiseToINR(item.totalPaise)}
                 </span>
               </div>
@@ -596,17 +596,17 @@ export function OrderLiveTracker({
           <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2 text-sm">
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>Subtotal</span>
-              <span className="font-mono font-medium tabular-nums">
+              <span className="tabular-nums">
                 {formatPaiseToINR(order.subtotalPaise)}
               </span>
             </div>
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>GST (5%)</span>
-              <span className="font-mono font-medium tabular-nums">{formatPaiseToINR(order.taxPaise)}</span>
+              <span className="tabular-nums">{formatPaiseToINR(order.taxPaise)}</span>
             </div>
-            <div className="flex justify-between text-base font-bold text-[var(--text-primary)] pt-1.5 border-t border-[var(--border-subtle)]">
+            <div className="flex justify-between text-sm text-[var(--text-primary)] pt-1.5 border-t border-[var(--border-subtle)]">
               <span>Total Amount</span>
-              <span className="font-mono text-xl text-[var(--primary)] font-extrabold tabular-nums tracking-tight">
+              <span className="text-base font-normal text-[var(--text-primary)] tabular-nums">
                 {formatPaiseToINR(order.totalPaise)}
               </span>
             </div>
