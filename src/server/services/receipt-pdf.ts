@@ -181,8 +181,27 @@ function generateA4ReceiptPdf(data: ReceiptData): Promise<Buffer> {
 
       doc.y += 8;
       doc.font("Helvetica-Bold").fontSize(11).fillColor("#1c1917");
-      doc.text(isPaid ? "TOTAL PAID:" : "TOTAL DUE:", totalsBoxX, doc.y);
-      doc.text(`INR ${(data.totalPaise / 100).toFixed(2)}`, totalsBoxX, doc.y, { width: totalsBoxWidth, align: "right" });
+      if (data.isTabBill) {
+        doc.text("CONSOLIDATED TAB TOTAL:", totalsBoxX, doc.y);
+        doc.text(`INR ${(data.totalPaise / 100).toFixed(2)}`, totalsBoxX, doc.y, { width: totalsBoxWidth, align: "right" });
+        doc.y += 16;
+        if ((data.alreadyPaidPaise ?? 0) > 0) {
+          doc.font("Helvetica").fontSize(9).fillColor("#047857");
+          doc.text("ALREADY PAID:", totalsBoxX, doc.y);
+          doc.text(`INR ${((data.alreadyPaidPaise ?? 0) / 100).toFixed(2)}`, totalsBoxX, doc.y, { width: totalsBoxWidth, align: "right" });
+          doc.y += 14;
+          doc.font("Helvetica-Bold").fontSize(11).fillColor("#1c1917");
+        }
+        const balanceLabel = isPaid ? "COLLECTED AT SETTLEMENT:" : "AMOUNT DUE:";
+        const balancePaise = isPaid
+          ? (data.settlementAmountPaise ?? data.amountDuePaise ?? data.totalPaise)
+          : (data.amountDuePaise ?? data.totalPaise);
+        doc.text(balanceLabel, totalsBoxX, doc.y);
+        doc.text(`INR ${(balancePaise / 100).toFixed(2)}`, totalsBoxX, doc.y, { width: totalsBoxWidth, align: "right" });
+      } else {
+        doc.text(isPaid ? "TOTAL PAID:" : "TOTAL DUE:", totalsBoxX, doc.y);
+        doc.text(`INR ${(data.totalPaise / 100).toFixed(2)}`, totalsBoxX, doc.y, { width: totalsBoxWidth, align: "right" });
+      }
 
       doc.moveDown(3);
 
@@ -289,14 +308,26 @@ function generateThermalReceiptPdf(data: ReceiptData): Promise<Buffer> {
       const subtotalLine = `Subtotal:              INR ${(data.subtotalPaise / 100).toFixed(2).padStart(8)}`;
       const cgstLine = `CGST (2.5%):           INR ${(data.cgstPaise / 100).toFixed(2).padStart(8)}`;
       const sgstLine = `SGST (2.5%):           INR ${(data.sgstPaise / 100).toFixed(2).padStart(8)}`;
-      const totalLine = `${(isPaid ? "TOTAL PAID:" : "TOTAL DUE:").padEnd(23)}INR ${(data.totalPaise / 100).toFixed(2).padStart(8)}`;
 
       doc.text(subtotalLine);
       doc.text(cgstLine);
       doc.text(sgstLine);
       doc.font("Courier-Bold").fontSize(9);
       doc.text("========================================", { align: "center" });
-      doc.text(totalLine);
+      if (data.isTabBill) {
+        doc.text(`TAB TOTAL:             INR ${(data.totalPaise / 100).toFixed(2).padStart(8)}`);
+        if ((data.alreadyPaidPaise ?? 0) > 0) {
+          doc.text(`ALREADY PAID:          INR ${((data.alreadyPaidPaise ?? 0) / 100).toFixed(2).padStart(8)}`);
+        }
+        const balancePaise = isPaid
+          ? (data.settlementAmountPaise ?? data.amountDuePaise ?? data.totalPaise)
+          : (data.amountDuePaise ?? data.totalPaise);
+        const label = isPaid ? "COLLECTED NOW:" : "AMOUNT DUE:";
+        doc.text(`${label.padEnd(23)}INR ${(balancePaise / 100).toFixed(2).padStart(8)}`);
+      } else {
+        const totalLine = `${(isPaid ? "TOTAL PAID:" : "TOTAL DUE:").padEnd(23)}INR ${(data.totalPaise / 100).toFixed(2).padStart(8)}`;
+        doc.text(totalLine);
+      }
       doc.text("========================================", { align: "center" });
 
       doc.font("Courier").fontSize(8);

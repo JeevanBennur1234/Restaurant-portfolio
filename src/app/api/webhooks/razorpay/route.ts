@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
 import { orders, payments, orderEvents, diningSessions } from "@/server/db/schema";
 import { verifyRazorpayWebhookSignature } from "@/server/razorpay";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
+import { wasRoundPaidBeforeTab } from "@/server/services/tabs";
 
 interface RazorpayWebhookPayload {
   event: string;
@@ -113,6 +114,120 @@ export async function POST(req: NextRequest) {
 
 
       if (existingPayment) {
+        // A tab-level payment is validated against the saved payment row and settles the
+        // session total. Its representative order_id must never be treated as the full bill.
+        if (existingPayment.diningSessionId) {
+          const paymentEntity = data.payload?.payment?.entity;
+          const tabPayloadAmount =
+            data.payload?.payment?.entity?.amount ??
+            data.payload?.order?.entity?.amount;
+
+          if (paymentEntity?.status && paymentEntity.status !== "captured") {
+            return NextResponse.json({ received: true, ignored: true, reason: "Payment not captured" });
+          }
+          if (paymentEntity?.currency && paymentEntity.currency !== "INR") {
+            return NextResponse.json({ error: "Payment currency mismatch" }, { status: 400 });
+          }
+          if (tabPayloadAmount === undefined || tabPayloadAmount !== existingPayment.amountPaise) {
+            return NextResponse.json({ error: "Tab payment amount mismatch" }, { status: 400 });
+          }
+
+          const tabSession = await db.query.diningSessions.findFirst({
+            where: eq(diningSessions.id, existingPayment.diningSessionId),
+            with: {
+              table: true,
+              orders: {
+                where: sql`${orders.status} != 'cancelled'`,
+                with: { payments: true },
+              },
+            },
+          });
+          if (!tabSession || existingPayment.order?.diningSessionId !== tabSession.id) {
+            return NextResponse.json({ error: "Tab payment/session mismatch" }, { status: 400 });
+          }
+          if (
+            existingPayment.status === "completed" &&
+            tabSession.status === "closed" &&
+            tabSession.paymentStatus === "paid"
+          ) {
+            return NextResponse.json({ received: true, status: "already_processed", tabId: tabSession.id });
+          }
+          if (tabSession.status !== "bill_requested" || tabSession.paymentMethod !== "pay_now") {
+            return NextResponse.json({ error: "Tab is not awaiting online settlement" }, { status: 409 });
+          }
+
+          const computedSubtotal = tabSession.orders.reduce((sum, order) => sum + (order.subtotalPaise ?? 0), 0);
+          const computedTax = tabSession.orders.reduce((sum, order) => sum + (order.taxPaise ?? 0), 0);
+          const computedTotal = tabSession.orders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+          const alreadyPaidPaise = tabSession.orders
+            .filter((order) => wasRoundPaidBeforeTab(order, tabSession))
+            .reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+          const amountDuePaise = Math.max(0, computedTotal - alreadyPaidPaise);
+          if (amountDuePaise <= 0 || amountDuePaise !== existingPayment.amountPaise) {
+            return NextResponse.json({ error: "Tab total changed after payment was initiated" }, { status: 409 });
+          }
+
+          const now = new Date();
+          const settled = await db.transaction(async (tx) => {
+            const closedRows = await tx.update(diningSessions)
+              .set({
+                status: "closed",
+                paymentStatus: "paid",
+                paymentMethod: "pay_now",
+                subtotalPaise: computedSubtotal,
+                taxPaise: computedTax,
+                totalPaise: computedTotal,
+                closedAt: now,
+                updatedAt: now,
+              })
+              .where(and(eq(diningSessions.id, tabSession.id), eq(diningSessions.status, "bill_requested")))
+              .returning({ id: diningSessions.id });
+            if (closedRows.length === 0) return false;
+
+            const unpaidOrders = tabSession.orders.filter((order) => order.paymentStatus !== "paid");
+            const unpaidOrderIds = unpaidOrders.map((order) => order.id);
+            if (unpaidOrderIds.length > 0) {
+              await tx.update(orders)
+                .set({ paymentStatus: "paid", paymentMethod: "pay_now", updatedAt: now })
+                .where(inArray(orders.id, unpaidOrderIds));
+              for (const order of unpaidOrders) {
+                await tx.insert(orderEvents).values({
+                  orderId: order.id,
+                  fromStatus: order.status,
+                  toStatus: order.status,
+                  note: "Consolidated dining tab paid online via Razorpay",
+                });
+              }
+            }
+
+            await tx.update(payments)
+              .set({
+                status: "completed",
+                razorpayPaymentId: razorpayPaymentId ?? existingPayment.razorpayPaymentId,
+                updatedAt: now,
+              })
+              .where(eq(payments.id, existingPayment.id));
+            return true;
+          });
+          if (!settled) {
+            return NextResponse.json({ error: "Tab was settled by another request" }, { status: 409 });
+          }
+
+          await publishRealtimeEvent(getRestaurantChannel(tabSession.restaurantId), "tab.closed", {
+            tabId: tabSession.id,
+            tableNumber: tabSession.table.tableNumber,
+            status: "closed",
+            paymentStatus: "paid",
+          });
+          await publishRealtimeEvent(`tab:${tabSession.id}`, "tab.closed", {
+            tabId: tabSession.id,
+            status: "closed",
+            paymentStatus: "paid",
+          });
+          return NextResponse.json({ received: true, status: "processed_tab", tabId: tabSession.id });
+        }
+
+
         // RULE: An order that belongs to an open tab can never be paid on its own.
         if (
           !existingPayment.diningSessionId &&
@@ -126,7 +241,7 @@ export async function POST(req: NextRequest) {
                 })
               : null);
 
-          if (session && (session.status === "active" || session.status === "bill_requested")) {
+          if (session) {
             console.error(
               `[Security Alert] Rejected individual payment webhook for order ${existingPayment.orderId} belonging to open tab ${session.id}`
             );

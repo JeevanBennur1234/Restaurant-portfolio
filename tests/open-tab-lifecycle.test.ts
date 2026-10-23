@@ -9,6 +9,7 @@ import {
   testVerifyTabPayment,
   settleTabAtCounter,
   buildTabReceiptData,
+  getAdminTabBillOrReceipt,
 } from "@/server/services/tabs";
 
 // Mock environment and realtime
@@ -424,6 +425,8 @@ describe("Dine-In Open Tab Lifecycle", () => {
         tableId: "tbl-7",
         totalPaise: 52500,
         status: "active",
+        paymentMethod: null,
+        orders: [{ id: "ord-bill-1", subtotalPaise: 50000, taxPaise: 2500, totalPaise: 52500, paymentStatus: "counter", payments: [] }],
       };
 
       const mockCtx = {
@@ -438,7 +441,9 @@ describe("Dine-In Open Tab Lifecycle", () => {
           },
           update: vi.fn().mockReturnValue({
             set: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue(undefined),
+              where: vi.fn().mockReturnValue({
+                returning: vi.fn().mockResolvedValue([{ id: "session-1" }]),
+              }),
             }),
           }),
         },
@@ -463,6 +468,8 @@ describe("Dine-In Open Tab Lifecycle", () => {
         tableId: "tbl-7",
         totalPaise: 0,
         status: "active",
+        paymentMethod: null,
+        orders: [],
       };
 
       const mockCtx = {
@@ -492,11 +499,13 @@ describe("Dine-In Open Tab Lifecycle", () => {
   });
 
   describe("createTabRazorpayOrder & verifyTabPayment", () => {
-    it("creates a Razorpay order for active tab total", async () => {
+    it("creates a Razorpay order for a bill-requested tab total", async () => {
       const mockSession = {
         id: "session-1",
+        status: "bill_requested",
+        paymentMethod: "pay_now",
         totalPaise: 52500,
-        orders: [{ id: "ord-1" }],
+        orders: [{ id: "ord-1", totalPaise: 52500, paymentStatus: "counter", paymentMethod: "counter", payments: [] }],
       };
 
       const mockCtx = {
@@ -528,14 +537,23 @@ describe("Dine-In Open Tab Lifecycle", () => {
         id: "session-1",
         restaurantId: "rest-1",
         tableId: "tbl-7",
-        orders: [{ id: "ord-1" }, { id: "ord-2" }],
+        status: "bill_requested",
+        paymentStatus: "bill_requested",
+        paymentMethod: "pay_now",
+        totalPaise: 52500,
+        orders: [
+          { id: "ord-1", status: "served", paymentStatus: "counter", totalPaise: 25000, subtotalPaise: 23810, taxPaise: 1190, payments: [] },
+          { id: "ord-2", status: "ready", paymentStatus: "counter", totalPaise: 27500, subtotalPaise: 26190, taxPaise: 1310, payments: [] },
+        ],
       };
 
-      const updateSpy = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      });
+      const updateSpy = vi.fn().mockImplementation(() => ({
+        set: vi.fn().mockImplementation((values: Record<string, unknown>) => ({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue(values.status === "closed" ? [{ id: "session-1" }] : []),
+          }),
+        })),
+      }));
 
       const insertSpy = vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
@@ -549,6 +567,15 @@ describe("Dine-In Open Tab Lifecycle", () => {
             },
             diningSessions: {
               findFirst: vi.fn().mockResolvedValue(mockSession),
+            },
+            payments: {
+              findFirst: vi.fn().mockResolvedValue({
+                id: "tab-payment-1",
+                diningSessionId: "session-1",
+                razorpayOrderId: "order_rzp_mock_123",
+                amountPaise: 52500,
+                status: "pending",
+              }),
             },
           },
           transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
@@ -653,7 +680,7 @@ describe("Dine-In Open Tab Lifecycle", () => {
         status: "active",
         totalPaise: 65000,
         table: { tableNumber: "T-07" },
-        orders: [{ id: "ord-c-1" }],
+        orders: [{ id: "ord-c-1", status: "served", paymentStatus: "counter", paymentMethod: "counter", subtotalPaise: 61905, taxPaise: 3095, totalPaise: 65000, payments: [] }],
       };
 
       const mockCtx = {
@@ -671,11 +698,13 @@ describe("Dine-In Open Tab Lifecycle", () => {
           },
           transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
             const tx = {
-              update: vi.fn().mockReturnValue({
-                set: vi.fn().mockReturnValue({
-                  where: vi.fn().mockResolvedValue(undefined),
-                }),
-              }),
+              update: vi.fn().mockImplementation(() => ({
+                set: vi.fn().mockImplementation((values: Record<string, unknown>) => ({
+                  where: vi.fn().mockReturnValue({
+                    returning: vi.fn().mockResolvedValue(values.status === "closed" ? [{ id: "session-counter-1" }] : []),
+                  }),
+                })),
+              })),
               insert: vi.fn().mockReturnValue({
                 values: vi.fn().mockResolvedValue(undefined),
               }),
@@ -733,6 +762,102 @@ describe("Dine-In Open Tab Lifecycle", () => {
       if (!res.ok) {
         expect(res.code).toBe("CONFLICT");
         expect(res.status).toBe(409);
+      }
+    });
+  });
+
+  describe("manager consolidated tab bill", () => {
+    it("returns all non-cancelled round items from the tab bill endpoint service", async () => {
+      const now = new Date();
+      const session = {
+        id: "session-bill-1",
+        restaurantId: "rest-1",
+        table: { tableNumber: "T-01" },
+        restaurant: { name: "Masala Lane" },
+        status: "bill_requested",
+        paymentStatus: "bill_requested",
+        paymentMethod: "counter",
+        customerName: null,
+        customerPhone: null,
+        subtotalPaise: 50000,
+        taxPaise: 2500,
+        totalPaise: 52500,
+        createdAt: now,
+        updatedAt: now,
+        closedAt: null,
+        payments: [],
+        orders: [
+          {
+            id: "round-1",
+            orderNumber: "ML-0034",
+            roundNumber: 1,
+            status: "served",
+            paymentStatus: "counter",
+            paymentMethod: "counter",
+            subtotalPaise: 25000,
+            taxPaise: 1250,
+            totalPaise: 26250,
+            payments: [],
+            items: [{
+              id: "item-1",
+              itemName: "Kurkuri Bhindi Fries",
+              itemPricePaise: 25000,
+              quantity: 1,
+              selectedModifiersJson: null,
+              totalPaise: 25000,
+              notes: null,
+            }],
+          },
+          {
+            id: "round-2",
+            orderNumber: "ML-0035",
+            roundNumber: 2,
+            status: "ready",
+            paymentStatus: "counter",
+            paymentMethod: "counter",
+            subtotalPaise: 25000,
+            taxPaise: 1250,
+            totalPaise: 26250,
+            payments: [],
+            items: [{
+              id: "item-2",
+              itemName: "Palak Patta Chaat",
+              itemPricePaise: 25000,
+              quantity: 1,
+              selectedModifiersJson: null,
+              totalPaise: 25000,
+              notes: null,
+            }],
+          },
+        ],
+      };
+      const mockCtx = {
+        actor: {
+          userId: "mgr-1",
+          restaurantId: "rest-1",
+          role: "manager" as const,
+          username: "manager_anil",
+        },
+        db: {
+          query: {
+            diningSessions: {
+              findFirst: vi.fn().mockResolvedValue(session),
+            },
+          },
+        },
+      } as unknown as Ctx;
+
+      const res = await getAdminTabBillOrReceipt(mockCtx, { tabId: "session-bill-1" });
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.data.isTabBill).toBe(true);
+        expect(res.data.totalPaise).toBe(52500);
+        expect(res.data.items).toHaveLength(2);
+        expect(res.data.items[0].name).toContain("Round 1");
+        expect(res.data.items[0].name).toContain("Kurkuri Bhindi Fries");
+        expect(res.data.items[1].name).toContain("Round 2");
+        expect(res.data.items[1].name).toContain("Palak Patta Chaat");
+        expect(res.data.amountDuePaise).toBe(52500);
       }
     });
   });

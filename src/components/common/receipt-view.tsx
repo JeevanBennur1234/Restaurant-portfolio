@@ -73,7 +73,9 @@ export function ReceiptModal({
               id="receipt-modal-title"
               className="font-serif font-bold text-base sm:text-lg text-[var(--text-primary)]"
             >
-              {isPaid ? "Digital Receipt" : "Unpaid Order Bill"}
+              {receipt.isTabBill
+                ? isPaid ? "Consolidated Tab Receipt" : "Consolidated Tab Bill"
+                : isPaid ? "Digital Receipt" : "Unpaid Order Bill"}
             </span>
           </div>
 
@@ -309,12 +311,35 @@ export function ReceiptModal({
               <span>{receipt.formattedTax}</span>
             </div>
 
-            <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-subtle)] text-base sm:text-lg font-bold text-[var(--text-primary)]">
-              <span>{isPaid ? "Amount Paid" : "Total Due"}</span>
-              <span className="font-extrabold text-[var(--primary)] text-xl">
-                {receipt.formattedTotal}
-              </span>
-            </div>
+            {receipt.isTabBill ? (
+              <>
+                <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-subtle)] font-bold text-[var(--text-primary)]">
+                  <span>Consolidated Tab Total</span>
+                  <span className="tabular-nums">{receipt.formattedTotal}</span>
+                </div>
+                {Boolean(receipt.alreadyPaidPaise) && (receipt.alreadyPaidPaise ?? 0) > 0 && (
+                  <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+                    <span>Already paid on previous rounds</span>
+                    <span>-{receipt.formattedAlreadyPaid ?? formatPaiseToINR(receipt.alreadyPaidPaise ?? 0)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-[var(--border-subtle)] text-base sm:text-lg font-bold text-[var(--text-primary)]">
+                  <span>{isPaid ? "Collected at settlement" : "Amount Due"}</span>
+                  <span className="font-extrabold text-[var(--primary)] text-xl">
+                    {isPaid
+                      ? receipt.formattedSettlementAmount ?? receipt.formattedAmountDue ?? receipt.formattedTotal
+                      : receipt.formattedAmountDue ?? receipt.formattedTotal}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-subtle)] text-base sm:text-lg font-bold text-[var(--text-primary)]">
+                <span>{isPaid ? "Amount Paid" : "Total Due"}</span>
+                <span className="font-extrabold text-[var(--primary)] text-xl">
+                  {receipt.formattedTotal}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Footer Legal & Courtesy notice */}

@@ -13,6 +13,7 @@ import {
   getPaymentStatus,
   verifyTestUpiPayment,
   switchOrderToCounter,
+  placeOrder as customerPlaceOrder,
 } from "@/server/services/customer";
 import { recordCounterPayment } from "@/server/services/billing";
 import { cancelOrder } from "@/server/services/manager";
@@ -168,6 +169,53 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
   });
 
   describe("Rule 1: Tab round cannot be paid individually", () => {
+    it.each(["active", "bill_requested"] as const)(
+      "rejects legacy placeOrder checkout while a tab is %s without allocating an order number",
+      async (tabStatus) => {
+        const transactionInsert = vi.fn();
+        const menuItem = {
+          id: "menu-item-1",
+          name: "Test Dish",
+          pricePaise: 10000,
+          isActive: true,
+          isAvailable: true,
+        };
+        const mockCtx = {
+          db: {
+            query: {
+              tables: { findFirst: vi.fn().mockResolvedValue(mockTable) },
+              orders: { findMany: vi.fn().mockResolvedValue([]) },
+              menuItems: { findMany: vi.fn().mockResolvedValue([menuItem]) },
+              modifiers: { findMany: vi.fn().mockResolvedValue([]) },
+            },
+            transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+              callback({
+                query: {
+                  diningSessions: {
+                    findFirst: vi.fn().mockResolvedValue({
+                      ...mockActiveSession,
+                      status: tabStatus,
+                    }),
+                  },
+                },
+                insert: transactionInsert,
+              })
+            ),
+          },
+        } as unknown as Ctx;
+
+        const result = await customerPlaceOrder(mockCtx, {
+          token: "table-1-token",
+          items: [{ menuItemId: menuItem.id, quantity: 1, selectedModifierIds: [] }],
+          paymentMethod: "pay_now",
+        });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.code).toBe("CONFLICT");
+        expect(transactionInsert).not.toHaveBeenCalled();
+      }
+    );
+
     it("rejects admin mark-paid action with TAB_ROUND_NOT_PAYABLE (400)", async () => {
       const mockCtx = {
         actor: managerActor,
@@ -420,6 +468,79 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
   });
 
   describe("Rule 2: Settling tab marks every round paid with one method", () => {
+    it("does not create a second online order when a completed tab payment remains recorded", async () => {
+      const sessionWithCompletedPayment = {
+        ...mockActiveSession,
+        status: "bill_requested",
+        paymentStatus: "bill_requested",
+        paymentMethod: "pay_now",
+        payments: [
+          {
+            id: "tab-payment-completed",
+            diningSessionId: "session-1",
+            provider: "razorpay",
+            status: "completed",
+            amountPaise: 31500,
+          },
+        ],
+        orders: [{ ...mockTabRoundOrder, payments: [] }],
+      };
+      const insert = vi.fn();
+      const mockCtx = {
+        db: {
+          query: {
+            tables: { findFirst: vi.fn().mockResolvedValue(mockTable) },
+            diningSessions: {
+              findFirst: vi.fn().mockResolvedValue(sessionWithCompletedPayment),
+            },
+          },
+          insert,
+        },
+      } as unknown as Ctx;
+
+      const result = await createTabRazorpayOrder(mockCtx, "table-1-token");
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe("CONFLICT");
+      expect(insert).not.toHaveBeenCalled();
+    });
+
+    it("rejects counter settlement while a tab-level online payment is pending", async () => {
+      const pendingSession = {
+        ...mockActiveSession,
+        table: mockTable,
+        payments: [
+          {
+            id: "tab-payment-pending",
+            diningSessionId: "session-1",
+            provider: "razorpay",
+            status: "pending",
+            amountPaise: mockActiveSession.totalPaise,
+          },
+        ],
+        orders: [mockTabRoundOrder],
+      };
+      const transaction = vi.fn();
+      const mockCtx = {
+        actor: managerActor,
+        db: {
+          query: {
+            diningSessions: { findFirst: vi.fn().mockResolvedValue(pendingSession) },
+          },
+          transaction,
+        },
+      } as unknown as Ctx;
+
+      const result = await settleTabAtCounter(mockCtx, {
+        tabId: "session-1",
+        paymentMethod: "cash",
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe("CONFLICT");
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
     it("settles tab online via verifyTabPayment and marks all rounds paid with 'pay_now'", async () => {
       const rounds = [
         { id: "ord-1", roundNumber: 1, totalPaise: 50000, status: "served", paymentStatus: "counter" },
@@ -429,15 +550,20 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
 
       const sessionWithRounds = {
         ...mockActiveSession,
+        status: "bill_requested",
+        paymentStatus: "bill_requested",
+        paymentMethod: "pay_now",
         totalPaise: 100000,
-        orders: rounds,
+        orders: rounds.map((round) => ({ ...round, payments: [] })),
       };
 
       const updateOrderSpy = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
       });
       const updateSessionSpy = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: "session-1" }]),
+        }),
       });
       const updatePaymentSpy = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
@@ -454,6 +580,15 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
             },
             diningSessions: {
               findFirst: vi.fn().mockResolvedValue(sessionWithRounds),
+            },
+            payments: {
+              findFirst: vi.fn().mockResolvedValue({
+                id: "tab-payment-1",
+                diningSessionId: "session-1",
+                razorpayOrderId: "order_rzp_mock_123",
+                amountPaise: 100000,
+                status: "pending",
+              }),
             },
           },
           transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => {
@@ -512,7 +647,7 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
       const sessionWithRounds = {
         ...mockActiveSession,
         totalPaise: 70000,
-        orders: rounds,
+        orders: rounds.map((round) => ({ ...round, payments: [] })),
         table: mockTable,
       };
 
@@ -540,7 +675,11 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
                   if (data.paymentStatus === "paid" && data.paymentMethod === "cash") {
                     updateOrderSpy(data);
                   }
-                  return { where: vi.fn().mockResolvedValue(undefined) };
+                  return {
+                    where: vi.fn().mockReturnValue({
+                      returning: vi.fn().mockResolvedValue(data.status === "closed" ? [{ id: "session-1" }] : []),
+                    }),
+                  };
                 }),
               }),
               insert: () => ({
@@ -717,6 +856,8 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
           roundNumber: 1,
           status: "served",
           paymentStatus: "paid", // Pre-paid round
+          paymentMethod: "pay_now",
+          payments: [{ status: "completed", diningSessionId: null }],
           subtotalPaise: 40000,
           taxPaise: 2000,
           totalPaise: 42000,
@@ -784,6 +925,8 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
           totalPaise: 50000,
           status: "served",
           paymentStatus: "paid", // ₹500 already paid
+          paymentMethod: "pay_now",
+          payments: [{ status: "completed", diningSessionId: null }],
         },
         {
           id: "ord-unpaid-2",
@@ -796,8 +939,11 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
 
       const session = {
         ...mockActiveSession,
+        status: "bill_requested",
+        paymentStatus: "bill_requested",
+        paymentMethod: "pay_now",
         totalPaise: 80000,
-        orders: rounds,
+        orders: rounds.map((round) => ({ ...round, payments: round.payments ?? [] })),
       };
 
       let recordedPaymentAmount: number | null = null;

@@ -31,6 +31,7 @@ import {
   isOnlinePaymentsEnabled,
   isRazorpayTestMode,
 } from "@/server/razorpay";
+import { env } from "@/server/env";
 import { formatPaiseToINR } from "@/lib/currency";
 import { RESTAURANT_PROFILE, formatReceiptNumber, formatBillNumber, type ReceiptData, type ReceiptItem } from "./billing";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
@@ -41,6 +42,7 @@ export interface TabOrderSummary {
   roundNumber: number;
   status: OrderStatus;
   paymentStatus: string;
+  alreadyPaidBeforeTab?: boolean;
   subtotalPaise: number;
   taxPaise: number;
   totalPaise: number;
@@ -89,6 +91,30 @@ export interface TabDetailsData {
 /**
  * Checks whether an order belongs to an open tab (session status is active or bill_requested).
  */
+export function isOrderInDiningTab(order: { diningSessionId?: string | null }): boolean {
+  // A round linked to a dining session is never individually payable, even if the
+  // session has since closed. Closed sessions should already have one tab-level settlement.
+  return Boolean(order.diningSessionId);
+}
+
+export function wasRoundPaidBeforeTab(
+  order: {
+    paymentStatus?: string | null;
+    paymentMethod?: string | null;
+    payments?: Array<{ status: string; diningSessionId: string | null }>;
+  },
+  session: { id: string; status: string; paymentMethod?: string | null }
+): boolean {
+  if (order.paymentStatus !== "paid") return false;
+  const hasStandaloneCompletedPayment = (order.payments ?? []).some(
+    (payment) => payment.status === "completed" && payment.diningSessionId !== session.id
+  );
+  if (hasStandaloneCompletedPayment) return true;
+  return session.status === "closed" && Boolean(
+    order.paymentMethod && session.paymentMethod && order.paymentMethod !== session.paymentMethod
+  );
+}
+
 export async function isOrderInOpenTab(
   ctx: Ctx,
   order: { diningSessionId?: string | null; diningSession?: { status: string } | null }
@@ -147,10 +173,11 @@ export async function getActiveTab(
         sql`${diningSessions.status} IN ('active', 'bill_requested')`
       ),
       with: {
+        payments: true,
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
           orderBy: [asc(orders.createdAt)],
-          with: { items: true },
+          with: { items: true, payments: true },
         },
       },
     });
@@ -167,10 +194,11 @@ export async function getActiveTab(
         ),
         orderBy: [desc(diningSessions.closedAt)],
         with: {
+          payments: true,
           orders: {
             where: sql`${orders.status} != 'cancelled'`,
             orderBy: [asc(orders.createdAt)],
-            with: { items: true },
+            with: { items: true, payments: true },
           },
         },
       });
@@ -194,10 +222,13 @@ export async function getActiveTab(
         ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
         : session.totalPaise ?? 0;
 
-    // Sum of already-paid non-cancelled rounds (pre-paid rounds)
-    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
+    // Preserve pre-tab payments when computing the outstanding balance. After a tab
+    // closes, rounds paid by this tab settlement are not mistaken for pre-paid rounds.
+    const wasPaidBeforeTab = (o: (typeof nonCancelledOrders)[number]) =>
+      wasRoundPaidBeforeTab(o, session);
+    const paidOrders = nonCancelledOrders.filter(wasPaidBeforeTab);
     const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
-    const amountDuePaise = Math.max(0, computedTotal - paidPaise);
+    const amountDuePaise = session.status === "closed" ? 0 : Math.max(0, computedTotal - paidPaise);
 
     // Invariant guard: ensure diningSessions row in DB stays synchronized with non-cancelled rounds
     if (
@@ -224,6 +255,7 @@ export async function getActiveTab(
       roundNumber: o.roundNumber || 1,
       status: o.status,
       paymentStatus: o.paymentStatus,
+      alreadyPaidBeforeTab: wasPaidBeforeTab(o),
       subtotalPaise: o.subtotalPaise,
       taxPaise: o.taxPaise,
       totalPaise: o.totalPaise,
@@ -407,11 +439,8 @@ export async function placeTabRound(
           .returning();
         activeSession = newSession;
       } else if (activeSession.status === "bill_requested") {
-        // Adding more food resets status to active
-        await tx
-          .update(diningSessions)
-          .set({ status: "active", paymentStatus: "open", updatedAt: new Date() })
-          .where(eq(diningSessions.id, activeSession.id));
+        // Freeze the tab once billing is requested so the amount cannot change mid-payment.
+        throw new Error("TAB_BILL_ALREADY_REQUESTED");
       }
 
       // Count prior orders in this session to determine Round number
@@ -542,6 +571,9 @@ export async function placeTabRound(
 
     return ok(result);
   } catch (err) {
+    if (err instanceof Error && err.message === "TAB_BILL_ALREADY_REQUESTED") {
+      return fail("CONFLICT", "The bill has already been requested. Please ask staff to reopen the tab before adding more dishes.", 409);
+    }
     console.error("Database error in placeTabRound:", err);
     return fail("INTERNAL", "Service temporarily unavailable", 500);
   }
@@ -575,25 +607,78 @@ export async function requestTabBill(
         eq(diningSessions.tableId, tableRecord.id),
         sql`${diningSessions.status} IN ('active', 'bill_requested')`
       ),
+      with: {
+        payments: true,
+        orders: {
+          where: sql`${orders.status} != 'cancelled'`,
+          with: { payments: true },
+        },
+      },
     });
 
     if (!session) {
       return fail("NOT_FOUND", "No active dining tab found for this table", 404);
     }
 
-    if (session.totalPaise <= 0) {
+    const computedSubtotal = session.orders.reduce((sum, order) => sum + (order.subtotalPaise ?? 0), 0);
+    const computedTax = session.orders.reduce((sum, order) => sum + (order.taxPaise ?? 0), 0);
+    const computedTotal = session.orders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+    if (computedTotal <= 0) {
       return fail("VALIDATION", "Cannot request bill for empty tab", 400);
     }
+    const alreadyPaidPaise = session.orders
+      .filter((order) => wasRoundPaidBeforeTab(order, session))
+      .reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+    const amountDuePaise = Math.max(0, computedTotal - alreadyPaidPaise);
 
-    await ctx.db
+    if (session.status === "bill_requested" && session.paymentMethod === paymentMethod) {
+      return ok({ tabId: session.id, status: "bill_requested", totalPaise: computedTotal });
+    }
+    if (session.status === "bill_requested" && session.paymentMethod !== paymentMethod) {
+      const unresolvedOnlinePayment = (session.payments ?? []).some(
+        (payment) =>
+          payment.diningSessionId === session.id &&
+          payment.provider === "razorpay" &&
+          (payment.status === "pending" || payment.status === "completed")
+      );
+      if (unresolvedOnlinePayment) {
+        return fail(
+          "CONFLICT",
+          "An online tab payment is still pending or recorded. Do not switch to counter payment until staff verifies its status.",
+          409
+        );
+      }
+    }
+
+    if (amountDuePaise <= 0) {
+      return fail("CONFLICT", "All rounds on this tab are already paid; no bill is due.", 409);
+    }
+
+    const stateCondition =
+      session.status === "active"
+        ? eq(diningSessions.status, "active")
+        : session.paymentMethod
+          ? and(
+              eq(diningSessions.status, "bill_requested"),
+              eq(diningSessions.paymentMethod, session.paymentMethod)
+            )
+          : eq(diningSessions.status, "bill_requested");
+    const requestedRows = await ctx.db
       .update(diningSessions)
       .set({
         status: "bill_requested",
         paymentStatus: "bill_requested",
         paymentMethod,
+        subtotalPaise: computedSubtotal,
+        taxPaise: computedTax,
+        totalPaise: computedTotal,
         updatedAt: new Date(),
       })
-      .where(eq(diningSessions.id, session.id));
+      .where(and(eq(diningSessions.id, session.id), stateCondition))
+      .returning({ id: diningSessions.id });
+    if (requestedRows.length === 0) {
+      return fail("CONFLICT", "The dining tab changed while the bill was being requested. Refresh the tab and retry.", 409);
+    }
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
@@ -601,7 +686,8 @@ export async function requestTabBill(
       {
         tabId: session.id,
         tableNumber: tableRecord.tableNumber,
-        totalPaise: session.totalPaise,
+        totalPaise: computedTotal,
+        amountDuePaise,
         paymentMethod,
       }
     );
@@ -609,7 +695,7 @@ export async function requestTabBill(
     return ok({
       tabId: session.id,
       status: "bill_requested",
-      totalPaise: session.totalPaise,
+      totalPaise: computedTotal,
     });
   } catch (err) {
     console.error("Database error in requestTabBill:", err);
@@ -650,8 +736,10 @@ export async function createTabRazorpayOrder(
         sql`${diningSessions.status} IN ('active', 'bill_requested')`
       ),
       with: {
+        payments: true,
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
+          with: { payments: true },
         },
       },
     });
@@ -659,18 +747,68 @@ export async function createTabRazorpayOrder(
     if (!session || session.orders.length === 0) {
       return fail("NOT_FOUND", "No active orders on this tab", 404);
     }
+    if (session.status !== "bill_requested" || session.paymentMethod !== "pay_now") {
+      return fail("CONFLICT", "Request the consolidated bill and select online payment before creating a Razorpay order.", 409);
+    }
 
     const nonCancelledOrders = session.orders;
     const computedTotal =
       nonCancelledOrders.some((o) => o.totalPaise != null)
         ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
         : session.totalPaise ?? 0;
-    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
-    const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const paidOrders = nonCancelledOrders.filter((order) => wasRoundPaidBeforeTab(order, session));
+    const paidPaise = paidOrders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
     const amountDuePaise = Math.max(0, computedTotal - paidPaise);
 
     if (amountDuePaise === 0) {
       return fail("CONFLICT", "Tab is already fully paid", 400);
+    }
+
+    // A completed online payment against this tab must be reconciled before
+    // another checkout can be initialized, even if a stale session status remains.
+    const completedTabPayment = (session.payments ?? []).find(
+      (payment) =>
+        payment.diningSessionId === session.id &&
+        payment.provider === "razorpay" &&
+        payment.status === "completed"
+    );
+    if (completedTabPayment) {
+      return fail(
+        "CONFLICT",
+        "A completed online payment is already recorded for this tab. Ask staff to reconcile the payment before retrying.",
+        409
+      );
+    }
+
+    // Reuse the one pending tab-level Razorpay order on retries. Creating a new
+    // gateway order for the same balance can allow two separate captures.
+    const pendingTabPayment = (session.payments ?? []).find(
+      (payment) =>
+        payment.diningSessionId === session.id &&
+        payment.provider === "razorpay" &&
+        payment.status === "pending"
+    );
+    if (pendingTabPayment) {
+      if (
+        !pendingTabPayment.razorpayOrderId ||
+        pendingTabPayment.amountPaise !== amountDuePaise
+      ) {
+        return fail(
+          "CONFLICT",
+          "A previous online payment is still pending for a different tab balance. Please ask staff to reconcile it before retrying.",
+          409
+        );
+      }
+      if (!env.RAZORPAY_KEY_ID) {
+        return fail("PAYMENT", "Online payments are not configured. Please pay at the counter.", 503);
+      }
+      return ok({
+        tabId: session.id,
+        razorpayOrderId: pendingTabPayment.razorpayOrderId,
+        amountPaise: pendingTabPayment.amountPaise,
+        currency: "INR",
+        keyId: env.RAZORPAY_KEY_ID,
+      });
     }
 
     let rzpOrder;
@@ -748,68 +886,92 @@ export async function verifyTabPayment(
       return fail("NOT_FOUND", "Table not found", 404);
     }
 
+    const tabPayment = await ctx.db.query.payments.findFirst({
+      where: eq(payments.razorpayOrderId, razorpayOrderId),
+    });
+    if (!tabPayment || !tabPayment.diningSessionId) {
+      return fail("PAYMENT", "Razorpay order is not linked to a dining-tab payment", 400);
+    }
+
     const session = await ctx.db.query.diningSessions.findFirst({
       where: and(
-        eq(diningSessions.tableId, tableRecord.id),
-        sql`${diningSessions.status} IN ('active', 'bill_requested')`
+        eq(diningSessions.id, tabPayment.diningSessionId),
+        eq(diningSessions.tableId, tableRecord.id)
       ),
       with: {
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
+          with: { payments: true },
         },
       },
     });
 
     if (!session) {
-      return fail("NOT_FOUND", "No active dining tab found", 404);
+      return fail("NOT_FOUND", "Dining tab for this payment was not found", 404);
+    }
+    if (tabPayment.status === "completed" && session.status === "closed" && session.paymentStatus === "paid") {
+      return ok({ success: true, tabId: session.id });
+    }
+    if (tabPayment.status !== "pending") {
+      return fail("CONFLICT", "This tab payment is not pending", 409);
+    }
+    if (session.status !== "bill_requested" || session.paymentMethod !== "pay_now") {
+      return fail("CONFLICT", "Request the tab bill online before verifying payment", 409);
+    }
+
+    const computedSubtotal = session.orders.reduce((sum, o) => sum + (o.subtotalPaise ?? 0), 0);
+    const computedTax = session.orders.reduce((sum, o) => sum + (o.taxPaise ?? 0), 0);
+    const computedTotal = session.orders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const alreadyPaidPaise = session.orders
+      .filter((order) => wasRoundPaidBeforeTab(order, session))
+      .reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+    const amountDuePaise = Math.max(0, computedTotal - alreadyPaidPaise);
+    if (amountDuePaise <= 0 || tabPayment.amountPaise !== amountDuePaise) {
+      return fail("PAYMENT", "Tab total changed after payment was initiated. Request a fresh bill and payment.", 409);
     }
 
     const now = new Date();
-
-    // Settle session and all its orders in transaction
-    await ctx.db.transaction(async (tx) => {
-      await tx
+    const didSettle = await ctx.db.transaction(async (tx) => {
+      const closedRows = await tx
         .update(diningSessions)
         .set({
           status: "closed",
           paymentStatus: "paid",
           paymentMethod: "pay_now",
+          subtotalPaise: computedSubtotal,
+          taxPaise: computedTax,
+          totalPaise: computedTotal,
           closedAt: now,
           updatedAt: now,
         })
-        .where(eq(diningSessions.id, session.id));
+        .where(and(eq(diningSessions.id, session.id), eq(diningSessions.status, "bill_requested")))
+        .returning({ id: diningSessions.id });
+      if (closedRows.length === 0) return false;
 
-      const orderIds = session.orders.map((o) => o.id);
-      if (orderIds.length > 0) {
-        await tx
-          .update(orders)
-          .set({
-            paymentStatus: "paid",
-            paymentMethod: "pay_now",
-            updatedAt: now,
-          })
-          .where(inArray(orders.id, orderIds));
-
-        for (const oId of orderIds) {
+      const unpaidOrders = session.orders.filter((order) => !wasRoundPaidBeforeTab(order, session));
+      const unpaidOrderIds = unpaidOrders.map((o) => o.id);
+      if (unpaidOrderIds.length > 0) {
+        await tx.update(orders).set({ paymentStatus: "paid", paymentMethod: "pay_now", updatedAt: now })
+          .where(inArray(orders.id, unpaidOrderIds));
+        for (const order of unpaidOrders) {
           await tx.insert(orderEvents).values({
-            orderId: oId,
-            fromStatus: null,
-            toStatus: "accepted",
-            note: "Consolidated tab paid online via Razorpay",
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: order.status,
+            note: "Consolidated dining tab paid online via Razorpay",
           });
         }
       }
 
-      await tx
-        .update(payments)
-        .set({
-          status: "completed",
-          razorpayPaymentId,
-          razorpaySignature,
-          updatedAt: now,
-        })
-        .where(eq(payments.razorpayOrderId, razorpayOrderId));
+      await tx.update(payments).set({
+        status: "completed",
+        razorpayPaymentId,
+        razorpaySignature,
+        updatedAt: now,
+      }).where(eq(payments.id, tabPayment.id));
+      return true;
     });
+    if (!didSettle) return fail("CONFLICT", "This tab has already been settled by another request", 409);
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
@@ -866,6 +1028,7 @@ export async function testVerifyTabPayment(
       with: {
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
+          with: { payments: true },
         },
       },
     });
@@ -954,8 +1117,10 @@ export async function settleTabAtCounter(
       ),
       with: {
         table: true,
+        payments: true,
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
+          with: { payments: true },
         },
       },
     });
@@ -969,32 +1134,62 @@ export async function settleTabAtCounter(
     }
 
     const now = new Date();
-    const paymentMethodToRecord = paymentMethod || "counter";
+    const paymentMethodToRecord = paymentMethod || "cash";
+
+    // Never collect at the counter while a Razorpay tab payment could still capture.
+    const unresolvedOnlinePayment = (session.payments ?? []).some(
+      (payment) =>
+        payment.diningSessionId === session.id &&
+        payment.provider === "razorpay" &&
+        (payment.status === "pending" || payment.status === "completed")
+    );
+    if (unresolvedOnlinePayment) {
+      return fail(
+        "CONFLICT",
+        "This tab has an online payment pending or recorded. Verify/reconcile that payment before collecting at the counter.",
+        409
+      );
+    }
 
     const nonCancelledOrders = session.orders;
-    const computedTotal =
-      nonCancelledOrders.some((o) => o.totalPaise != null)
-        ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
-        : session.totalPaise ?? 0;
-    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
-    const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const computedSubtotal = nonCancelledOrders.reduce((sum, o) => sum + (o.subtotalPaise ?? 0), 0);
+    const computedTax = nonCancelledOrders.reduce((sum, o) => sum + (o.taxPaise ?? 0), 0);
+    const computedTotal = nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const paidOrders = nonCancelledOrders.filter((order) => wasRoundPaidBeforeTab(order, session));
+    const paidPaise = paidOrders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
     const amountDuePaise = Math.max(0, computedTotal - paidPaise);
 
-    await ctx.db.transaction(async (tx) => {
-      await tx
+    if (amountDuePaise <= 0) {
+      return fail("CONFLICT", "All rounds are already paid; no additional counter payment is due.", 409);
+    }
+
+    // Conditional close acquires the session row lock and makes settlement one-shot.
+    // Only unpaid rounds are updated; their prior payment history is never overwritten.
+    const didSettle = await ctx.db.transaction(async (tx) => {
+      const closedRows = await tx
         .update(diningSessions)
         .set({
           status: "closed",
           paymentStatus: "paid",
           paymentMethod: paymentMethodToRecord,
           notes: notes ?? null,
+          subtotalPaise: computedSubtotal,
+          taxPaise: computedTax,
+          totalPaise: computedTotal,
           closedAt: now,
           updatedAt: now,
         })
-        .where(eq(diningSessions.id, session.id));
+        .where(and(
+          eq(diningSessions.id, session.id),
+          inArray(diningSessions.status, ["active", "bill_requested"])
+        ))
+        .returning({ id: diningSessions.id });
 
-      const orderIds = session.orders.map((o) => o.id);
-      if (orderIds.length > 0) {
+      if (closedRows.length === 0) return false;
+
+      const unpaidOrders = session.orders.filter((order) => !wasRoundPaidBeforeTab(order, session));
+      const unpaidOrderIds = unpaidOrders.map((o) => o.id);
+      if (unpaidOrderIds.length > 0) {
         await tx
           .update(orders)
           .set({
@@ -1002,32 +1197,36 @@ export async function settleTabAtCounter(
             paymentMethod: paymentMethodToRecord,
             updatedAt: now,
           })
-          .where(inArray(orders.id, orderIds));
+          .where(inArray(orders.id, unpaidOrderIds));
 
-        for (const oId of orderIds) {
+        for (const order of unpaidOrders) {
           await tx.insert(orderEvents).values({
-            orderId: oId,
-            fromStatus: null,
-            toStatus: "accepted",
-            note: `Tab settled at counter (${paymentMethodToRecord}) by ${ctx.actor!.username}`,
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: order.status,
+            note: "Tab counter settlement recorded by " + ctx.actor!.username + " (" + paymentMethodToRecord + ")",
             staffUserId: ctx.actor!.userId,
           });
         }
       }
 
-      if (session.orders.length > 0) {
-        await tx.insert(payments).values({
-          orderId: session.orders[0].id,
-          diningSessionId: session.id,
-          restaurantId: session.restaurantId,
-          amountPaise: amountDuePaise,
-          status: "completed",
-          provider: paymentMethodToRecord,
-          razorpayOrderId: null,
-          razorpayPaymentId: `COUNTER-${Date.now()}`,
-        });
-      }
+      // One payment record for the consolidated balance only—not one per round.
+      await tx.insert(payments).values({
+        orderId: unpaidOrders[0]?.id ?? session.orders[0].id,
+        diningSessionId: session.id,
+        restaurantId: session.restaurantId,
+        amountPaise: amountDuePaise,
+        status: "completed",
+        provider: paymentMethodToRecord,
+        razorpayOrderId: null,
+        razorpayPaymentId: "COUNTER-" + session.id + "-" + now.getTime(),
+      });
+      return true;
     });
+
+    if (!didSettle) {
+      return fail("CONFLICT", "This tab has already been settled by another request.", 409);
+    }
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
@@ -1072,10 +1271,26 @@ export function buildTabReceiptData(session: {
   createdAt: Date;
   updatedAt: Date;
   closedAt: Date | null;
+  payments?: Array<{
+    status: string;
+    amountPaise: number;
+    diningSessionId: string | null;
+  }>;
   orders: Array<{
     id: string;
     orderNumber: string;
     roundNumber: number;
+    status?: string;
+    paymentStatus?: string;
+    paymentMethod?: string | null;
+    payments?: Array<{
+      status: string;
+      amountPaise: number;
+      diningSessionId: string | null;
+    }>;
+    subtotalPaise?: number;
+    taxPaise?: number;
+    totalPaise?: number;
     items: Array<{
       id: string;
       itemName: string;
@@ -1089,13 +1304,24 @@ export function buildTabReceiptData(session: {
 }): ReceiptData {
   const isPaid = session.status === "closed" && session.paymentStatus === "paid";
   const paidDate = session.closedAt ?? session.updatedAt;
+  const computedSubtotal = session.orders.reduce((sum, order) => sum + (order.subtotalPaise ?? 0), 0) || session.subtotalPaise;
+  const computedTax = session.orders.reduce((sum, order) => sum + (order.taxPaise ?? 0), 0) || session.taxPaise;
+  const computedTotal = session.orders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0) || session.totalPaise;
+  const alreadyPaidOrders = session.orders.filter((order) =>
+    wasRoundPaidBeforeTab(order, session)
+  );
+  const alreadyPaidPaise = alreadyPaidOrders.reduce((sum, order) => sum + (order.totalPaise ?? 0), 0);
+  const amountDuePaise = isPaid ? 0 : Math.max(0, computedTotal - alreadyPaidPaise);
+  const completedTabPaymentsPaise = (session.payments ?? [])
+    .filter((payment) => payment.status === "completed" && payment.diningSessionId === session.id)
+    .reduce((sum, payment) => sum + payment.amountPaise, 0);
+  const settlementAmountPaise = isPaid
+    ? Math.min(Math.max(0, computedTotal - alreadyPaidPaise), completedTabPaymentsPaise || Math.max(0, computedTotal - alreadyPaidPaise))
+    : 0;
 
   const tabCode = `TAB-${session.table.tableNumber}`;
   const receiptNumber = formatReceiptNumber(tabCode, paidDate);
   const billNumber = formatBillNumber(tabCode);
-
-  const cgstPaise = Math.floor(session.taxPaise / 2);
-  const sgstPaise = session.taxPaise - cgstPaise;
 
   const allItems: ReceiptItem[] = [];
   for (const order of session.orders) {
@@ -1148,19 +1374,65 @@ export function buildTabReceiptData(session: {
     },
     specialInstructions: null,
     items: allItems,
-    subtotalPaise: session.subtotalPaise,
-    cgstPaise,
-    sgstPaise,
-    taxPaise: session.taxPaise,
-    totalPaise: session.totalPaise,
-    formattedSubtotal: formatPaiseToINR(session.subtotalPaise),
-    formattedCgst: formatPaiseToINR(cgstPaise),
-    formattedSgst: formatPaiseToINR(sgstPaise),
-    formattedTax: formatPaiseToINR(session.taxPaise),
-    formattedTotal: formatPaiseToINR(session.totalPaise),
+    subtotalPaise: computedSubtotal,
+    cgstPaise: Math.floor(computedTax / 2),
+    sgstPaise: computedTax - Math.floor(computedTax / 2),
+    taxPaise: computedTax,
+    totalPaise: computedTotal,
+    formattedSubtotal: formatPaiseToINR(computedSubtotal),
+    formattedCgst: formatPaiseToINR(Math.floor(computedTax / 2)),
+    formattedSgst: formatPaiseToINR(computedTax - Math.floor(computedTax / 2)),
+    formattedTax: formatPaiseToINR(computedTax),
+    formattedTotal: formatPaiseToINR(computedTotal),
+    isTabBill: true,
+    alreadyPaidPaise,
+    formattedAlreadyPaid: formatPaiseToINR(alreadyPaidPaise),
+    amountDuePaise,
+    formattedAmountDue: formatPaiseToINR(amountDuePaise),
+    settlementAmountPaise,
+    formattedSettlementAmount: formatPaiseToINR(settlementAmountPaise),
     status: isPaid ? "PAID_RECEIPT" : "UNPAID_BILL",
     title: isPaid ? "CONSOLIDATED TAB RECEIPT" : "CONSOLIDATED TAB BILL",
   };
+}
+
+/**
+ * Builds one consolidated tab bill/receipt for the manager panel.
+ * This is deliberately separate from the legacy single-order bill endpoint.
+ */
+export async function getAdminTabBillOrReceipt(
+  ctx: Ctx,
+  rawInput: { tabId: string }
+): Promise<ServiceResult<ReceiptData>> {
+  if (!ctx.actor || (ctx.actor.role !== "manager" && ctx.actor.role !== "admin")) {
+    return fail("UNAUTHENTICATED", "Manager or Admin access required", 401);
+  }
+  if (!rawInput.tabId) return fail("VALIDATION", "Tab ID is required", 400);
+
+  try {
+    const session = await ctx.db.query.diningSessions.findFirst({
+      where: and(
+        eq(diningSessions.id, rawInput.tabId),
+        eq(diningSessions.restaurantId, ctx.actor.restaurantId)
+      ),
+      with: {
+        table: true,
+        restaurant: true,
+        payments: true,
+        orders: {
+          where: sql`${orders.status} != 'cancelled'`,
+          orderBy: [asc(orders.roundNumber)],
+          with: { items: true, payments: true },
+        },
+      },
+    });
+
+    if (!session) return fail("NOT_FOUND", "Dining tab not found", 404);
+    return ok(buildTabReceiptData(session));
+  } catch (err) {
+    console.error("Database error in getAdminTabBillOrReceipt:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
 }
 
 /**
@@ -1190,9 +1462,10 @@ export async function getCustomerTabReceipt(
       with: {
         table: true,
         restaurant: true,
+        payments: true,
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
-          with: { items: true },
+          with: { items: true, payments: true },
         },
       },
     });

@@ -460,6 +460,7 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
             {
               ...baseMockTab.orders[0],
               paymentStatus: "paid", // Pre-paid round from T1
+              alreadyPaidBeforeTab: true,
             },
             {
               ...baseMockTab.orders[1],

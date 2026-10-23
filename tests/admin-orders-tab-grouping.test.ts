@@ -620,6 +620,11 @@ describe("Task T2: Admin Orders Grouping by Dining Tab", () => {
         })
       );
 
+      // The table tracks kitchen fulfillment, not per-round payment status.
+      expect(html).toContain(">Final Status</th>");
+      expect(html).not.toContain(">Payment</th>");
+      expect(html).not.toContain("Paid (Online)");
+
       // 1. Grouped row rendered
       expect(html).toContain('data-testid="tab-group-row"');
       expect(html).toContain("Table 1");

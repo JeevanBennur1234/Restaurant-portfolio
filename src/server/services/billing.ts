@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { orders, payments, orderEvents, diningSessions, type OrderStatus } from "@/server/db/schema";
+import { orders, payments, orderEvents, type OrderStatus } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { formatPaiseToINR } from "@/lib/currency";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
@@ -58,6 +58,14 @@ export interface ReceiptData {
   formattedSgst: string;
   formattedTax: string;
   formattedTotal: string;
+  /** Present only for consolidated dining-tab bills/receipts. */
+  isTabBill?: boolean;
+  alreadyPaidPaise?: number;
+  formattedAlreadyPaid?: string;
+  amountDuePaise?: number;
+  formattedAmountDue?: string;
+  settlementAmountPaise?: number;
+  formattedSettlementAmount?: string;
   status: "UNPAID_BILL" | "PAID_RECEIPT";
   title: string;
 }
@@ -344,23 +352,13 @@ export async function recordCounterPayment(
       return fail("CONFLICT", "Cannot record payment for a cancelled order", 400);
     }
 
-    // RULE: An order that belongs to an open tab can never be paid on its own.
+    // Any round attached to a dining session is settled only through the consolidated tab.
     if (dbOrder.diningSessionId) {
-      const session =
-        dbOrder.diningSession ||
-        (ctx.db.query?.diningSessions?.findFirst
-          ? await ctx.db.query.diningSessions.findFirst({
-              where: eq(diningSessions.id, dbOrder.diningSessionId),
-            })
-          : null);
-
-      if (session && (session.status === "active" || session.status === "bill_requested")) {
-        return fail(
-          "TAB_ROUND_NOT_PAYABLE",
-          "This order belongs to an open dining tab and cannot be paid individually. Please settle the whole tab.",
-          400
-        );
-      }
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to a dining tab and cannot be paid individually. Please settle the whole tab.",
+        400
+      );
     }
 
     // Idempotency: If already paid, return existing receipt without duplicate records

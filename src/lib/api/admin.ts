@@ -338,6 +338,16 @@ export const adminApi = {
   },
 
   // --- Dining Sessions / Open Tabs ---
+  async getTabBillOrReceipt(
+    tabId: string,
+    opts?: RequestOptions
+  ): Promise<ApiResult<ReceiptData>> {
+    return apiFetch<ReceiptData>(`/api/v1/admin/tabs/${encodeURIComponent(tabId)}/bill`, {
+      method: "GET",
+      signal: opts?.signal,
+    });
+  },
+
   async settleTab(
     tabId: string,
     paymentMethod: "counter" | "cash" | "card" | "upi" = "counter",

@@ -25,9 +25,10 @@ export const GET = withApi(
       with: {
         table: true,
         restaurant: true,
+        payments: true,
         orders: {
           where: sql`${orders.status} != 'cancelled'`,
-          with: { items: true },
+          with: { items: true, payments: true },
         },
       },
     });

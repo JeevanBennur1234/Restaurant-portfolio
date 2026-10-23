@@ -396,7 +396,7 @@ export function TabModal({
                 {tab.orders.map((round) => {
                   const isExpanded = isRoundExpanded(round.roundNumber);
                   const isCancelled = round.status === "cancelled";
-                  const isPaid = round.paymentStatus === "paid";
+                  const isPaid = Boolean(round.alreadyPaidBeforeTab);
 
                   return (
                     <div

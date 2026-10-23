@@ -14,6 +14,7 @@ import {
 } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { rupeesToPaise } from "@/lib/currency";
+import { wasRoundPaidBeforeTab } from "./tabs";
 import {
   adminOrdersQuerySchema,
   cancelOrderSchema,
@@ -87,6 +88,7 @@ export interface AdminOrderRow {
   status: OrderStatus;
   paymentStatus: string;
   paymentMethod: string | null;
+  alreadyPaidBeforeTab?: boolean;
   subtotalPaise: number;
   taxPaise: number;
   totalPaise: number;
@@ -245,6 +247,7 @@ export async function getAdminOrders(
         events: {
           orderBy: [desc(orderEvents.createdAt)],
         },
+        payments: true,
         diningSession: true,
       },
       orderBy: [desc(orders.createdAt)],
@@ -259,6 +262,9 @@ export async function getAdminOrders(
       status: o.status,
       paymentStatus: o.paymentStatus,
       paymentMethod: o.paymentMethod ?? null,
+      alreadyPaidBeforeTab: o.diningSessionId && o.diningSession
+        ? wasRoundPaidBeforeTab(o, o.diningSession)
+        : o.paymentStatus === "paid",
       subtotalPaise: o.subtotalPaise ?? 0,
       taxPaise: o.taxPaise ?? 0,
       totalPaise: o.totalPaise ?? 0,
@@ -318,12 +324,13 @@ export async function getAdminOrders(
       const subtotalPaise = activeRounds.reduce((acc, r) => acc + (r.subtotalPaise || 0), 0);
       const taxPaise = activeRounds.reduce((acc, r) => acc + (r.taxPaise || 0), 0);
       const totalPaise = activeRounds.reduce((acc, r) => acc + (r.totalPaise || 0), 0);
-      const paidPaise = activeRounds
-        .filter((r) => r.paymentStatus === "paid")
-        .reduce((acc, r) => acc + (r.totalPaise || 0), 0);
-      const amountDuePaise = Math.max(0, totalPaise - paidPaise);
-
       const dbSession = dbOrders.find((o) => o.diningSessionId === sessionId)?.diningSession;
+      const paidPaise = activeRounds
+        .filter((r) => r.alreadyPaidBeforeTab)
+        .reduce((acc, r) => acc + (r.totalPaise || 0), 0);
+      const amountDuePaise = dbSession?.status === "closed"
+        ? 0
+        : Math.max(0, totalPaise - paidPaise);
       let status = dbSession?.status ?? "active";
       if (!dbSession) {
         if (rounds.some((r) => r.paymentStatus === "bill_requested")) {

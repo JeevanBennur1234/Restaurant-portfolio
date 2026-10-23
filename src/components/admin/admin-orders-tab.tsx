@@ -415,7 +415,9 @@ export function AdminOrdersTab({
   const handleViewBillOrReceipt = async (order: AdminOrderRow) => {
     setIsLoadingBill(true);
     try {
-      const res = await adminApi.getBillOrReceipt(order.id);
+      const res = order.diningSessionId
+        ? await adminApi.getTabBillOrReceipt(order.diningSessionId)
+        : await adminApi.getBillOrReceipt(order.id);
       if (res.ok && res.data) {
         setReceiptData(res.data);
         setIsReceiptModalOpen(true);
@@ -577,18 +579,6 @@ export function AdminOrdersTab({
       );
     }
     const tabStatus = group.tabSummary?.status;
-    const isPaid =
-      group.tabSummary?.paymentStatus === "paid" ||
-      group.orders.every((o) => o.paymentStatus === "paid");
-
-    if (isPaid) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          Paid
-        </span>
-      );
-    }
-
     if (tabStatus === "closed") {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
@@ -753,8 +743,7 @@ export function AdminOrdersTab({
                     <th className="py-2.5 px-3 font-semibold">Table / Order</th>
                     <th className="py-2.5 px-3 font-semibold">Items Summary</th>
                     <th className="py-2.5 px-3 text-right font-semibold">Total</th>
-                    <th className="py-2.5 px-3 font-semibold">Status</th>
-                    <th className="py-2.5 px-3 font-semibold">Payment</th>
+                    <th className="py-2.5 px-3 font-semibold">Final Status</th>
                     <th className="py-2.5 px-3 font-semibold">Time</th>
                     <th className="py-2.5 px-3 text-right font-semibold">Actions</th>
                   </tr>
@@ -846,22 +835,12 @@ export function AdminOrdersTab({
                             )}
                           </td>
 
-                          {/* Status Badge */}
+                          {/* Final kitchen stage is the primary table status; tab billing state is shown separately. */}
                           <td className="py-3 px-3">
-                            {isTab ? getTabStatusBadge(group) : getStatusBadge(group.orders[0]?.status ?? "placed")}
-                          </td>
-
-                          {/* Payment Badge */}
-                          <td className="py-3 px-3">
-                            {isTab
-                              ? getPaymentBadge(
-                                  group.tabSummary?.paymentStatus ?? "open",
-                                  group.orders[0]?.paymentMethod
-                                )
-                              : getPaymentBadge(
-                                  group.orders[0]?.paymentStatus ?? "pending",
-                                  group.orders[0]?.paymentMethod
-                                )}
+                            <div className="flex flex-col items-start gap-1">
+                              {getStatusBadge((activeRounds[activeRounds.length - 1] ?? group.orders[group.orders.length - 1])?.status ?? "placed")}
+                              {isTab && <span className="text-[10px] text-[var(--text-muted)]">{getTabStatusBadge(group)}</span>}
+                            </div>
                           </td>
 
                           {/* Elapsed Time */}
@@ -1202,9 +1181,7 @@ export function AdminOrdersTab({
                           {formatPaiseToINR(totalAmountPaise)}
                         </div>
                         <div className="mt-1">
-                          {isTab
-                            ? getTabStatusBadge(group)
-                            : getStatusBadge(group.orders[0]?.status ?? "placed")}
+                          {getStatusBadge((activeRounds[activeRounds.length - 1] ?? group.orders[group.orders.length - 1])?.status ?? "placed")}
                         </div>
                       </div>
                     </div>
@@ -1214,19 +1191,9 @@ export function AdminOrdersTab({
                       {itemsSummaryText}
                     </p>
 
-                    {/* Status & Payment badges */}
+                    {/* Billing state is a tab-level label; never show individual round "Paid" badges here. */}
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border-subtle)]">
-                      <div>
-                        {isTab
-                          ? getPaymentBadge(
-                              group.tabSummary?.paymentStatus ?? "open",
-                              group.orders[0]?.paymentMethod
-                            )
-                          : getPaymentBadge(
-                              group.orders[0]?.paymentStatus ?? "pending",
-                              group.orders[0]?.paymentMethod
-                            )}
-                      </div>
+                      <div>{isTab ? getTabStatusBadge(group) : null}</div>
                       {group.tabSummary && (
                         <div className="text-[11px] text-[var(--text-muted)] font-mono">
                           GST 5%: {formatPaiseToINR(group.tabSummary.taxPaise)}
@@ -1269,6 +1236,19 @@ export function AdminOrdersTab({
                           >
                             {isExpanded ? "Hide Rounds" : `View Rounds (${group.orders.length})`}
                           </Button>
+                          {group.orders[0] && (
+                            <Button
+                              type="button"
+                              data-testid="print-tab-bill-btn"
+                              variant="outline"
+                              onClick={() => handleViewBillOrReceipt(group.orders[0])}
+                              isLoading={isLoadingBill}
+                              className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                              leftIcon={<Printer className="h-4 w-4" />}
+                            >
+                              View / Print Bill
+                            </Button>
+                          )}
                         </>
                       ) : (
                         // Legacy single order mobile actions
@@ -1689,7 +1669,17 @@ export function AdminOrdersTab({
                   Payment Status
                 </span>
                 <div className="mt-1">
-                  {getPaymentBadge(selectedOrder.paymentStatus, selectedOrder.paymentMethod)}
+                  {selectedOrder.diningSessionId ? (
+                    <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400">
+                      {selectedOrder.alreadyPaidBeforeTab
+                        ? "Already Paid Before Tab"
+                        : selectedOrder.tabSummary?.status === "closed"
+                          ? "Settled With Tab"
+                          : "Included In Tab"}
+                    </span>
+                  ) : (
+                    getPaymentBadge(selectedOrder.paymentStatus, selectedOrder.paymentMethod)
+                  )}
                 </div>
               </div>
             </div>
@@ -1778,14 +1768,74 @@ export function AdminOrdersTab({
                   Billing Workflow
                 </span>
                 <Badge
-                  variant={selectedOrder.paymentStatus === "paid" ? "success" : "secondary"}
+                  variant={
+                    selectedOrder.diningSessionId
+                      ? selectedOrder.alreadyPaidBeforeTab || selectedOrder.tabSummary?.status === "closed"
+                        ? "success"
+                        : "secondary"
+                      : selectedOrder.paymentStatus === "paid"
+                        ? "success"
+                        : "secondary"
+                  }
                   className="text-[10px] font-mono uppercase"
                 >
-                  {selectedOrder.paymentStatus === "paid" ? "PAID" : "UNPAID"}
+                  {selectedOrder.diningSessionId
+                    ? selectedOrder.alreadyPaidBeforeTab
+                      ? "PAID BEFORE TAB"
+                      : selectedOrder.tabSummary?.status === "closed"
+                        ? "SETTLED WITH TAB"
+                        : "INCLUDED IN TAB"
+                    : selectedOrder.paymentStatus === "paid"
+                      ? "PAID"
+                      : "UNPAID"}
                 </Badge>
               </div>
 
-              {selectedOrder.paymentStatus !== "paid" ? (
+              {selectedOrder.diningSessionId ? (
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      isLoading={isLoadingBill}
+                      onClick={() => handleViewBillOrReceipt(selectedOrder)}
+                      className="flex-1 justify-center h-10 text-xs font-semibold"
+                      leftIcon={<FileText className="h-4 w-4" />}
+                    >
+                      {selectedOrder.tabSummary?.status === "closed"
+                        ? "View / Print Consolidated Receipt"
+                        : "View / Print Consolidated Tab Bill"}
+                    </Button>
+                    <a
+                      href={adminApi.tabReceiptPdfUrl(selectedOrder.diningSessionId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      className="flex-1"
+                    >
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className="w-full justify-center h-10 text-xs font-semibold shadow-xs"
+                        leftIcon={<Download className="h-4 w-4" />}
+                      >
+                        Download Consolidated PDF
+                      </Button>
+                    </a>
+                  </div>
+                  {selectedOrder.alreadyPaidBeforeTab ? (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 italic">
+                      This round was paid before it joined the tab. Its amount is excluded from the balance due.
+                    </p>
+                  ) : selectedOrder.tabSummary?.status !== "closed" ? (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 italic">
+                      This round is included in the consolidated tab. Do not collect payment for it separately; settle the tab once to pay all remaining rounds.
+                    </p>
+                  ) : null}
+                </div>
+              ) : selectedOrder.paymentStatus !== "paid" ? (
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
@@ -1799,7 +1849,7 @@ export function AdminOrdersTab({
                     >
                       View / Print Bill
                     </Button>
-                    {selectedOrder.status !== "cancelled" && !selectedOrder.diningSessionId && (
+                    {selectedOrder.status !== "cancelled" && (
                       <Button
                         type="button"
                         variant="primary"
@@ -1812,11 +1862,6 @@ export function AdminOrdersTab({
                       </Button>
                     )}
                   </div>
-                  {selectedOrder.diningSessionId && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 italic">
-                      This order belongs to an open dining tab and cannot be paid individually. Please settle the whole tab.
-                    </p>
-                  )}
                   <p className="text-[11px] text-[var(--text-muted)] italic">
                     Generating an unpaid bill leaves order status and payment status untouched.
                   </p>
@@ -2102,7 +2147,13 @@ export function AdminOrdersTab({
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
         receipt={receiptData}
-        pdfDownloadUrl={receiptData ? adminApi.getReceiptPdfUrl(receiptData.orderId) : undefined}
+        pdfDownloadUrl={
+          receiptData
+            ? receiptData.isTabBill
+              ? adminApi.tabReceiptPdfUrl(receiptData.orderId)
+              : adminApi.getReceiptPdfUrl(receiptData.orderId)
+            : undefined
+        }
         isManager={true}
       />
     </div>

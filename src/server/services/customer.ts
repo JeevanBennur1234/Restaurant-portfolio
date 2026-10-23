@@ -46,7 +46,7 @@ import {
 import { isIsolatedLocalTestDatabase } from "@/server/db/safe-test-db";
 import { env } from "@/server/env";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
-import { isOrderInOpenTab } from "./tabs";
+import { isOrderInDiningTab } from "./tabs";
 
 export { isOnlinePaymentsEnabled, isRazorpayTestMode };
 
@@ -521,6 +521,25 @@ export async function placeOrder(
 
     // Insert order, items, and event in a single atomic transaction
     const insertedOrder = await ctx.db.transaction(async (tx) => {
+      // A legacy single-order checkout must never attach itself to an open tab.
+      // Subsequent rounds have to use placeTabRound so the client receives the
+      // proper round response and only the consolidated tab can be settled.
+      const activeSession = tx.query?.diningSessions?.findFirst
+        ? await tx.query.diningSessions.findFirst({
+            where: and(
+              eq(diningSessions.tableId, dbTable.id),
+              sql`${diningSessions.status} IN ('active', 'bill_requested')`
+            ),
+          })
+        : null;
+
+      if (activeSession?.status === "bill_requested") {
+        return { blockedByBillRequest: true as const };
+      }
+      if (activeSession) {
+        return { blockedByOpenTab: true as const };
+      }
+
       // Per-restaurant sequential collision-safe order number (format ML-0001)
       const [counterRow] = await tx
         .insert(orderCounters)
@@ -540,37 +559,10 @@ export async function placeOrder(
       const seqNumber = counterRow?.lastOrderNumber ?? 1;
       const generatedOrderNumber = `ML-${String(seqNumber).padStart(4, "0")}`;
 
-      // Check if there is an active dining tab for this table
-      const activeSession = tx.query?.diningSessions?.findFirst
-        ? await tx.query.diningSessions.findFirst({
-            where: and(
-              eq(diningSessions.tableId, dbTable.id),
-              sql`${diningSessions.status} IN ('active', 'bill_requested')`
-            ),
-          })
-        : null;
-
-      let nextRound = 1;
-      let sessionId = null;
-      let priorOrders: Array<{ subtotalPaise?: number; taxPaise?: number; totalPaise?: number }> = [];
-      if (activeSession) {
-        sessionId = activeSession.id;
-        if (tx.query?.orders?.findMany) {
-          priorOrders = await tx.query.orders.findMany({
-            where: and(
-              eq(orders.diningSessionId, activeSession.id),
-              sql`${orders.status} != 'cancelled'`
-            ),
-          });
-          nextRound = priorOrders.length + 1;
-        }
-      }
-
-      // If attached to an active dining session, this order is an open tab round:
-      // must be counter payment method and immediately routed to kitchen.
-      const isTabRound = Boolean(activeSession);
-      const effectivePaymentStatus = isTabRound ? "counter" : initialPaymentStatus;
-      const effectivePaymentMethod = isTabRound ? "counter" : paymentMethod;
+      const nextRound = 1;
+      const sessionId = null;
+      const effectivePaymentStatus = initialPaymentStatus;
+      const effectivePaymentMethod = paymentMethod;
 
       const [order] = await tx
         .insert(orders)
@@ -614,32 +606,17 @@ export async function placeOrder(
             : "Order placed (Payment pending)",
       });
 
-      if (activeSession) {
-        const priorSubtotal = priorOrders.reduce((s: number, o) => s + (o.subtotalPaise ?? 0), 0);
-        const priorTax = priorOrders.reduce((s: number, o) => s + (o.taxPaise ?? 0), 0);
-        const priorTotal = priorOrders.reduce((s: number, o) => s + (o.totalPaise ?? 0), 0);
-
-        const newSubtotal = priorSubtotal + calculatedSubtotalPaise;
-        const newTax = priorTax + calculatedTaxPaise;
-        const newTotal = priorTotal + calculatedTotalPaise;
-
-        await tx
-          .update(diningSessions)
-          .set({
-            status: "active",
-            paymentStatus: "open",
-            subtotalPaise: newSubtotal,
-            taxPaise: newTax,
-            totalPaise: newTotal,
-            updatedAt: new Date(),
-          })
-          .where(eq(diningSessions.id, activeSession.id));
-      }
-
       return order;
     });
 
-    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter / open tabs.
+    if ("blockedByBillRequest" in insertedOrder) {
+      return fail("CONFLICT", "The bill has already been requested for this table. Ask staff to reopen the tab before adding more dishes.", 409);
+    }
+    if ("blockedByOpenTab" in insertedOrder) {
+      return fail("CONFLICT", "An open dining tab already exists for this table. Use Add More Dishes / Open Tab to submit the next round so it remains on the consolidated bill.", 409);
+    }
+
+    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter.
     if (paymentMethod === "counter" || Boolean(insertedOrder.diningSessionId)) {
       await publishRealtimeEvent(
         getRestaurantChannel(restaurantId),
@@ -813,7 +790,7 @@ export async function createRazorpayOrder(
       return fail("FORBIDDEN", "Unauthorized access to order", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
@@ -936,7 +913,7 @@ export async function verifyRazorpayPayment(
       return fail("FORBIDDEN", "Unauthorized access", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
@@ -1047,7 +1024,7 @@ export async function switchOrderToCounter(
       return fail("FORBIDDEN", "Unauthorized access", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
@@ -1171,7 +1148,7 @@ export async function createUpiQrPayment(
       return fail("FORBIDDEN", "Unauthorized access to order", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
@@ -1293,7 +1270,7 @@ export async function getPaymentStatus(
       return fail("FORBIDDEN", "Unauthorized access", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
@@ -1555,7 +1532,7 @@ export async function verifyTestUpiPayment(
       return fail("FORBIDDEN", "Unauthorized access", 403);
     }
 
-    if (await isOrderInOpenTab(ctx, dbOrder)) {
+    if (isOrderInDiningTab(dbOrder)) {
       return fail(
         "TAB_ROUND_NOT_PAYABLE",
         "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
