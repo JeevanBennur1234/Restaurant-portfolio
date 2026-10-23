@@ -35,16 +35,7 @@ export function ActiveTabBanner({
   React.useEffect(() => {
     let isMounted = true;
 
-    customerApi.getActiveTab(token).then((res) => {
-      if (isMounted && res.ok) {
-        setTab(res.data);
-      }
-    }).catch(() => {
-      // Ignore background fetch error
-    });
-
-    // Poll every 10 seconds for tab updates
-    const interval = setInterval(() => {
+    const doFetch = () => {
       customerApi.getActiveTab(token).then((res) => {
         if (isMounted && res.ok) {
           setTab(res.data);
@@ -52,11 +43,22 @@ export function ActiveTabBanner({
       }).catch(() => {
         // Ignore background fetch error
       });
-    }, 10000);
+    };
+
+    doFetch();
+
+    // Poll every 10 seconds for tab updates
+    const interval = setInterval(doFetch, 10000);
+
+    const handleTabUpdated = () => {
+      doFetch();
+    };
+    window.addEventListener("dinepulse:tab-updated", handleTabUpdated);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener("dinepulse:tab-updated", handleTabUpdated);
     };
   }, [token]);
 

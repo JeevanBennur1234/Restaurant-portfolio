@@ -13,7 +13,7 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     await resetDemoState(request);
   });
 
-  test("guest menu, cart sheet, and order page have no horizontal overflow at 360px viewport", async ({
+  test("guest menu, cart sheet, and order page stay aligned on phone widths", async ({
     page,
   }) => {
     // 1. Set explicit 360px mobile viewport
@@ -23,6 +23,41 @@ test.describe("Accessibility & Mobile Responsiveness", () => {
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
     const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
+
+    // Check real customer menu layout at common phone widths, not only page-level overflow.
+    for (const width of [320, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: 740 });
+      await expect(firstCard).toBeVisible({ timeout: 5_000 });
+
+      const mobileLayout = await page.evaluate(() => {
+        const viewportWidth = document.documentElement.clientWidth;
+        const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="menu-item-card"]'))
+          .map((card) => {
+            const rect = card.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, width: rect.width };
+          })
+          .filter((rect) => rect.width > 0);
+        return {
+          viewportWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          cards,
+        };
+      });
+
+      expect(mobileLayout.scrollWidth, `page overflow at ${width}px`).toBeLessThanOrEqual(
+        mobileLayout.viewportWidth + 1
+      );
+      expect(mobileLayout.cards.length, `no menu cards measured at ${width}px`).toBeGreaterThan(0);
+      for (const card of mobileLayout.cards) {
+        expect(card.left, `menu card starts offscreen at ${width}px`).toBeGreaterThanOrEqual(-1);
+        expect(card.right, `menu card extends offscreen at ${width}px`).toBeLessThanOrEqual(
+          mobileLayout.viewportWidth + 1
+        );
+      }
+    }
+
+    // Restore the target viewport used for cart and order-flow checks below.
+    await page.setViewportSize({ width: 360, height: 740 });
 
     const menuScrollWidth = await page.evaluate(
       () => document.documentElement.scrollWidth

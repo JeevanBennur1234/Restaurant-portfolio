@@ -142,7 +142,9 @@ export function OrderLiveTracker({
       !supabaseUrl.includes("placeholder") &&
       !supabaseAnonKey.includes("placeholder")
     ) {
-      return createClient(supabaseUrl, supabaseAnonKey);
+      return createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
     }
     return null;
   }, []);

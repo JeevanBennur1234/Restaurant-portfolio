@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   CreditCard,
   Banknote,
+  Receipt,
   AlertTriangle,
   QrCode,
   ArrowLeft,
@@ -37,7 +38,7 @@ export interface CartSheetProps {
   paymentsTestMode?: boolean;
 }
 
-type PaymentOption = "pay_now" | "counter";
+type PaymentOption = "open_tab" | "pay_now" | "counter";
 
 export function CartSheet({
   tableLabel,
@@ -49,7 +50,11 @@ export function CartSheet({
   const { showToast } = useToast();
   const [notes, setNotes] = React.useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("pay_now");
-  const paymentMethod: PaymentOption = paymentsEnabled ? selectedPaymentMethod : "counter";
+  const paymentMethod: PaymentOption =
+    !paymentsEnabled && selectedPaymentMethod === "pay_now"
+      ? "counter"
+      : selectedPaymentMethod;
+  const [activeTabRound, setActiveTabRound] = React.useState<number | null>(null);
   const setPaymentMethod = setSelectedPaymentMethod;
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isSubmittingRef = React.useRef(false);
@@ -78,6 +83,21 @@ export function CartSheet({
     isCartOpen,
     setIsCartOpen,
   } = useCart();
+
+  React.useEffect(() => {
+    if (!isCartOpen) return;
+    customerApi
+      .getActiveTab(token)
+      .then((res) => {
+        if (res.ok && res.data && res.data.status !== "closed" && res.data.roundCount > 0) {
+          setActiveTabRound(res.data.roundCount + 1);
+          setSelectedPaymentMethod("open_tab");
+        } else {
+          setActiveTabRound(1);
+        }
+      })
+      .catch(() => {});
+  }, [isCartOpen, token]);
 
   // Regenerate idempotency key when full request body changes (items, paymentMethod, trimmed notes)
   const cartBodySignature = React.useMemo(
@@ -261,6 +281,45 @@ export function CartSheet({
     setStatusMessage("Placing order...");
 
     try {
+      if (paymentMethod === "open_tab") {
+        const tabPayload = {
+          items: items.map((i) => ({
+            menuItemId: i.menuItemId,
+            quantity: i.quantity,
+            selectedModifierIds: i.selectedModifierIds,
+          })),
+          notes: notes.trim() || undefined,
+        };
+        const result = await customerApi.placeTabRound(token, tabPayload);
+        if (!result.ok) {
+          setPaymentError(
+            userMessageFor(
+              result.code,
+              result.message || "Could not add round to tab. Please try again."
+            )
+          );
+          isSubmittingRef.current = false;
+          setIsSubmitting(false);
+          setStatusMessage(null);
+          return;
+        }
+        clearCart();
+        setIsCartOpen(false);
+        showToast({
+          title: "Order Sent to Kitchen!",
+          message: `Round #${result.data.roundNumber} sent to kitchen for ${tableLabel}. Pay when done dining.`,
+          variant: "success",
+          duration: 4000,
+        });
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        setStatusMessage(null);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
+        }
+        return;
+      }
+
       const payload = {
         token,
         items: items.map((i) => ({
@@ -488,7 +547,9 @@ export function CartSheet({
                   >
                     <span className="truncate pr-1">
                       {statusMessage ||
-                        (paymentMethod === "pay_now"
+                        (paymentMethod === "open_tab"
+                          ? `Send ${activeTabRound && activeTabRound > 1 ? `Round ${activeTabRound}` : "Round"} to Kitchen`
+                          : paymentMethod === "pay_now"
                           ? "Pay Now"
                           : "Pay at Counter")}
                     </span>
@@ -666,15 +727,41 @@ export function CartSheet({
               Payment Choice
             </label>
 
-            {paymentsEnabled ? (
-              <div className="grid grid-cols-2 gap-2.5">
-                {/* Option A: Pay Now */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Option A: Open Tab (Dine-In) */}
+              <button
+                type="button"
+                data-testid="open-tab-choice"
+                disabled={Boolean(pendingOrderId)}
+                onClick={() => setPaymentMethod("open_tab")}
+                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
+                  paymentMethod === "open_tab"
+                    ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 text-[var(--text-primary)]"
+                    : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <Receipt className="h-4.5 w-4.5 text-amber-500" />
+                  <span className="text-[10px] uppercase font-bold text-amber-500">
+                    Dine-In Tab
+                  </span>
+                </div>
+                <div>
+                  <div className="text-sm font-bold">Open Tab</div>
+                  <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    Pay after meal
+                  </div>
+                </div>
+              </button>
+
+              {/* Option B: Pay Now (Online) */}
+              {paymentsEnabled && (
                 <button
                   type="button"
                   data-testid="pay-now-choice"
                   disabled={Boolean(pendingOrderId)}
                   onClick={() => setPaymentMethod("pay_now")}
-                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
+                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
                     paymentMethod === "pay_now"
                       ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 ring-1 ring-[var(--primary)] text-[var(--text-primary)]"
                       : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -682,63 +769,45 @@ export function CartSheet({
                 >
                   <div className="flex items-center justify-between w-full">
                     <CreditCard className="h-4.5 w-4.5 text-[var(--primary)]" />
-                    <span className="text-xs uppercase font-bold text-[var(--primary)]">
-                      Fastest
+                    <span className="text-[10px] uppercase font-bold text-[var(--primary)]">
+                      Instant
                     </span>
                   </div>
                   <div>
-                    <div className="text-base font-bold">Pay now</div>
-                    <div className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
-                      UPI, GPay, Cards
+                    <div className="text-sm font-bold">Pay now</div>
+                    <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                      UPI, Cards
                     </div>
                   </div>
                 </button>
+              )}
 
-                {/* Option B: Pay at Counter */}
-                <button
-                  type="button"
-                  data-testid="pay-counter-choice"
-                  disabled={Boolean(pendingOrderId)}
-                  onClick={() => setPaymentMethod("counter")}
-                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer min-h-[64px] select-none ${
-                    paymentMethod === "counter"
-                      ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
-                      : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <Banknote className="h-4.5 w-4.5 text-[var(--secondary)]" />
-                    <span className="text-xs uppercase font-semibold text-[var(--text-muted)]">
-                      Traditional
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-base font-bold">Pay at counter</div>
-                    <div className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
-                      Pay after meal
-                    </div>
-                  </div>
-                </button>
-              </div>
-            ) : (
-              <div
+              {/* Option C: Pay at Counter */}
+              <button
+                type="button"
                 data-testid="pay-counter-choice"
-                className="p-3.5 rounded-[var(--radius-md)] border border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)] flex flex-col justify-between gap-2 min-h-[64px] select-none"
+                disabled={Boolean(pendingOrderId)}
+                onClick={() => setPaymentMethod("counter")}
+                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
+                  paymentMethod === "counter"
+                    ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
+                    : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <Banknote className="h-4 w-4 text-[var(--secondary)]" />
+                  <Banknote className="h-4.5 w-4.5 text-[var(--secondary)]" />
                   <span className="text-[10px] uppercase font-semibold text-[var(--text-muted)]">
-                    In-Person
+                    Cashier
                   </span>
                 </div>
                 <div>
                   <div className="text-sm font-bold">Pay at counter</div>
-                  <div className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
-                    Order sent directly to kitchen; settle bill at counter
+                  <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    Pay now at desk
                   </div>
                 </div>
-              </div>
-            )}
+              </button>
+            </div>
           </div>
 
           {/* Kitchen Notes */}

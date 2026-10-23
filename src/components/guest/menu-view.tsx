@@ -542,12 +542,13 @@ export function MenuView({
               </p>
             </div>
 
-            {/* Mobile: match the category scroll-snap card row. */}
-            <div className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-3 pt-1 px-0.5 sm:hidden">
+            {/* Mobile grid keeps dishes aligned, with two columns on normal phone widths. */}
+            <div className="grid w-full grid-cols-1 min-[360px]:grid-cols-2 items-stretch gap-3 pb-3 pt-1 sm:hidden">
               {recommendedItems.map((item, idx) => (
-                <div key={item.id} className="w-[260px] xs:w-[280px] shrink-0 snap-start">
+                <div key={item.id} className="min-w-0 w-full">
                   <MenuItemCard
                     item={item}
+                    compact
                     priority={idx < 2}
                     searchQuery={searchQuery}
                     isSignature={signatureCategoryIds.has(item.categoryId)}
@@ -556,7 +557,7 @@ export function MenuView({
                 </div>
               ))}
               {pairingItems && showPairing && (
-                <div className="w-[260px] xs:w-[280px] shrink-0 snap-start">
+                <div className="col-span-full min-w-0 w-full">
                   <PairingCard bread={pairingItems.bread} side={pairingItems.side} />
                 </div>
               )}
@@ -624,7 +625,7 @@ export function MenuView({
               <section
                 key={category.id}
                 id={`category-section-${category.id}`}
-                className="scroll-mt-28 space-y-3 sm:space-y-4"
+                className="scroll-mt-28 space-y-3 sm:space-y-4 snap-x snap-mandatory"
               >
                 {/* Shopfront Signboard-Style Header */}
                 <div className="flex flex-col gap-1 border-b-2 border-[#2E2723]/10 pb-2.5 sm:pb-3.5 pt-1">
@@ -639,12 +640,13 @@ export function MenuView({
                   </p>
                 </div>
 
-                {/* Mobile: Horizontal scroll-snap row of tall poster cards (about 4:5) */}
-                <div className="flex w-full gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-3 pt-1 px-0.5 sm:hidden">
+                {/* Mobile: aligned product grid; narrow phones use one column, wider phones use two. */}
+                <div className="grid w-full grid-cols-1 min-[360px]:grid-cols-2 items-stretch gap-3 pb-3 pt-1 sm:hidden">
                   {catItems.map((item, itemIdx) => (
-                    <div key={item.id} className="w-[260px] xs:w-[280px] shrink-0 snap-start">
+                    <div key={item.id} className="min-w-0 w-full">
                       <MenuItemCard
                         item={item}
+                        compact
                         priority={catIndex === 0 && itemIdx < 2}
                         searchQuery={searchQuery}
                         isSignature={signatureCategoryIds.has(item.categoryId)}

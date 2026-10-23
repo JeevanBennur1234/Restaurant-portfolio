@@ -19,6 +19,8 @@ export interface MenuItemCardProps {
   isHero?: boolean;
   /** Explicit image loading priority override */
   priority?: boolean;
+  /** Compact card variant for customer mobile grids. */
+  compact?: boolean;
   onSelect: (item: GuestMenuItem) => void;
 }
 
@@ -87,6 +89,7 @@ export function MenuItemCard({
   isSignature = false,
   isHero = false,
   priority = false,
+  compact = false,
   onSelect,
 }: MenuItemCardProps) {
   const isAvailable = item.isAvailable;
@@ -210,7 +213,7 @@ export function MenuItemCard({
                 alt={item.name}
                 fill
                 priority={priority || item.sortOrder <= 3}
-                sizes="(max-width: 639px) 280px, (max-width: 1023px) 50vw, 33vw"
+                sizes={compact ? "(max-width: 359px) calc(100vw - 24px), (max-width: 639px) calc((100vw - 36px) / 2), 280px" : "(max-width: 639px) 280px, (max-width: 1023px) 50vw, 33vw"}
                 className={cn(
                   "object-cover transition-[opacity,transform] duration-500 ease-out sm:group-hover:scale-105 motion-reduce:transform-none",
                   imageLoading ? "opacity-0" : "opacity-100"
@@ -238,7 +241,7 @@ export function MenuItemCard({
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-black/65 p-0.5 backdrop-blur-sm">
               <VegIndicator isVeg={item.isVeg} size="sm" />
             </span>
-            {isSignature && (
+            {!compact && isSignature && (
               <Badge
                 variant="accent"
                 size="sm"
@@ -248,7 +251,7 @@ export function MenuItemCard({
                 Signature
               </Badge>
             )}
-            {item.isBestSeller && !isSignature && (
+            {!compact && item.isBestSeller && !isSignature && (
               <Badge
                 variant="success"
                 size="sm"
@@ -258,7 +261,7 @@ export function MenuItemCard({
                 Best seller
               </Badge>
             )}
-            {isHero && !isSignature && !item.isBestSeller && (
+            {!compact && isHero && !isSignature && !item.isBestSeller && (
               <Badge
                 variant="secondary"
                 size="sm"
@@ -270,7 +273,7 @@ export function MenuItemCard({
             )}
           </div>
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
-            {isCustomizable && isAvailable && (
+            {!compact && isCustomizable && isAvailable && (
               <span className="rounded-full border border-white/20 bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur-sm">
                 Customizable
               </span>
@@ -292,9 +295,9 @@ export function MenuItemCard({
         </div>
 
         {/* Separate body keeps dish names, descriptions, prices, and quantity controls easy to scan. */}
-        <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+        <div className={cn("flex flex-1 flex-col justify-between", compact ? "p-3" : "p-4 sm:p-5")}>
           <div>
-            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-stone-400">
+            <div className={cn("mb-2 text-xs text-stone-400", compact ? "flex flex-col items-start gap-1.5" : "flex items-center justify-between gap-2")}>
               <div data-testid="spice-level-slot" className="flex min-w-0 items-center gap-1.5">
                 {spiceInfo.flames > 0 ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-1" title={`Spice level: ${spiceInfo.label}`}>
@@ -326,10 +329,10 @@ export function MenuItemCard({
               )}
             </div>
 
-            <h3 className="font-serif text-xl font-bold leading-tight tracking-tight text-[#FAF7F2] transition-colors group-hover:text-amber-200 sm:text-2xl">
+            <h3 className={cn("font-serif text-xl font-bold leading-tight tracking-tight text-[#FAF7F2] transition-colors group-hover:text-amber-200", compact ? "text-base" : "sm:text-2xl")}>
               <HighlightedText text={item.name} query={searchQuery} />
             </h3>
-            <p className="mt-1.5 line-clamp-3 font-sans text-sm leading-relaxed text-stone-300/85 sm:text-base">
+            <p className={cn("mt-1.5 font-sans leading-relaxed text-stone-300/85", compact ? "line-clamp-3 text-xs" : "line-clamp-3 text-sm sm:text-base")}>
               {item.description ? (
                 <HighlightedText text={item.description} query={searchQuery} />
               ) : (
@@ -338,19 +341,19 @@ export function MenuItemCard({
             </p>
           </div>
 
-          <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#2F2722] pt-3">
+          <div className={cn("border-t border-[#2F2722] pt-3", compact ? "mt-3 flex flex-col items-start gap-3" : "mt-4 flex items-end justify-between gap-3")}>
             <div className="min-w-0">
               <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
                 Price
               </span>
-              <span className="font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem] font-mono tabular-nums tracking-tight">
+              <span className={cn("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem] font-mono tabular-nums tracking-tight", compact && "text-lg")}>
                 {formatPaiseToINR(item.pricePaise)}
               </span>
             </div>
 
-            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className={cn("shrink-0", compact && "w-full")} onClick={(e) => e.stopPropagation()}>
               {totalQuantityInCart > 0 ? (
-                <div className="flex min-h-[44px] items-center rounded-full border border-amber-300/40 bg-gradient-to-br from-[#D4A373] to-[#B37840] p-0.5 text-[#1A1614] shadow-md">
+                <div className={cn("flex min-h-[44px] items-center rounded-full border border-amber-300/40 bg-gradient-to-br from-[#D4A373] to-[#B37840] p-0.5 text-[#1A1614] shadow-md", compact && "w-full justify-between")}>
                   <button
                     type="button"
                     aria-label={`Decrease ${item.name} quantity`}
@@ -379,13 +382,15 @@ export function MenuItemCard({
                   onClick={handleQuickAdd}
                   aria-label={isAvailable ? `Add ${item.name} to order` : `${item.name} is sold out`}
                   className={cn(
-                    "flex min-h-[44px] min-w-[44px] rounded-full h-11 w-11 cursor-pointer items-center justify-center border border-amber-300/40 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] active:scale-95",
+                    "flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center border border-amber-300/40 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] active:scale-95",
+                    compact ? "h-11 w-full gap-2 rounded-xl px-3" : "min-h-[44px] min-w-[44px] rounded-full h-11 w-11",
                     isAvailable
                       ? "bg-gradient-to-br from-[#D4A373] to-[#B37840] text-[#1A1614] hover:brightness-110"
                       : "cursor-not-allowed bg-white/20 text-white/40 opacity-50"
                   )}
                 >
                   <Plus className="h-5 w-5 stroke-[2.5]" />
+                  {compact && <span className="text-sm font-semibold">Add to order</span>}
                 </button>
               )}
             </div>
