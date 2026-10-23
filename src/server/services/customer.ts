@@ -610,6 +610,8 @@ export async function placeOrder(
         await tx
           .update(diningSessions)
           .set({
+            status: "active",
+            paymentStatus: "open",
             subtotalPaise: (activeSession.subtotalPaise ?? 0) + calculatedSubtotalPaise,
             taxPaise: (activeSession.taxPaise ?? 0) + calculatedTaxPaise,
             totalPaise: (activeSession.totalPaise ?? 0) + calculatedTotalPaise,
@@ -621,7 +623,7 @@ export async function placeOrder(
       return order;
     });
 
-    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter.
+    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter / open tabs.
     if (paymentMethod === "counter" || Boolean(insertedOrder.diningSessionId)) {
       await publishRealtimeEvent(
         getRestaurantChannel(restaurantId),
@@ -630,8 +632,18 @@ export async function placeOrder(
           orderId: insertedOrder.id,
           status: "placed",
           paymentStatus: "counter",
+          roundNumber: insertedOrder.roundNumber || 1,
+          tableNumber: dbTable.tableNumber,
         }
       );
+    }
+
+    if (insertedOrder.diningSessionId) {
+      await publishRealtimeEvent(`tab:${insertedOrder.diningSessionId}`, "tab.updated", {
+        tabId: insertedOrder.diningSessionId,
+        roundNumber: insertedOrder.roundNumber || 1,
+        orderId: insertedOrder.id,
+      });
     }
 
     await publishRealtimeEvent(`order:${insertedOrder.id}`, "order.created", {

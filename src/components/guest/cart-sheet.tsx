@@ -84,17 +84,7 @@ export function CartSheet({
     setIsCartOpen,
   } = useCart();
 
-  React.useEffect(() => {
-    const handleAddMoreDishes = () => {
-      setSelectedPaymentMethod("open_tab");
-      setIsCartOpen(true);
-    };
-    window.addEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
-    return () => window.removeEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
-  }, [setIsCartOpen]);
-
-  React.useEffect(() => {
-    if (!isCartOpen) return;
+  const checkActiveTab = React.useCallback(() => {
     customerApi
       .getActiveTab(token)
       .then((res) => {
@@ -106,7 +96,45 @@ export function CartSheet({
         }
       })
       .catch(() => {});
-  }, [isCartOpen, token]);
+  }, [token]);
+
+  React.useEffect(() => {
+    checkActiveTab();
+  }, [checkActiveTab]);
+
+  React.useEffect(() => {
+    if (isCartOpen) {
+      checkActiveTab();
+    }
+  }, [isCartOpen, checkActiveTab]);
+
+  React.useEffect(() => {
+    const handleTabUpdated = () => checkActiveTab();
+    window.addEventListener("dinepulse:tab-updated", handleTabUpdated);
+    return () => window.removeEventListener("dinepulse:tab-updated", handleTabUpdated);
+  }, [checkActiveTab]);
+
+  React.useEffect(() => {
+    const handleAddMoreDishes = () => {
+      setSelectedPaymentMethod("open_tab");
+      if (items.length > 0) {
+        setIsCartOpen(true);
+      } else {
+        const target =
+          document.querySelector('[id^="category-section-"]') ||
+          document.querySelector('[data-testid="menu-search-input"]');
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        showToast({
+          title: "Adding Dishes to Tab",
+          message: `Browse the menu to pick dishes for Round ${activeTabRound || 2}.`,
+          variant: "info",
+          duration: 3500,
+        });
+      }
+    };
+    window.addEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
+    return () => window.removeEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
+  }, [items.length, activeTabRound, setIsCartOpen, showToast]);
 
   // Regenerate idempotency key when full request body changes (items, paymentMethod, trimmed notes)
   const cartBodySignature = React.useMemo(

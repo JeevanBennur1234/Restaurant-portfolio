@@ -493,7 +493,17 @@ export function AdminOrdersTab({
                     >
                       {/* Order Number */}
                       <td className="py-3 px-3 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
-                        {order.orderNumber}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{order.orderNumber}</span>
+                          {order.roundNumber !== undefined && order.roundNumber > 1 && (
+                            <span
+                              data-testid="order-round-badge"
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                            >
+                              Round {order.roundNumber}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Table */}

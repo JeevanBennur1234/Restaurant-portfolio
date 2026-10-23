@@ -37,7 +37,11 @@ export function AdminTablesTab() {
       const res = await adminApi.settleTab(tabId, "counter");
       if (res.ok) {
         await fetchTables();
+      } else {
+        alert(res.message || "Failed to settle tab");
       }
+    } catch (err) {
+      alert((err as Error).message || "Failed to settle tab");
     } finally {
       setSettlingTabId(null);
     }
@@ -95,6 +99,18 @@ export function AdminTablesTab() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // 5-second polling for active dining tabs and table status
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      adminApi.listTables().then((res) => {
+        if (res.ok) {
+          setTables(res.data);
+        }
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreateTable = async (e: React.FormEvent) => {
@@ -286,16 +302,28 @@ export function AdminTablesTab() {
                         <span>
                           {table.activeTab.roundCount} {table.activeTab.roundCount === 1 ? "round" : "rounds"} ordered
                         </span>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          data-testid={`settle-tab-${table.id}`}
-                          isLoading={settlingTabId === table.activeTab.id}
-                          onClick={() => handleSettleTab(table.activeTab!.id)}
-                          className="h-7 text-xs px-2.5 py-0"
-                        >
-                          Settle Tab
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={adminApi.tabReceiptPdfUrl(table.activeTab.id)}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 font-semibold text-amber-900 dark:text-amber-200 hover:underline"
+                            title="Download/print consolidated tab bill"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                            <span>Bill</span>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            data-testid={`settle-tab-${table.id}`}
+                            isLoading={settlingTabId === table.activeTab.id}
+                            disabled={Boolean(settlingTabId)}
+                            onClick={() => handleSettleTab(table.activeTab!.id)}
+                            className="h-7 text-xs px-2.5 py-0"
+                          >
+                            Settle Tab
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}

@@ -1,5 +1,5 @@
-import { eq, and } from "drizzle-orm";
-import { orders, payments, orderEvents, type OrderStatus } from "@/server/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { orders, payments, orderEvents, diningSessions, type OrderStatus } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { formatPaiseToINR } from "@/lib/currency";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
@@ -387,9 +387,35 @@ export async function recordCounterPayment(
         note: auditNote,
         staffUserId: ctx.actor!.userId,
       });
+
+      // 4. If this order belongs to an active dining session, check if all orders are settled
+      if (dbOrder.diningSessionId) {
+        const sessionOrders = await tx.query.orders.findMany({
+          where: and(
+            eq(orders.diningSessionId, dbOrder.diningSessionId),
+            sql`${orders.status} != 'cancelled'`
+          ),
+        });
+        const allOtherOrdersPaid = sessionOrders
+          .filter((o) => o.id !== dbOrder.id)
+          .every((o) => o.paymentStatus === "paid");
+
+        if (allOtherOrdersPaid) {
+          await tx
+            .update(diningSessions)
+            .set({
+              status: "closed",
+              paymentStatus: "paid",
+              paymentMethod: paymentMethod,
+              closedAt: now,
+              updatedAt: now,
+            })
+            .where(eq(diningSessions.id, dbOrder.diningSessionId));
+        }
+      }
     });
 
-    // 4. Publish realtime event to notify KDS and guest tracker
+    // 5. Publish realtime event to notify KDS and guest tracker
     await publishRealtimeEvent(
       getRestaurantChannel(dbOrder.restaurantId),
       "order.created",
@@ -406,7 +432,26 @@ export async function recordCounterPayment(
       paymentStatus: "paid",
     });
 
-    // 5. Re-fetch updated order to build accurate receipt
+    if (dbOrder.diningSessionId) {
+      await publishRealtimeEvent(`tab:${dbOrder.diningSessionId}`, "tab.closed", {
+        tabId: dbOrder.diningSessionId,
+        status: "closed",
+        paymentStatus: "paid",
+      });
+      await publishRealtimeEvent(
+        getRestaurantChannel(dbOrder.restaurantId),
+        "tab.closed",
+        {
+          tabId: dbOrder.diningSessionId,
+          tableNumber: dbOrder.table?.tableNumber,
+          status: "closed",
+          paymentStatus: "paid",
+          settledBy: ctx.actor!.username,
+        }
+      );
+    }
+
+    // 6. Re-fetch updated order to build accurate receipt
     const updatedOrder = await ctx.db.query.orders.findFirst({
       where: eq(orders.id, orderId),
       with: {

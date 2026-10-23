@@ -70,6 +70,8 @@ export interface AdminOrderRow {
   id: string;
   orderNumber: string;
   tableNumber: string;
+  roundNumber?: number;
+  diningSessionId?: string | null;
   status: OrderStatus;
   paymentStatus: string;
   paymentMethod: string | null;
@@ -269,6 +271,8 @@ export async function getAdminOrders(
       id: o.id,
       orderNumber: o.orderNumber,
       tableNumber: o.table.tableNumber,
+      roundNumber: o.roundNumber || 1,
+      diningSessionId: o.diningSessionId,
       status: o.status,
       paymentStatus: o.paymentStatus,
       paymentMethod: o.paymentMethod,

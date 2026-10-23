@@ -86,6 +86,20 @@ export function TabModal({
     };
   }, [isOpen, token]);
 
+  // Auto-poll every 3 seconds while waiting for counter settlement or payment updates
+  React.useEffect(() => {
+    if (!isOpen || tab?.status === "closed") return;
+    const interval = setInterval(() => {
+      fetchTab();
+    }, 3000);
+    const handleTabUpdated = () => fetchTab();
+    window.addEventListener("dinepulse:tab-updated", handleTabUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("dinepulse:tab-updated", handleTabUpdated);
+    };
+  }, [isOpen, tab?.status, fetchTab]);
+
   if (!isOpen) return null;
 
   const handleRequestBill = async (method: "pay_now" | "counter") => {
@@ -401,15 +415,40 @@ export function TabModal({
             )}
 
             {!isClosed && isCounterRequested && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                <p className="font-semibold">Counter payment requested</p>
-                <p className="mt-1 text-xs">Your order rounds are saved. Please pay the displayed total to staff at the counter. Staff must confirm payment to close this tab.</p>
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 space-y-2.5">
+                <div>
+                  <p className="font-semibold">Counter payment requested</p>
+                  <p className="mt-1 text-xs">Your order rounds are saved. Please pay the displayed total to staff at the counter. Staff must confirm payment to close this tab.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onAddMoreDishes ?? onClose}
+                    className="flex-1 text-xs"
+                    leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Add More Dishes
+                  </Button>
+                  {paymentsEnabled && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handlePayOnline}
+                      isLoading={isActionLoading}
+                      className="flex-1 text-xs font-semibold"
+                      leftIcon={<CreditCard className="h-3.5 w-3.5" />}
+                    >
+                      Pay Online Instead
+                    </Button>
+                  )}
+                </div>
                 <Button
                   variant="outline"
                   size="md"
                   onClick={fetchTab}
                   isLoading={isLoading}
-                  className="mt-3 w-full text-xs"
+                  className="w-full text-xs"
                   leftIcon={<RefreshCw className="h-4 w-4" />}
                 >
                   Refresh Tab Status
