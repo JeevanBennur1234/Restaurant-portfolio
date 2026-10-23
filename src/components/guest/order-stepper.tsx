@@ -8,14 +8,14 @@ export interface OrderStepperProps {
   className?: string;
 }
 
-interface StepConfig {
+export interface StepConfig {
   key: OrderStatus;
   label: string;
   description: string;
   icon: React.ReactNode;
 }
 
-const STEPS: StepConfig[] = [
+export const STEPS: StepConfig[] = [
   {
     key: "placed",
     label: "Placed",
@@ -43,7 +43,7 @@ const STEPS: StepConfig[] = [
 ];
 
 // Helper to determine step index (treating 'accepted' as part of placed/preparing transition)
-function getStepIndex(status: OrderStatus): number {
+export function getStepIndex(status: OrderStatus): number {
   switch (status) {
     case "placed":
       return 0;

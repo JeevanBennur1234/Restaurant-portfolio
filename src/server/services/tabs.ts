@@ -63,6 +63,7 @@ export interface TabDetailsData {
   tableNumber: string;
   restaurantId: string;
   restaurantName: string;
+  realtimeChannel?: string;
   status: "active" | "bill_requested" | "closed";
   paymentStatus: "open" | "bill_requested" | "paid" | "counter";
   paymentMethod: string | null;
@@ -255,6 +256,7 @@ export async function getActiveTab(
       tableNumber: tableRecord.tableNumber,
       restaurantId: tableRecord.restaurant.id,
       restaurantName: tableRecord.restaurant.name,
+      realtimeChannel: getRestaurantChannel(tableRecord.restaurant.id),
       status: session.status as TabDetailsData["status"],
       paymentStatus: session.paymentStatus as TabDetailsData["paymentStatus"],
       paymentMethod: session.paymentMethod,

@@ -12,11 +12,16 @@ import {
   X,
   Plus,
   RefreshCw,
+  ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPaiseToINR } from "@/lib/currency";
 import { customerApi } from "@/lib/api/customer";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
+import { useLiveTab } from "./use-live-tab";
+import { RoundStageTrack } from "./round-stage-track";
+import { cn } from "@/lib/utils";
 import type { TabDetailsData } from "@/lib/api/types";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 
@@ -28,6 +33,7 @@ export interface TabModalProps {
   tableLabel: string;
   paymentsEnabled?: boolean;
   paymentsTestMode?: boolean;
+  initialTab?: TabDetailsData | null;
 }
 
 export function TabModal({
@@ -38,67 +44,55 @@ export function TabModal({
   tableLabel,
   paymentsEnabled = true,
   paymentsTestMode = false,
+  initialTab = null,
 }: TabModalProps) {
-  const [tab, setTab] = React.useState<TabDetailsData | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const {
+    tab,
+    setTab,
+    isLoading,
+    isReconnecting,
+    refreshTab,
+    errorMessage: liveErrorMessage,
+  } = useLiveTab({
+    token,
+    initialTab,
+    enabled: isOpen,
+  });
+
   const [isActionLoading, setIsActionLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [expandedRounds, setExpandedRounds] = React.useState<Record<number, boolean>>({});
 
-  const fetchTab = React.useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const res = await customerApi.getActiveTab(token);
-      if (res.ok) {
-        setTab(res.data);
-      } else {
-        setErrorMessage(res.message || "Could not load dining tab");
-      }
-    } catch {
-      setErrorMessage("Network error while loading tab");
-    } finally {
-      setIsLoading(false);
+  // Compute newest round: starts expanded by default
+  const orders = tab?.orders;
+  const newestRoundNumber = React.useMemo(() => {
+    if (!orders || orders.length === 0) return 0;
+    return Math.max(...orders.map((o) => o.roundNumber));
+  }, [orders]);
+
+  const isRoundExpanded = (roundNum: number) => {
+    if (roundNum in expandedRounds) {
+      return Boolean(expandedRounds[roundNum]);
     }
-  }, [token]);
+    return roundNum === newestRoundNumber;
+  };
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    let isMounted = true;
-    customerApi
-      .getActiveTab(token)
-      .then((res) => {
-        if (!isMounted) return;
-        setIsLoading(false);
-        if (res.ok) {
-          setTab(res.data);
-        } else {
-          setErrorMessage(res.message || "Could not load dining tab");
-        }
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setIsLoading(false);
-        setErrorMessage("Network error while loading tab");
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, token]);
+  const toggleRound = (roundNum: number) => {
+    setExpandedRounds((prev) => ({
+      ...prev,
+      [roundNum]: !isRoundExpanded(roundNum),
+    }));
+  };
 
-  // Auto-poll every 3 seconds while waiting for counter settlement or payment updates
+  // Auto-close modal after short moment when tab is closed and settled
   React.useEffect(() => {
-    if (!isOpen || tab?.status === "closed") return;
-    const interval = setInterval(() => {
-      fetchTab();
-    }, 3000);
-    const handleTabUpdated = () => fetchTab();
-    window.addEventListener("dinepulse:tab-updated", handleTabUpdated);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("dinepulse:tab-updated", handleTabUpdated);
-    };
-  }, [isOpen, tab?.status, fetchTab]);
+    if (!isOpen || tab?.status !== "closed") return;
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [isOpen, tab?.status, onClose]);
 
   if (!isOpen) return null;
 
@@ -109,7 +103,7 @@ export function TabModal({
       const res = await customerApi.requestTabBill(token, method);
       if (res.ok) {
         setSuccessMessage("Bill requested! Our staff has been notified.");
-        await fetchTab();
+        await refreshTab();
       } else {
         setErrorMessage(res.message || "Failed to request bill");
       }
@@ -130,7 +124,7 @@ export function TabModal({
         const simRes = await customerApi.testVerifyTabPayment(token);
         if (simRes.ok) {
           setSuccessMessage("Payment successful! Dining tab closed.");
-          await fetchTab();
+          await refreshTab();
           setTab((prev) =>
             prev
               ? {
@@ -176,7 +170,7 @@ export function TabModal({
           });
           if (verifyRes.ok) {
             setSuccessMessage("Payment verified successfully! Thank you for dining with us.");
-            await fetchTab();
+            await refreshTab();
             setTab((prev) =>
               prev
                 ? {
@@ -211,6 +205,35 @@ export function TabModal({
   const isClosed = tab?.status === "closed";
   const isBillRequested = tab?.status === "bill_requested";
   const isCounterRequested = isBillRequested && tab?.paymentMethod === "counter";
+  const isOnlineBillRequested = isBillRequested && tab?.paymentMethod !== "counter";
+
+  const amountDueDisplay = tab ? tab.formattedAmountDue || tab.formattedTotal : "";
+
+  // Badge text matching the real state
+  const statusBadgeText = isClosed
+    ? "Paid · Settled"
+    : isCounterRequested
+    ? "Pay at Counter"
+    : isBillRequested
+    ? "Bill Requested"
+    : "Open Tab";
+
+  const statusBadgeClasses = isClosed
+    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+    : isCounterRequested
+    ? "bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
+    : isBillRequested
+    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse motion-reduce:animate-none"
+    : "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800";
+
+  // Calm status card wording following requirements
+  const statusCardWording = isClosed
+    ? "Paid. Thank you!"
+    : isCounterRequested
+    ? `Staff have been notified. Please pay ${amountDueDisplay} at the counter.`
+    : isOnlineBillRequested
+    ? "Bill requested. Please proceed to pay online."
+    : "Your tab is open. Order more or request the bill anytime.";
 
   return (
     <div
@@ -235,10 +258,10 @@ export function TabModal({
                 {isClosed
                   ? "Settled & Closed"
                   : isCounterRequested
-                    ? "Waiting for counter staff"
-                    : isBillRequested
-                      ? "Online payment requested"
-                      : "Open Table Tab"}
+                  ? "Staff notified for counter payment"
+                  : isBillRequested
+                  ? "Online payment requested"
+                  : "Open Table Tab"}
               </p>
             </div>
           </div>
@@ -256,18 +279,18 @@ export function TabModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {isLoading && !tab && (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
-              <RefreshCw className="h-6 w-6 animate-spin text-[var(--primary)]" />
+              <RefreshCw className="h-6 w-6 animate-spin text-[var(--primary)] motion-reduce:animate-none" />
               <span className="text-xs font-mono">Loading dining tab...</span>
             </div>
           )}
 
-          {errorMessage && (
+          {(errorMessage || liveErrorMessage) && (
             <div
               role="alert"
               className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-300 flex items-start gap-2"
             >
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              <span>{errorMessage || liveErrorMessage}</span>
             </div>
           )}
 
@@ -292,89 +315,191 @@ export function TabModal({
 
           {tab && (
             <>
-              {/* Tab Status Card */}
-              <div className="p-4 rounded-xl bg-[var(--bg-subtle)]/70 border border-[var(--border-subtle)] flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-[var(--text-secondary)]">
-                    Current Consolidated Total
-                  </span>
-                  <div
-                    data-testid="tab-grand-total"
-                    className="font-serif text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums"
-                  >
-                    {tab.formattedTotal}
+              {/* Calm Status Card (aria-live="polite") */}
+              <div
+                aria-live="polite"
+                data-testid="tab-status-card"
+                className="p-4 rounded-xl bg-[var(--bg-subtle)]/70 border border-[var(--border-subtle)] space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-[var(--text-secondary)] block">
+                      Current Consolidated Total
+                    </span>
+                    <div
+                      data-testid="tab-grand-total"
+                      className="font-serif text-2xl font-bold text-[var(--text-primary)] font-mono tabular-nums leading-tight"
+                    >
+                      {tab.formattedTotal}
+                    </div>
                   </div>
-                  <span className="text-[11px] text-[var(--text-secondary)]">
-                    Includes 5% GST • {tab.roundCount} {tab.roundCount === 1 ? "round" : "rounds"} ordered
-                  </span>
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <span
+                      data-testid="tab-status-badge"
+                      className={`inline-flex px-2.5 py-1 rounded-full text-xs font-mono font-semibold ${statusBadgeClasses}`}
+                    >
+                      {statusBadgeText}
+                    </span>
+                    {isReconnecting && (
+                      <span
+                        data-testid="tab-reconnecting-note"
+                        className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400"
+                      >
+                        <RotateCcw className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+                        <span>Reconnecting…</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span
-                    data-testid="tab-status-badge"
-                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-mono font-semibold ${
-                      isClosed
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300"
-                        : isBillRequested
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 animate-pulse"
-                        : "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300"
-                    }`}
+
+                <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs">
+                  <p
+                    data-testid="status-card-wording"
+                    className="text-[var(--text-secondary)] font-medium leading-relaxed"
                   >
-                    {isClosed ? "Tab Settled" : isCounterRequested ? "Counter Requested" : isBillRequested ? "Bill Requested" : "Tab Active"}
+                    {statusCardWording}
+                  </p>
+                  <span className="text-[11px] text-[var(--text-muted)] font-mono shrink-0 pl-2">
+                    {tab.roundCount} {tab.roundCount === 1 ? "round" : "rounds"}
                   </span>
                 </div>
+
+                {/* For closed and paid: show receipt download button directly in card */}
+                {isClosed && (
+                  <div className="pt-1">
+                    <Button
+                      data-testid="download-tab-receipt-btn"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => downloadPdf("a4")}
+                      className="w-full text-xs font-semibold"
+                      leftIcon={<Download className="h-3.5 w-3.5" />}
+                    >
+                      Download Receipt (PDF)
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              {/* Rounds List */}
-              <div className="space-y-3">
-                <h4 className="font-serif text-sm font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <Utensils className="h-4 w-4 text-[var(--primary)]" />
-                  <span>Dishes Ordered by Round</span>
+              {/* Rounds List with Expandable Stage Track */}
+              <div className="space-y-2.5">
+                <h4 className="font-serif text-sm font-bold text-[var(--text-primary)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Utensils className="h-4 w-4 text-[var(--primary)]" />
+                    <span>Dishes Ordered by Round</span>
+                  </span>
+                  <span className="text-xs font-mono text-[var(--text-secondary)]">
+                    {tab.orders.length} {tab.orders.length === 1 ? "round" : "rounds"}
+                  </span>
                 </h4>
 
-                {tab.orders.map((round) => (
-                  <div
-                    key={round.orderId}
-                    data-testid={`tab-round-${round.roundNumber}`}
-                    className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-2"
-                  >
-                    <div className="flex items-center justify-between text-xs pb-1.5 border-b border-[var(--border-subtle)] font-mono">
-                      <span className="font-bold text-[var(--text-primary)]">
-                        Round {round.roundNumber} (#{round.orderNumber})
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {round.paymentStatus === "paid" && (
-                          <span
-                            data-testid={`round-already-paid-${round.roundNumber}`}
-                            className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800"
-                          >
-                            Already paid
-                          </span>
-                        )}
-                        <span className="text-[11px] px-2 py-0.5 rounded capitalize bg-[var(--bg-subtle)] font-semibold text-[var(--text-secondary)]">
-                          {round.status}
-                        </span>
-                      </div>
-                    </div>
+                {tab.orders.map((round) => {
+                  const isExpanded = isRoundExpanded(round.roundNumber);
+                  const isCancelled = round.status === "cancelled";
+                  const isPaid = round.paymentStatus === "paid";
 
-                    <ul className="space-y-1.5 text-xs">
-                      {round.items.map((item) => (
-                        <li key={item.id} className="flex items-start justify-between text-[var(--text-primary)]">
-                          <span className="font-medium">
-                            {item.quantity}× {item.itemName}
-                            {item.selectedModifiers.length > 0 && (
-                              <span className="text-[11px] text-[var(--text-secondary)] block">
-                                + {item.selectedModifiers.map((m) => m.name).join(", ")}
-                              </span>
+                  return (
+                    <div
+                      key={round.orderId}
+                      data-testid={`tab-round-${round.roundNumber}`}
+                      className={cn(
+                        "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden transition-all motion-reduce:transition-none shadow-xs",
+                        isCancelled && "opacity-75 bg-[var(--bg-subtle)]/40"
+                      )}
+                    >
+                      {/* Round Header / Expand Toggle Button with min 44px touch target */}
+                      <button
+                        type="button"
+                        onClick={() => toggleRound(round.roundNumber)}
+                        aria-expanded={isExpanded}
+                        aria-controls={`round-content-${round.roundNumber}`}
+                        data-testid={`round-toggle-${round.roundNumber}`}
+                        className="w-full min-h-[44px] flex items-center justify-between p-3.5 text-left font-mono text-xs cursor-pointer hover:bg-[var(--bg-subtle)]/60 transition-colors motion-reduce:transition-none"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={cn(
+                              "font-bold text-[var(--text-primary)]",
+                              isCancelled && "line-through text-[var(--text-muted)]"
                             )}
+                          >
+                            Round {round.roundNumber} (#{round.orderNumber})
                           </span>
-                          <span className="font-mono tabular-nums shrink-0 font-semibold text-[var(--text-secondary)]">
-                            {formatPaiseToINR(item.totalPaise)}
+                          <span className="text-[11px] text-[var(--text-secondary)] truncate">
+                            • {round.items.length} {round.items.length === 1 ? "item" : "items"}
                           </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isPaid && (
+                            <span
+                              data-testid={`round-already-paid-${round.roundNumber}`}
+                              className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800"
+                            >
+                              Already paid
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "text-[11px] px-2 py-0.5 rounded capitalize font-semibold",
+                              isCancelled
+                                ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                                : "bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+                            )}
+                          >
+                            {round.status}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 text-[var(--text-secondary)] transition-transform motion-reduce:transition-none",
+                              isExpanded && "rotate-180"
+                            )}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Collapsible Content */}
+                      {isExpanded && (
+                        <div
+                          id={`round-content-${round.roundNumber}`}
+                          data-testid={`round-content-${round.roundNumber}`}
+                          className="p-3.5 pt-1 border-t border-[var(--border-subtle)] space-y-3"
+                        >
+                          {/* Per-round Stage Track: Placed → Preparing → Ready → Served */}
+                          <RoundStageTrack
+                            status={round.status}
+                            createdAt={round.createdAt}
+                          />
+
+                          {/* Dishes list */}
+                          <ul className="space-y-1.5 pt-1 border-t border-[var(--border-subtle)] text-xs">
+                            {round.items.map((item) => (
+                              <li
+                                key={item.id}
+                                className={cn(
+                                  "flex items-start justify-between text-[var(--text-primary)]",
+                                  isCancelled && "line-through opacity-60 text-[var(--text-muted)]"
+                                )}
+                              >
+                                <span className="font-medium">
+                                  {item.quantity}× {item.itemName}
+                                  {item.selectedModifiers.length > 0 && (
+                                    <span className="text-[11px] text-[var(--text-secondary)] block">
+                                      + {item.selectedModifiers.map((m) => m.name).join(", ")}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-mono tabular-nums shrink-0 font-semibold text-[var(--text-secondary)]">
+                                  {formatPaiseToINR(item.totalPaise)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Bill Financial Breakdown */}
@@ -416,13 +541,14 @@ export function TabModal({
         {/* Footer Actions */}
         {tab && (
           <div className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 flex flex-col gap-2">
+            {/* Active Tab State: Add More Dishes & Request Bill */}
             {!isClosed && !isBillRequested && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="md"
                   onClick={onAddMoreDishes ?? onClose}
-                  className="flex-1 text-xs"
+                  className="flex-1 text-xs min-h-[44px]"
                   leftIcon={<Plus className="h-4 w-4" />}
                 >
                   Add More Dishes
@@ -433,7 +559,7 @@ export function TabModal({
                   size="md"
                   onClick={() => handleRequestBill("pay_now")}
                   isLoading={isActionLoading}
-                  className="flex-1 text-xs font-semibold"
+                  className="flex-1 text-xs font-semibold min-h-[44px]"
                   leftIcon={<Receipt className="h-4 w-4" />}
                 >
                   Request Bill &amp; Pay
@@ -441,49 +567,8 @@ export function TabModal({
               </div>
             )}
 
-            {!isClosed && isCounterRequested && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 space-y-2.5">
-                <div>
-                  <p className="font-semibold">Counter payment requested</p>
-                  <p className="mt-1 text-xs">Your order rounds are saved. Please pay the displayed total to staff at the counter. Staff must confirm payment to close this tab.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onAddMoreDishes ?? onClose}
-                    className="flex-1 text-xs"
-                    leftIcon={<Plus className="h-3.5 w-3.5" />}
-                  >
-                    Add More Dishes
-                  </Button>
-                  {paymentsEnabled && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handlePayOnline}
-                      isLoading={isActionLoading}
-                      className="flex-1 text-xs font-semibold"
-                      leftIcon={<CreditCard className="h-3.5 w-3.5" />}
-                    >
-                      Pay Online Instead
-                    </Button>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={fetchTab}
-                  isLoading={isLoading}
-                  className="w-full text-xs"
-                  leftIcon={<RefreshCw className="h-4 w-4" />}
-                >
-                  Refresh Tab Status
-                </Button>
-              </div>
-            )}
-
-            {!isClosed && isBillRequested && !isCounterRequested && (
+            {/* Bill Requested Online State: Pay button with net amount due */}
+            {!isClosed && isOnlineBillRequested && (
               <div className="space-y-2">
                 {paymentsEnabled && (
                   <Button
@@ -492,10 +577,10 @@ export function TabModal({
                     size="md"
                     onClick={handlePayOnline}
                     isLoading={isActionLoading}
-                    className="w-full text-xs font-semibold"
+                    className="w-full text-xs font-semibold min-h-[44px]"
                     leftIcon={<CreditCard className="h-4 w-4" />}
                   >
-                    Pay Online Now ({tab.formattedAmountDue || tab.formattedTotal})
+                    Pay Online ({tab.formattedAmountDue || tab.formattedTotal})
                   </Button>
                 )}
                 <Button
@@ -504,7 +589,7 @@ export function TabModal({
                   size="md"
                   onClick={() => handleRequestBill("counter")}
                   isLoading={isActionLoading}
-                  className="w-full text-xs"
+                  className="w-full text-xs min-h-[44px]"
                   leftIcon={<Banknote className="h-4 w-4" />}
                 >
                   Pay at Counter Cash / Card
@@ -512,6 +597,7 @@ export function TabModal({
               </div>
             )}
 
+            {/* Closed and Paid State: Download Receipt and Close */}
             {isClosed && (
               <div className="flex items-center gap-2">
                 <Button
@@ -519,7 +605,7 @@ export function TabModal({
                   variant="primary"
                   size="md"
                   onClick={() => downloadPdf("a4")}
-                  className="flex-1 text-xs"
+                  className="flex-1 text-xs min-h-[44px]"
                   leftIcon={<Download className="h-4 w-4" />}
                 >
                   Download Receipt (PDF)
@@ -528,7 +614,7 @@ export function TabModal({
                   variant="outline"
                   size="md"
                   onClick={onClose}
-                  className="text-xs px-4"
+                  className="text-xs px-4 min-h-[44px]"
                 >
                   Close
                 </Button>
