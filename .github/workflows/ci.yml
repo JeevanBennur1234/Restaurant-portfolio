@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Let active CI finish; a newer push must not interrupt apt/Playwright setup.
+  cancel-in-progress: false
 
 jobs:
   verify:
