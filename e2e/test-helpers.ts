@@ -20,7 +20,7 @@ export const SEEDED_MANAGER_USER = {
 };
 
 /**
- * Resets orders, tickets, and tables back to a clean deterministic state
+ * Resets orders, open-tab sessions, tickets, and tables back to a clean deterministic state
  * directly in the local test PostgreSQL database.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -66,6 +66,12 @@ export async function resetDemoState(_request?: APIRequestContext): Promise<void
     );
     await client.query(
       `DELETE FROM orders WHERE restaurant_id = $1`,
+      [restaurantId]
+    );
+    // Orders are cleared above, but their dining sessions are independent rows.
+    // Remove those too so a failed open-tab test cannot poison later order tests.
+    await client.query(
+      `DELETE FROM dining_sessions WHERE restaurant_id = $1`,
       [restaurantId]
     );
     await client.query(

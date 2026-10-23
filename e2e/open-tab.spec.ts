@@ -48,7 +48,8 @@ test.describe("Dine-In Open Tab Journey", () => {
     await page.reload();
     const tabBanner = page.locator('[data-testid="active-tab-banner"]');
     await expect(tabBanner).toBeVisible({ timeout: 10_000 });
-    await expect(tabBanner).toContainText("Open Tab Active • Round 1");
+    await expect(tabBanner).toContainText("Open Dining Tab");
+    await expect(tabBanner).toContainText("Current bill:");
 
     // 5. Place Round 2 on same Table Tab
     const round2Res = await request.post(
@@ -67,7 +68,8 @@ test.describe("Dine-In Open Tab Journey", () => {
     // 6. Reload table menu and verify Active Tab Banner displays Round 2 with updated bill
     await page.reload();
     await expect(tabBanner).toBeVisible({ timeout: 10_000 });
-    await expect(tabBanner).toContainText("Open Tab Active • Round 2");
+    await expect(tabBanner).toContainText("Open Dining Tab");
+    await expect(tabBanner).toContainText("Current bill:");
 
     // 7. Open Tab Modal
     const viewTabBtn = page.locator('[data-testid="view-tab-btn"]');
@@ -77,8 +79,10 @@ test.describe("Dine-In Open Tab Journey", () => {
     const tabModal = page.locator('[data-testid="tab-modal"]');
     await expect(tabModal).toBeVisible({ timeout: 10_000 });
     await expect(tabModal).toContainText("Table 7");
-    await expect(tabModal).toContainText("Round 1");
-    await expect(tabModal).toContainText("Round 2");
+    // The guest modal consolidates multiple rounds into one item summary.
+    const tabItemsSummary = tabModal.locator('[data-testid="tab-items-summary"]');
+    await expect(tabItemsSummary).toContainText(firstItem.name);
+    await expect(tabItemsSummary).toContainText(secondItem.name);
 
     // 8. Request bill and settle tab via online test payment simulation
     const requestBillBtn = page.locator('[data-testid="request-tab-bill-btn"]');
