@@ -353,22 +353,6 @@ export function TabModal({
                     {statusCardWording}
                   </p>
                 </div>
-
-                {/* For closed and paid: show receipt download button directly in card */}
-                {isClosed && (
-                  <div className="pt-1">
-                    <Button
-                      data-testid="download-tab-receipt-btn"
-                      variant="primary"
-                      size="sm"
-                      onClick={() => downloadPdf("a4")}
-                      className="w-full text-xs font-semibold"
-                      leftIcon={<Download className="h-3.5 w-3.5" />}
-                    >
-                      Download Receipt (PDF)
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Consolidated items list: keep the food summary without redundant per-round IDs and stage timelines. */}

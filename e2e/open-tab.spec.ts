@@ -91,6 +91,7 @@ test.describe("Dine-In Open Tab Journey", () => {
 
     // Verify Tab Settled message and receipt download button
     const receiptDownloadBtn = page.locator('[data-testid="download-tab-receipt-btn"]');
+    await expect(receiptDownloadBtn).toHaveCount(1);
     await expect(receiptDownloadBtn).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="tab-status-badge"]')).toContainText("Settled");
 
