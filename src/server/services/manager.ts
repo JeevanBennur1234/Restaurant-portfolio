@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { eq, desc, asc, and, count, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql } from "drizzle-orm";
 import {
   orders,
   orderItems,
@@ -66,6 +66,18 @@ export interface AdminOrderItemSummary {
   modifiers: string[];
 }
 
+export interface AdminOrderTabSummary {
+  id: string;
+  status: string;
+  paymentStatus: string;
+  roundCount: number;
+  subtotalPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  amountDuePaise: number;
+  paidPaise: number;
+}
+
 export interface AdminOrderRow {
   id: string;
   orderNumber: string;
@@ -91,10 +103,24 @@ export interface AdminOrderRow {
     note: string | null;
     createdAt: string;
   }>;
+  tabSummary?: AdminOrderTabSummary | null;
+  tab?: AdminOrderTabSummary | null;
+}
+
+export interface AdminOrderGroup {
+  id: string;
+  type: "tab" | "single";
+  tableNumber: string;
+  diningSessionId?: string | null;
+  tabSummary?: AdminOrderTabSummary | null;
+  orders: AdminOrderRow[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GetAdminOrdersData {
   orders: AdminOrderRow[];
+  groups?: AdminOrderGroup[];
   pagination: {
     page: number;
     pageSize: number;
@@ -204,87 +230,44 @@ export async function getAdminOrders(
   const { page, pageSize, status, paymentStatus, search } = parsed.data;
 
   try {
-    const conditions = [eq(orders.restaurantId, ctx.actor!.restaurantId)];
+    const toIso = (d: unknown) => {
+      if (d instanceof Date) return d.toISOString();
+      if (typeof d === "string") return d;
+      return new Date().toISOString();
+    };
 
-    if (status !== "all") {
-      conditions.push(eq(orders.status, status));
-    }
-
-    if (paymentStatus !== "all") {
-      conditions.push(eq(orders.paymentStatus, paymentStatus));
-    }
-
-    const whereClause = and(...conditions);
-
-    // Fetch total count for pagination
-    const [countResult] = await ctx.db
-      .select({ val: count() })
-      .from(orders)
-      .where(whereClause);
-    const totalCount = countResult?.val ?? 0;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-    // Fetch orders with pagination
-    const offset = (page - 1) * pageSize;
+    // Fetch all restaurant orders with tables, items, events, and dining sessions
     const dbOrders = await ctx.db.query.orders.findMany({
-      where: whereClause,
+      where: eq(orders.restaurantId, ctx.actor!.restaurantId),
       with: {
         table: true,
         items: true,
         events: {
           orderBy: [desc(orderEvents.createdAt)],
         },
+        diningSession: true,
       },
       orderBy: [desc(orders.createdAt)],
-      limit: pageSize,
-      offset,
     });
 
-    // Client-side search fallback across orderNumber, tableNumber, or customerName
-    let filteredOrders = dbOrders;
-    if (search && search.trim().length > 0) {
-      const q = search.trim().toLowerCase();
-      filteredOrders = dbOrders.filter(
-        (o) =>
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.table.tableNumber.toLowerCase().includes(q) ||
-          (o.customerName && o.customerName.toLowerCase().includes(q))
-      );
-    }
-
-    // Status metrics summary
-    const allRestaurantOrders = await ctx.db.query.orders.findMany({
-      where: eq(orders.restaurantId, ctx.actor!.restaurantId),
-      columns: { status: true },
-    });
-
-    const summary = {
-      total: allRestaurantOrders.length,
-      placed: allRestaurantOrders.filter((o) => o.status === "placed").length,
-      preparing: allRestaurantOrders.filter((o) => o.status === "preparing").length,
-      ready: allRestaurantOrders.filter((o) => o.status === "ready").length,
-      served: allRestaurantOrders.filter((o) => o.status === "served").length,
-      cancelled: allRestaurantOrders.filter((o) => o.status === "cancelled").length,
-    };
-
-    const formattedOrders: AdminOrderRow[] = filteredOrders.map((o) => ({
+    const formattedOrders: AdminOrderRow[] = dbOrders.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
-      tableNumber: o.table.tableNumber,
-      roundNumber: o.roundNumber || 1,
-      diningSessionId: o.diningSessionId,
+      tableNumber: o.table?.tableNumber ?? "1",
+      roundNumber: o.roundNumber ?? 1,
+      diningSessionId: o.diningSessionId ?? null,
       status: o.status,
       paymentStatus: o.paymentStatus,
-      paymentMethod: o.paymentMethod,
-      subtotalPaise: o.subtotalPaise,
-      taxPaise: o.taxPaise,
-      totalPaise: o.totalPaise,
-      customerName: o.customerName,
-      customerPhone: o.customerPhone,
-      specialInstructions: o.specialInstructions,
-      createdAt: o.createdAt.toISOString(),
-      updatedAt: o.updatedAt.toISOString(),
-      items: o.items.map((i) => {
+      paymentMethod: o.paymentMethod ?? null,
+      subtotalPaise: o.subtotalPaise ?? 0,
+      taxPaise: o.taxPaise ?? 0,
+      totalPaise: o.totalPaise ?? 0,
+      customerName: o.customerName ?? null,
+      customerPhone: o.customerPhone ?? null,
+      specialInstructions: o.specialInstructions ?? null,
+      createdAt: toIso(o.createdAt),
+      updatedAt: toIso(o.updatedAt),
+      items: (o.items ?? []).map((i) => {
         let modNames: string[] = [];
         if (i.selectedModifiersJson) {
           try {
@@ -302,17 +285,192 @@ export async function getAdminOrders(
           modifiers: modNames,
         };
       }),
-      events: o.events.map((e) => ({
+      events: (o.events ?? []).map((e) => ({
         id: e.id,
         fromStatus: e.fromStatus,
         toStatus: e.toStatus,
-        note: e.note,
-        createdAt: e.createdAt.toISOString(),
+        note: e.note ?? null,
+        createdAt: toIso(e.createdAt),
       })),
     }));
 
+    // Group orders by dining session (for tabs) and standalone orders
+    const tabOrdersMap = new Map<string, AdminOrderRow[]>();
+    const standaloneOrders: AdminOrderRow[] = [];
+
+    for (const order of formattedOrders) {
+      if (order.diningSessionId) {
+        const list = tabOrdersMap.get(order.diningSessionId) || [];
+        list.push(order);
+        tabOrdersMap.set(order.diningSessionId, list);
+      } else {
+        standaloneOrders.push(order);
+      }
+    }
+
+    const groups: AdminOrderGroup[] = [];
+
+    for (const [sessionId, rounds] of tabOrdersMap.entries()) {
+      rounds.sort((a, b) => (a.roundNumber ?? 1) - (b.roundNumber ?? 1));
+
+      const activeRounds = rounds.filter((r) => r.status !== "cancelled");
+      const roundCount = activeRounds.length;
+      const subtotalPaise = activeRounds.reduce((acc, r) => acc + (r.subtotalPaise || 0), 0);
+      const taxPaise = activeRounds.reduce((acc, r) => acc + (r.taxPaise || 0), 0);
+      const totalPaise = activeRounds.reduce((acc, r) => acc + (r.totalPaise || 0), 0);
+      const paidPaise = activeRounds
+        .filter((r) => r.paymentStatus === "paid")
+        .reduce((acc, r) => acc + (r.totalPaise || 0), 0);
+      const amountDuePaise = Math.max(0, totalPaise - paidPaise);
+
+      const dbSession = dbOrders.find((o) => o.diningSessionId === sessionId)?.diningSession;
+      let status = dbSession?.status ?? "active";
+      if (!dbSession) {
+        if (rounds.some((r) => r.paymentStatus === "bill_requested")) {
+          status = "bill_requested";
+        } else if (
+          activeRounds.length > 0 &&
+          activeRounds.every((r) => r.status === "served") &&
+          amountDuePaise === 0
+        ) {
+          status = "closed";
+        } else {
+          status = "active";
+        }
+      }
+
+      let paymentStatus = dbSession?.paymentStatus ?? "open";
+      if (!dbSession) {
+        if (amountDuePaise === 0 && activeRounds.length > 0) {
+          paymentStatus = "paid";
+        } else if (status === "bill_requested") {
+          paymentStatus = "bill_requested";
+        } else {
+          paymentStatus = "open";
+        }
+      }
+
+      const tabSummary: AdminOrderTabSummary = {
+        id: sessionId,
+        status,
+        paymentStatus,
+        roundCount,
+        subtotalPaise,
+        taxPaise,
+        totalPaise,
+        amountDuePaise,
+        paidPaise,
+      };
+
+      for (const r of rounds) {
+        r.tabSummary = tabSummary;
+        r.tab = tabSummary;
+      }
+
+      const latestRound = rounds[rounds.length - 1];
+      groups.push({
+        id: sessionId,
+        type: "tab",
+        tableNumber: rounds[0]?.tableNumber ?? "1",
+        diningSessionId: sessionId,
+        tabSummary,
+        orders: rounds,
+        createdAt: latestRound?.createdAt ?? new Date().toISOString(),
+        updatedAt: latestRound?.updatedAt ?? new Date().toISOString(),
+      });
+    }
+
+    for (const single of standaloneOrders) {
+      groups.push({
+        id: single.id,
+        type: "single",
+        tableNumber: single.tableNumber,
+        diningSessionId: null,
+        tabSummary: null,
+        orders: [single],
+        createdAt: single.createdAt,
+        updatedAt: single.updatedAt,
+      });
+    }
+
+    // Sort groups: bill_requested first, then newest activity first
+    groups.sort((a, b) => {
+      const aBillReq =
+        a.tabSummary?.status === "bill_requested" ||
+        a.orders.some((o) => o.paymentStatus === "bill_requested");
+      const bBillReq =
+        b.tabSummary?.status === "bill_requested" ||
+        b.orders.some((o) => o.paymentStatus === "bill_requested");
+
+      if (aBillReq && !bBillReq) return -1;
+      if (!aBillReq && bBillReq) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Apply filters matching on ANY round of the group
+    let filteredGroups = groups;
+
+    if (status !== "all") {
+      filteredGroups = filteredGroups.filter((g) =>
+        g.orders.some((o) => o.status === status)
+      );
+    }
+
+    if (paymentStatus !== "all") {
+      filteredGroups = filteredGroups.filter((g) => {
+        if (g.type === "tab" && g.tabSummary) {
+          if (paymentStatus === "paid") {
+            return (
+              g.tabSummary.paymentStatus === "paid" ||
+              g.orders.every((o) => o.paymentStatus === "paid")
+            );
+          }
+          if (paymentStatus === "counter") {
+            return (
+              g.tabSummary.paymentStatus === "open" ||
+              g.tabSummary.paymentStatus === "bill_requested" ||
+              g.orders.some((o) => o.paymentStatus === "counter")
+            );
+          }
+          return g.orders.some((o) => o.paymentStatus === paymentStatus);
+        }
+        return g.orders.some((o) => o.paymentStatus === paymentStatus);
+      });
+    }
+
+    if (search && search.trim().length > 0) {
+      const q = search.trim().toLowerCase();
+      filteredGroups = filteredGroups.filter(
+        (g) =>
+          g.tableNumber.toLowerCase().includes(q) ||
+          g.orders.some(
+            (o) =>
+              o.orderNumber.toLowerCase().includes(q) ||
+              (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+              o.items.some((i) => i.name.toLowerCase().includes(q))
+          )
+      );
+    }
+
+    // Paginate by groups, not rounds
+    const totalCount = filteredGroups.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const offset = (page - 1) * pageSize;
+    const pagedGroups = filteredGroups.slice(offset, offset + pageSize);
+    const pagedOrders = pagedGroups.flatMap((g) => g.orders);
+
+    const summary = {
+      total: formattedOrders.length,
+      placed: formattedOrders.filter((o) => o.status === "placed").length,
+      preparing: formattedOrders.filter((o) => o.status === "preparing").length,
+      ready: formattedOrders.filter((o) => o.status === "ready").length,
+      served: formattedOrders.filter((o) => o.status === "served").length,
+      cancelled: formattedOrders.filter((o) => o.status === "cancelled").length,
+    };
+
     return ok({
-      orders: formattedOrders,
+      orders: pagedOrders,
+      groups: pagedGroups,
       pagination: {
         page,
         pageSize,

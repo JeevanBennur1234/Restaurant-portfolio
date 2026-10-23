@@ -14,6 +14,8 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Printer,
   Download,
@@ -21,14 +23,20 @@ import {
   CreditCard,
   QrCode,
   CheckCircle2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { formatPaiseToINR } from "@/lib/currency";
 import { adminApi } from "@/lib/api/admin";
+import { kitchenApi } from "@/lib/api/kitchen";
 import { userMessageFor } from "@/lib/api/errors";
-import type { AdminOrderRow, ReceiptData } from "@/lib/api/types";
+import type {
+  AdminOrderRow,
+  AdminOrderTabSummary,
+  ReceiptData,
+} from "@/lib/api/types";
 import type { OrderStatus } from "@/server/db/schema";
 import { ReceiptModal } from "@/components/common/receipt-view";
 
@@ -44,6 +52,19 @@ export interface AdminOrdersTabProps {
   };
 }
 
+interface DisplayGroup {
+  id: string; // diningSessionId or orderId
+  type: "tab" | "single";
+  tableNumber: string;
+  diningSessionId: string | null;
+  tabSummary: AdminOrderTabSummary | null;
+  orders: AdminOrderRow[];
+  createdAt: string;
+  isBillRequested: boolean;
+}
+
+const STAGE_ORDER: OrderStatus[] = ["placed", "preparing", "ready", "served"];
+
 export function AdminOrdersTab({
   onOrderUpdate,
   refreshKey,
@@ -57,7 +78,7 @@ export function AdminOrdersTab({
   const [paymentFilter, setPaymentFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Data State
+  // Raw Orders & Pagination State
   const [orders, setOrders] = React.useState<AdminOrderRow[]>(initialOrders ?? []);
   const [totalPages, setTotalPages] = React.useState(initialPagination?.totalPages ?? 1);
   const [totalCount, setTotalCount] = React.useState(
@@ -66,6 +87,12 @@ export function AdminOrdersTab({
   const [isLoading, setIsLoading] = React.useState(initialOrders ? false : true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Expanded Tab Rows State (Set of diningSessionIds)
+  const [expandedTabs, setExpandedTabs] = React.useState<Set<string>>(() => new Set());
+
+  // Transitioning order status loading map
+  const [transitioningOrderId, setTransitioningOrderId] = React.useState<string | null>(null);
+
   // Detail & Cancel Modal States
   const [selectedOrder, setSelectedOrder] = React.useState<AdminOrderRow | null>(null);
   const [cancelModalOrder, setCancelModalOrder] = React.useState<AdminOrderRow | null>(null);
@@ -73,92 +100,139 @@ export function AdminOrdersTab({
   const [isCancelling, setIsCancelling] = React.useState(false);
   const [cancelError, setCancelError] = React.useState<string | null>(null);
 
-  // Bill / Receipt & Counter Payment States
+  // Bill / Receipt States
   const [receiptData, setReceiptData] = React.useState<ReceiptData | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = React.useState(false);
+  const [isLoadingBill, setIsLoadingBill] = React.useState(false);
+
+  // Single Order Counter Payment Modal States (legacy single orders only)
   const [paymentModalOrder, setPaymentModalOrder] = React.useState<AdminOrderRow | null>(null);
   const [counterPaymentMethod, setCounterPaymentMethod] = React.useState<"cash" | "card" | "upi">("cash");
   const [counterPaymentRef, setCounterPaymentRef] = React.useState("");
   const [counterPaymentNote, setCounterPaymentNote] = React.useState("");
   const [isRecordingPayment, setIsRecordingPayment] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
-  const [isLoadingBill, setIsLoadingBill] = React.useState(false);
 
-  const handleViewBillOrReceipt = async (order: AdminOrderRow) => {
-    setIsLoadingBill(true);
-    try {
-      const res = await adminApi.getBillOrReceipt(order.id);
-      if (res.ok && res.data) {
-        setReceiptData(res.data);
-        setIsReceiptModalOpen(true);
-      }
-    } catch (err) {
-      console.error("Failed to load bill/receipt:", err);
-    } finally {
-      setIsLoadingBill(false);
-    }
-  };
+  // Tab Settle Modal States (for grouped dining tabs)
+  const [settleModalGroup, setSettleModalGroup] = React.useState<DisplayGroup | null>(null);
+  const [tabPaymentMethod, setTabPaymentMethod] = React.useState<"cash" | "card" | "upi">("cash");
+  const [tabPaymentNote, setTabPaymentNote] = React.useState("");
+  const [isSettlingTab, setIsSettlingTab] = React.useState(false);
+  const [tabSettleError, setTabSettleError] = React.useState<string | null>(null);
 
-  const handleOpenRecordPayment = (order: AdminOrderRow) => {
-    setPaymentModalOrder(order);
-    setCounterPaymentMethod("cash");
-    setCounterPaymentRef("");
-    setCounterPaymentNote("");
-    setPaymentError(null);
-  };
-
-  const handleConfirmCounterPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paymentModalOrder) return;
-
-    setIsRecordingPayment(true);
-    setPaymentError(null);
-
-    try {
-      const res = await adminApi.recordCounterPayment(paymentModalOrder.id, {
-        paymentMethod: counterPaymentMethod,
-        transactionRef: counterPaymentRef.trim() || undefined,
-        note: counterPaymentNote.trim() || undefined,
-      });
-
-      if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.id === paymentModalOrder.id
-              ? {
-                  ...o,
-                  paymentStatus: "paid",
-                  paymentMethod: counterPaymentMethod,
-                }
-              : o
-          )
-        );
-
-        if (selectedOrder?.id === paymentModalOrder.id) {
-          setSelectedOrder((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  paymentStatus: "paid",
-                  paymentMethod: counterPaymentMethod,
-                }
-              : null
-          );
-        }
-
-        setPaymentModalOrder(null);
-        setReceiptData(res.data);
-        setIsReceiptModalOpen(true);
-        onOrderUpdate?.();
+  const toggleTabExpand = (tabId: string) => {
+    setExpandedTabs((prev) => {
+      const next = new Set(prev);
+      if (next.has(tabId)) {
+        next.delete(tabId);
       } else {
-        setPaymentError(res.message || "Failed to record counter payment");
+        next.add(tabId);
       }
-    } catch (err) {
-      setPaymentError((err as Error).message || "Error recording payment");
-    } finally {
-      setIsRecordingPayment(false);
-    }
+      return next;
+    });
   };
+
+  // Group orders into DisplayGroups (tabs or legacy singles)
+  const groups = React.useMemo<DisplayGroup[]>(() => {
+    const tabMap = new Map<string, AdminOrderRow[]>();
+    const singleOrders: AdminOrderRow[] = [];
+
+    for (const o of orders) {
+      if (o.diningSessionId) {
+        const list = tabMap.get(o.diningSessionId) || [];
+        list.push(o);
+        tabMap.set(o.diningSessionId, list);
+      } else {
+        singleOrders.push(o);
+      }
+    }
+
+    const result: DisplayGroup[] = [];
+
+    for (const [sessionId, rounds] of tabMap.entries()) {
+      rounds.sort((a, b) => (a.roundNumber ?? 1) - (b.roundNumber ?? 1));
+
+      const activeRounds = rounds.filter((r) => r.status !== "cancelled");
+      const subtotalPaise = activeRounds.reduce((acc, r) => acc + (r.subtotalPaise || 0), 0);
+      const taxPaise = activeRounds.reduce((acc, r) => acc + (r.taxPaise || 0), 0);
+      const totalPaise = activeRounds.reduce((acc, r) => acc + (r.totalPaise || 0), 0);
+      const paidPaise = activeRounds
+        .filter((r) => r.paymentStatus === "paid")
+        .reduce((acc, r) => acc + (r.totalPaise || 0), 0);
+      const amountDuePaise = Math.max(0, totalPaise - paidPaise);
+
+      const existingSummary = rounds[0]?.tabSummary ?? rounds[0]?.tab;
+
+      const status =
+        existingSummary?.status ??
+        (rounds.some((r) => r.paymentStatus === "bill_requested")
+          ? "bill_requested"
+          : activeRounds.length > 0 &&
+            activeRounds.every((r) => r.status === "served") &&
+            amountDuePaise === 0
+          ? "closed"
+          : "active");
+
+      const paymentStatus =
+        existingSummary?.paymentStatus ??
+        (amountDuePaise === 0 && activeRounds.length > 0
+          ? "paid"
+          : status === "bill_requested"
+          ? "bill_requested"
+          : "open");
+
+      const tabSummary: AdminOrderTabSummary = {
+        id: sessionId,
+        status,
+        paymentStatus,
+        roundCount: activeRounds.length,
+        subtotalPaise: existingSummary?.subtotalPaise ?? subtotalPaise,
+        taxPaise: existingSummary?.taxPaise ?? taxPaise,
+        totalPaise: existingSummary?.totalPaise ?? totalPaise,
+        amountDuePaise: existingSummary?.amountDuePaise ?? amountDuePaise,
+        paidPaise: existingSummary?.paidPaise ?? paidPaise,
+      };
+
+      const isBillRequested =
+        status === "bill_requested" ||
+        rounds.some((r) => r.paymentStatus === "bill_requested");
+
+      const latestRound = rounds[rounds.length - 1];
+
+      result.push({
+        id: sessionId,
+        type: "tab",
+        tableNumber: rounds[0]?.tableNumber ?? "1",
+        diningSessionId: sessionId,
+        tabSummary,
+        orders: rounds,
+        createdAt: latestRound?.createdAt ?? new Date().toISOString(),
+        isBillRequested,
+      });
+    }
+
+    for (const s of singleOrders) {
+      result.push({
+        id: s.id,
+        type: "single",
+        tableNumber: s.tableNumber,
+        diningSessionId: null,
+        tabSummary: null,
+        orders: [s],
+        createdAt: s.createdAt,
+        isBillRequested: false,
+      });
+    }
+
+    // Sort: bill_requested first, then newest activity first
+    result.sort((a, b) => {
+      if (a.isBillRequested && !b.isBillRequested) return -1;
+      if (!a.isBillRequested && b.isBillRequested) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    return result;
+  }, [orders]);
 
   const fetchOrders = React.useCallback(
     async (showLoading = false) => {
@@ -258,6 +332,164 @@ export function AdminOrdersTab({
     return () => clearInterval(interval);
   }, [page, pageSize, statusFilter, paymentFilter, searchQuery]);
 
+  // Handle stage transition for a specific round/order
+  const handleTransition = async (orderId: string, toStatus: OrderStatus) => {
+    setTransitioningOrderId(orderId);
+    try {
+      const res = await kitchenApi.transition(orderId, toStatus);
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: toStatus } : o))
+        );
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder((prev) => (prev ? { ...prev, status: toStatus } : null));
+        }
+        onOrderUpdate?.();
+      }
+    } catch (err) {
+      console.error("Failed to transition order status:", err);
+    } finally {
+      setTransitioningOrderId(null);
+    }
+  };
+
+  // Settle whole tab action
+  const handleOpenSettleTab = (group: DisplayGroup) => {
+    setSettleModalGroup(group);
+    setTabPaymentMethod("cash");
+    setTabPaymentNote("");
+    setTabSettleError(null);
+  };
+
+  const handleConfirmSettleTab = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settleModalGroup || !settleModalGroup.diningSessionId) return;
+
+    setIsSettlingTab(true);
+    setTabSettleError(null);
+
+    try {
+      const res = await adminApi.settleTab(
+        settleModalGroup.diningSessionId,
+        tabPaymentMethod,
+        tabPaymentNote.trim() || undefined
+      );
+
+      if (res.ok) {
+        // Mark all rounds in this tab as paid with this method
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.diningSessionId === settleModalGroup.diningSessionId
+              ? {
+                  ...o,
+                  paymentStatus: "paid",
+                  paymentMethod: tabPaymentMethod,
+                  tabSummary: o.tabSummary
+                    ? {
+                        ...o.tabSummary,
+                        status: "closed",
+                        paymentStatus: "paid",
+                        amountDuePaise: 0,
+                        paidPaise: o.tabSummary.totalPaise,
+                      }
+                    : null,
+                }
+              : o
+          )
+        );
+
+        setSettleModalGroup(null);
+        await fetchOrders();
+        onOrderUpdate?.();
+      } else {
+        setTabSettleError(res.message || "Failed to settle dining tab");
+      }
+    } catch (err) {
+      setTabSettleError((err as Error).message || "Error settling tab");
+    } finally {
+      setIsSettlingTab(false);
+    }
+  };
+
+  // View Bill / Receipt
+  const handleViewBillOrReceipt = async (order: AdminOrderRow) => {
+    setIsLoadingBill(true);
+    try {
+      const res = await adminApi.getBillOrReceipt(order.id);
+      if (res.ok && res.data) {
+        setReceiptData(res.data);
+        setIsReceiptModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to load bill/receipt:", err);
+    } finally {
+      setIsLoadingBill(false);
+    }
+  };
+
+  // Legacy single-order counter payment
+  const handleOpenRecordPayment = (order: AdminOrderRow) => {
+    setPaymentModalOrder(order);
+    setCounterPaymentMethod("cash");
+    setCounterPaymentRef("");
+    setCounterPaymentNote("");
+    setPaymentError(null);
+  };
+
+  const handleConfirmCounterPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentModalOrder) return;
+
+    setIsRecordingPayment(true);
+    setPaymentError(null);
+
+    try {
+      const res = await adminApi.recordCounterPayment(paymentModalOrder.id, {
+        paymentMethod: counterPaymentMethod,
+        transactionRef: counterPaymentRef.trim() || undefined,
+        note: counterPaymentNote.trim() || undefined,
+      });
+
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === paymentModalOrder.id
+              ? {
+                  ...o,
+                  paymentStatus: "paid",
+                  paymentMethod: counterPaymentMethod,
+                }
+              : o
+          )
+        );
+
+        if (selectedOrder?.id === paymentModalOrder.id) {
+          setSelectedOrder((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  paymentStatus: "paid",
+                  paymentMethod: counterPaymentMethod,
+                }
+              : null
+          );
+        }
+
+        setPaymentModalOrder(null);
+        setReceiptData(res.data);
+        setIsReceiptModalOpen(true);
+        onOrderUpdate?.();
+      } else {
+        setPaymentError(res.message || "Failed to record counter payment");
+      }
+    } catch (err) {
+      setPaymentError((err as Error).message || "Error recording payment");
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
+
+  // Cancel order action
   const handleConfirmCancel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cancelModalOrder || !cancelReason.trim()) return;
@@ -266,10 +498,7 @@ export function AdminOrdersTab({
     setCancelError(null);
 
     try {
-      const res = await adminApi.cancelOrder(
-        cancelModalOrder.id,
-        cancelReason.trim()
-      );
+      const res = await adminApi.cancelOrder(cancelModalOrder.id, cancelReason.trim());
 
       if (res.ok) {
         setCancelModalOrder(null);
@@ -339,6 +568,42 @@ export function AdminOrdersTab({
     }
   };
 
+  const getTabStatusBadge = (group: DisplayGroup) => {
+    if (group.isBillRequested) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+          Bill Requested
+        </span>
+      );
+    }
+    const tabStatus = group.tabSummary?.status;
+    const isPaid =
+      group.tabSummary?.paymentStatus === "paid" ||
+      group.orders.every((o) => o.paymentStatus === "paid");
+
+    if (isPaid) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          Paid
+        </span>
+      );
+    }
+
+    if (tabStatus === "closed") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+          Closed
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+        Open Tab
+      </span>
+    );
+  };
+
   const getPaymentBadge = (status: string, method?: string | null) => {
     switch (status) {
       case "paid": {
@@ -355,9 +620,16 @@ export function AdminOrdersTab({
         );
       }
       case "counter":
+      case "open":
         return (
           <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400">
             ● Pay at Counter
+          </span>
+        );
+      case "bill_requested":
+        return (
+          <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400 font-semibold">
+            ● Bill Requested
           </span>
         );
       case "failed":
@@ -388,10 +660,10 @@ export function AdminOrdersTab({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full max-w-full overflow-x-hidden">
       {/* Search & Filters Bar */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-[var(--bg-surface)] p-2.5 sm:p-3 rounded-xl border border-[var(--border-subtle)] shadow-xs">
-        {/* Search */}
+        {/* Search Input */}
         <div className="relative flex-1 max-w-[340px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
           <input
@@ -401,7 +673,7 @@ export function AdminOrdersTab({
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Search order #, table, customer name..."
+            placeholder="Search order #, table, customer, item..."
             className="w-full h-10 pl-10 pr-3.5 text-sm sm:text-base rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]"
           />
         </div>
@@ -419,7 +691,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by status"
-            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
+            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
           >
             <option value="all">All Statuses</option>
             <option value="placed">Placed</option>
@@ -436,7 +708,7 @@ export function AdminOrdersTab({
               setPage(1);
             }}
             aria-label="Filter orders by payment status"
-            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer"
+            className="h-10 px-3 text-sm font-medium rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)] cursor-pointer min-h-[44px]"
           >
             <option value="all">All Payments</option>
             <option value="paid">Paid</option>
@@ -450,7 +722,7 @@ export function AdminOrdersTab({
             size="sm"
             onClick={() => fetchOrders(true)}
             isLoading={isLoading}
-            className="h-10 px-3.5 text-sm font-semibold"
+            className="h-10 px-3.5 text-sm font-semibold min-h-[44px]"
             leftIcon={<RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />}
           >
             Refresh
@@ -458,13 +730,11 @@ export function AdminOrdersTab({
         </div>
       </div>
 
-      {/* Orders Table Container */}
+      {/* Orders List Container */}
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs overflow-hidden">
         {error ? (
-          <div className="p-8 text-center text-sm text-red-600 dark:text-red-400">
-            {error}
-          </div>
-        ) : orders.length === 0 && !isLoading ? (
+          <div className="p-8 text-center text-sm text-red-600 dark:text-red-400">{error}</div>
+        ) : groups.length === 0 && !isLoading ? (
           <div className="p-12 text-center">
             <Receipt className="mx-auto h-10 w-10 text-[var(--text-muted)] opacity-50 mb-3" />
             <h4 className="text-sm font-semibold text-[var(--text-primary)]">No orders found</h4>
@@ -473,130 +743,713 @@ export function AdminOrdersTab({
             </p>
           </div>
         ) : (
-          <div className="w-full overflow-x-auto no-scrollbar sm:scrollbar-thin">
-            <table className="w-full text-left text-sm border-collapse min-w-[760px]">
-              <thead>
-                <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
-                  <th className="py-2.5 px-3 font-semibold">Order #</th>
-                  <th className="py-2.5 px-3 font-semibold">Table</th>
-                  <th className="py-2.5 px-3 font-semibold">Items Summary</th>
-                  <th className="py-2.5 px-3 text-right font-semibold">Total</th>
-                  <th className="py-2.5 px-3 font-semibold">Status</th>
-                  <th className="py-2.5 px-3 font-semibold">Payment</th>
-                  <th className="py-2.5 px-3 font-semibold">Time</th>
-                  <th className="py-2.5 px-3 text-right font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {orders.map((order) => {
-                  const canCancel =
-                    order.status !== "served" && order.status !== "cancelled";
+          <div className="w-full">
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block w-full overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse min-w-[760px]">
+                <thead>
+                  <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-[10px] tracking-wider">
+                    <th className="py-2.5 px-3 font-semibold w-10"></th>
+                    <th className="py-2.5 px-3 font-semibold">Table / Order</th>
+                    <th className="py-2.5 px-3 font-semibold">Items Summary</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">Total</th>
+                    <th className="py-2.5 px-3 font-semibold">Status</th>
+                    <th className="py-2.5 px-3 font-semibold">Payment</th>
+                    <th className="py-2.5 px-3 font-semibold">Time</th>
+                    <th className="py-2.5 px-3 text-right font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-subtle)]">
+                  {groups.map((group) => {
+                    const isTab = group.type === "tab" && group.diningSessionId;
+                    const isExpanded = Boolean(isTab && expandedTabs.has(group.id));
+                    const isPaid =
+                      (group.tabSummary?.paymentStatus === "paid" ||
+                        group.orders.every((o) => o.paymentStatus === "paid")) &&
+                      group.tabSummary?.amountDuePaise === 0;
 
-                  return (
-                    <tr
-                      key={order.id}
-                      tabIndex={0}
-                      className="hover:bg-[var(--bg-subtle)]/80 focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] transition-colors"
-                    >
-                      {/* Order Number */}
-                      <td className="py-3 px-3 font-mono font-bold text-sm sm:text-base text-[var(--text-primary)]">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{order.orderNumber}</span>
-                          {order.roundNumber !== undefined && order.roundNumber > 1 && (
-                            <span
-                              data-testid="order-round-badge"
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-                            >
-                              Round {order.roundNumber}
+                    const activeRounds = group.orders.filter((o) => o.status !== "cancelled");
+                    const totalItems = activeRounds.reduce(
+                      (acc, r) => acc + r.items.reduce((sum, i) => sum + i.quantity, 0),
+                      0
+                    );
+                    const itemsSummaryText = isTab
+                      ? `${totalItems} items across ${group.orders.length} rounds`
+                      : group.orders[0]?.items.map((i) => `${i.quantity}x ${i.name}`).join(", ") ?? "";
+
+                    const totalAmountPaise = group.tabSummary
+                      ? group.tabSummary.totalPaise
+                      : group.orders[0]?.totalPaise ?? 0;
+
+                    const rowBgClass = group.isBillRequested
+                      ? "bg-amber-50/70 dark:bg-amber-950/20 border-l-4 border-l-amber-500"
+                      : "hover:bg-[var(--bg-subtle)]/80 transition-colors";
+
+                    return (
+                      <React.Fragment key={group.id}>
+                        <tr
+                          data-testid="tab-group-row"
+                          tabIndex={0}
+                          className={`${rowBgClass} focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]`}
+                        >
+                          {/* Expand/Collapse Toggle */}
+                          <td className="py-3 px-2 text-center">
+                            {isTab ? (
+                              <button
+                                type="button"
+                                data-testid="expand-tab-btn"
+                                aria-expanded={isExpanded}
+                                aria-label={`Expand Tab for Table ${group.tableNumber}`}
+                                onClick={() => toggleTabExpand(group.id)}
+                                className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
+                            ) : null}
+                          </td>
+
+                          {/* Table & Rounds / Order # */}
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+                              Table {group.tableNumber}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {isTab ? (
+                                <span className="text-xs font-mono font-medium text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700">
+                                  Tab · {group.orders.length} round{group.orders.length !== 1 ? "s" : ""}
+                                </span>
+                              ) : (
+                                <span className="font-mono text-xs text-[var(--text-muted)] font-medium">
+                                  {group.orders[0]?.orderNumber}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Items Summary */}
+                          <td className="py-3 px-3 max-w-xs truncate text-sm text-[var(--text-secondary)]">
+                            <span title={itemsSummaryText}>{itemsSummaryText}</span>
+                          </td>
+
+                          {/* Total */}
+                          <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono tabular-nums">
+                            <div>{formatPaiseToINR(totalAmountPaise)}</div>
+                            {group.tabSummary && (
+                              <div className="text-[10px] text-[var(--text-muted)] font-normal">
+                                Sub: {formatPaiseToINR(group.tabSummary.subtotalPaise)} + GST:{" "}
+                                {formatPaiseToINR(group.tabSummary.taxPaise)}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3 px-3">
+                            {isTab ? getTabStatusBadge(group) : getStatusBadge(group.orders[0]?.status ?? "placed")}
+                          </td>
+
+                          {/* Payment Badge */}
+                          <td className="py-3 px-3">
+                            {isTab
+                              ? getPaymentBadge(
+                                  group.tabSummary?.paymentStatus ?? "open",
+                                  group.orders[0]?.paymentMethod
+                                )
+                              : getPaymentBadge(
+                                  group.orders[0]?.paymentStatus ?? "pending",
+                                  group.orders[0]?.paymentMethod
+                                )}
+                          </td>
+
+                          {/* Elapsed Time */}
+                          <td className="py-3 px-3 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
+                            {formatElapsedTime(group.createdAt)}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                            {isTab ? (
+                              <>
+                                {!isPaid && (
+                                  <Button
+                                    type="button"
+                                    data-testid="settle-tab-btn"
+                                    size="sm"
+                                    variant="primary"
+                                    onClick={() => handleOpenSettleTab(group)}
+                                    aria-label={`Settle Tab for Table ${group.tableNumber}`}
+                                    className="h-9 px-3 text-xs font-semibold shadow-xs"
+                                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
+                                  >
+                                    Settle Tab
+                                  </Button>
+                                )}
+                                {group.orders[0] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleViewBillOrReceipt(group.orders[0])}
+                                    className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                                    title={isPaid ? "Print Tab Receipt" : "Print Tab Bill"}
+                                    aria-label={`Print for Table ${group.tableNumber}`}
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              // Legacy Single Order Actions
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrder(group.orders[0])}
+                                  className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                                  title="View order details"
+                                  aria-label={`View order ${group.orders[0]?.orderNumber}`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewBillOrReceipt(group.orders[0])}
+                                  className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                                  title={group.orders[0]?.paymentStatus === "paid" ? "Print Receipt" : "Print Bill"}
+                                  aria-label={`Print bill for ${group.orders[0]?.orderNumber}`}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </button>
+                                {group.orders[0]?.paymentStatus !== "paid" &&
+                                  group.orders[0]?.status !== "cancelled" &&
+                                  !group.orders[0]?.diningSessionId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRecordPayment(group.orders[0])}
+                                      className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                                      title="Record counter payment"
+                                      aria-label={`Record payment for ${group.orders[0]?.orderNumber}`}
+                                    >
+                                      <Banknote className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                {group.orders[0]?.status !== "served" &&
+                                  group.orders[0]?.status !== "cancelled" && (
+                                    <button
+                                      type="button"
+                                      data-testid="cancel-order-btn"
+                                      onClick={() => {
+                                        setCancelModalOrder(group.orders[0]);
+                                        setCancelReason("");
+                                        setCancelError(null);
+                                      }}
+                                      className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                                      title="Cancel order"
+                                      aria-label={`Cancel order ${group.orders[0]?.orderNumber}`}
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </button>
+                                  )}
+                              </>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Expanded Tab Rounds Accordion Row */}
+                        {isTab && isExpanded && (
+                          <tr className="bg-[var(--bg-subtle)]/40">
+                            <td colSpan={8} className="p-3 sm:p-4">
+                              <div className="space-y-3 pl-2 sm:pl-6 border-l-2 border-amber-300 dark:border-amber-700">
+                                <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                                  Tab Breakdown · Table {group.tableNumber} ({group.orders.length} Rounds)
+                                </div>
+
+                                <div className="space-y-2.5">
+                                  {group.orders.map((round) => {
+                                    const isCancelled = round.status === "cancelled";
+                                    const canCancelRound =
+                                      round.status !== "served" && round.status !== "cancelled";
+                                    const stageIndex = STAGE_ORDER.indexOf(round.status);
+
+                                    return (
+                                      <div
+                                        key={round.id}
+                                        data-testid="round-row"
+                                        className={`p-3 rounded-lg border ${
+                                          isCancelled
+                                            ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20 opacity-70"
+                                            : "border-[var(--border-subtle)] bg-[var(--bg-surface)]"
+                                        }`}
+                                      >
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                          {/* Round info */}
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span
+                                              data-testid="order-round-badge"
+                                              className="px-2 py-0.5 rounded text-xs font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                            >
+                                              Round {round.roundNumber ?? 1}
+                                            </span>
+                                            <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">
+                                              #{round.orderNumber}
+                                            </span>
+                                            <span className="text-xs text-[var(--text-muted)] font-mono">
+                                              {formatElapsedTime(round.createdAt)}
+                                            </span>
+                                            {isCancelled && (
+                                              <span className="text-xs font-semibold text-red-600 dark:text-red-400 italic">
+                                                (Cancelled · Excluded from tab total)
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Total & Action shortcuts */}
+                                          <div className="flex items-center gap-3">
+                                            <span
+                                              className={`font-mono font-bold text-sm tabular-nums ${
+                                                isCancelled
+                                                  ? "line-through text-[var(--text-muted)]"
+                                                  : "text-[var(--text-primary)]"
+                                              }`}
+                                            >
+                                              {formatPaiseToINR(round.totalPaise)}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => setSelectedOrder(round)}
+                                              className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--primary)]"
+                                              title="View round details"
+                                              aria-label={`View round ${round.orderNumber}`}
+                                            >
+                                              <Eye className="h-4 w-4" />
+                                            </button>
+                                            {canCancelRound && (
+                                              <button
+                                                type="button"
+                                                data-testid="cancel-order-btn"
+                                                onClick={() => {
+                                                  setCancelModalOrder(round);
+                                                  setCancelReason("");
+                                                  setCancelError(null);
+                                                }}
+                                                className="p-1 rounded text-red-500 hover:text-red-700"
+                                                title="Cancel this round"
+                                                aria-label={`Cancel round ${round.orderNumber}`}
+                                              >
+                                                <XCircle className="h-4 w-4" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Items in this round */}
+                                        <div
+                                          className={`mt-2 text-xs sm:text-sm text-[var(--text-secondary)] ${
+                                            isCancelled ? "line-through" : ""
+                                          }`}
+                                        >
+                                          {round.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
+                                        </div>
+
+                                        {/* Stage Track & Kitchen Action Pipeline */}
+                                        {!isCancelled && (
+                                          <div className="mt-3 pt-2.5 border-t border-[var(--border-subtle)] flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                                            {/* Stage Track */}
+                                            <div
+                                              data-testid="stage-track"
+                                              className="flex items-center gap-1.5 text-xs font-medium"
+                                            >
+                                              {STAGE_ORDER.map((stage, idx) => {
+                                                const isCompleted = stageIndex > idx;
+                                                const isCurrent = stageIndex === idx;
+
+                                                return (
+                                                  <React.Fragment key={stage}>
+                                                    <div
+                                                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${
+                                                        isCurrent
+                                                          ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 font-bold"
+                                                          : isCompleted
+                                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                                          : "text-[var(--text-muted)] bg-[var(--bg-subtle)]"
+                                                      }`}
+                                                    >
+                                                      {isCompleted ? (
+                                                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                                      ) : null}
+                                                      <span>{stage}</span>
+                                                    </div>
+                                                    {idx < STAGE_ORDER.length - 1 && (
+                                                      <span className="text-[var(--text-muted)] text-[10px]">
+                                                        →
+                                                      </span>
+                                                    )}
+                                                  </React.Fragment>
+                                                );
+                                              })}
+                                            </div>
+
+                                            {/* Kitchen Action Buttons */}
+                                            <div className="flex items-center gap-1.5">
+                                              {(round.status === "placed" || round.status === "accepted") && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  isLoading={transitioningOrderId === round.id}
+                                                  onClick={() => handleTransition(round.id, "preparing")}
+                                                  className="h-7 px-2.5 text-xs font-semibold"
+                                                >
+                                                  Mark Preparing
+                                                </Button>
+                                              )}
+                                              {round.status === "preparing" && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  isLoading={transitioningOrderId === round.id}
+                                                  onClick={() => handleTransition(round.id, "ready")}
+                                                  className="h-7 px-2.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
+                                                >
+                                                  Mark Ready
+                                                </Button>
+                                              )}
+                                              {round.status === "ready" && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  isLoading={transitioningOrderId === round.id}
+                                                  onClick={() => handleTransition(round.id, "served")}
+                                                  className="h-7 px-2.5 text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-300 dark:border-zinc-700"
+                                                >
+                                                  Mark Served
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View (< 768px, down to 360px) */}
+            <div className="block md:hidden divide-y divide-[var(--border-subtle)]">
+              {groups.map((group) => {
+                const isTab = group.type === "tab" && group.diningSessionId;
+                const isExpanded = Boolean(isTab && expandedTabs.has(group.id));
+                const isPaid =
+                  (group.tabSummary?.paymentStatus === "paid" ||
+                    group.orders.every((o) => o.paymentStatus === "paid")) &&
+                  group.tabSummary?.amountDuePaise === 0;
+
+                const activeRounds = group.orders.filter((o) => o.status !== "cancelled");
+                const totalItems = activeRounds.reduce(
+                  (acc, r) => acc + r.items.reduce((sum, i) => sum + i.quantity, 0),
+                  0
+                );
+                const itemsSummaryText = isTab
+                  ? `${totalItems} items across ${group.orders.length} rounds`
+                  : group.orders[0]?.items.map((i) => `${i.quantity}x ${i.name}`).join(", ") ?? "";
+
+                const totalAmountPaise = group.tabSummary
+                  ? group.tabSummary.totalPaise
+                  : group.orders[0]?.totalPaise ?? 0;
+
+                const cardHighlight = group.isBillRequested
+                  ? "bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-500"
+                  : "";
+
+                return (
+                  <div
+                    key={group.id}
+                    data-testid="tab-group-row"
+                    className={`p-3.5 sm:p-4 space-y-3 ${cardHighlight}`}
+                  >
+                    {/* Card Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-base text-[var(--text-primary)]">
+                            Table {group.tableNumber}
+                          </span>
+                          {isTab ? (
+                            <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700">
+                              Tab · {group.orders.length} round{group.orders.length !== 1 ? "s" : ""}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs text-[var(--text-muted)]">
+                              #{group.orders[0]?.orderNumber}
                             </span>
                           )}
                         </div>
-                      </td>
+                        <div className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
+                          {formatElapsedTime(group.createdAt)}
+                        </div>
+                      </div>
 
-                      {/* Table */}
-                      <td className="py-3 px-3 font-semibold text-sm sm:text-base text-[var(--text-primary)]">
-                        {order.tableNumber}
-                      </td>
+                      <div className="text-right">
+                        <div className="font-bold text-lg font-mono text-[var(--text-primary)] tabular-nums">
+                          {formatPaiseToINR(totalAmountPaise)}
+                        </div>
+                        <div className="mt-1">
+                          {isTab
+                            ? getTabStatusBadge(group)
+                            : getStatusBadge(group.orders[0]?.status ?? "placed")}
+                        </div>
+                      </div>
+                    </div>
 
-                      {/* Items */}
-                      <td className="py-3 px-3 max-w-xs truncate text-sm text-[var(--text-secondary)]">
-                        <span title={order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}>
-                          {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                        </span>
-                      </td>
+                    {/* Items summary */}
+                    <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                      {itemsSummaryText}
+                    </p>
 
-                      {/* Total */}
-                      <td className="py-3 px-3 text-right font-bold text-sm sm:text-base text-[var(--text-primary)] font-mono tabular-nums">
-                        {formatPaiseToINR(order.totalPaise)}
-                      </td>
+                    {/* Status & Payment badges */}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border-subtle)]">
+                      <div>
+                        {isTab
+                          ? getPaymentBadge(
+                              group.tabSummary?.paymentStatus ?? "open",
+                              group.orders[0]?.paymentMethod
+                            )
+                          : getPaymentBadge(
+                              group.orders[0]?.paymentStatus ?? "pending",
+                              group.orders[0]?.paymentMethod
+                            )}
+                      </div>
+                      {group.tabSummary && (
+                        <div className="text-[11px] text-[var(--text-muted)] font-mono">
+                          GST 5%: {formatPaiseToINR(group.tabSummary.taxPaise)}
+                        </div>
+                      )}
+                    </div>
 
-                      {/* Status */}
-                      <td className="py-3 px-3">{getStatusBadge(order.status)}</td>
-
-                      {/* Payment */}
-                      <td className="py-3 px-3">{getPaymentBadge(order.paymentStatus, order.paymentMethod)}</td>
-
-                      {/* Elapsed Time */}
-                      <td className="py-3 px-3 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
-                        {formatElapsedTime(order.createdAt)}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-2.5 px-3 text-right space-x-1">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrder(order)}
-                          className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                          title="View order details"
-                          aria-label={`View order ${order.orderNumber}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleViewBillOrReceipt(order)}
-                          className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                          title={order.paymentStatus === "paid" ? "Print Receipt" : "Print Bill"}
-                          aria-label={`${order.paymentStatus === "paid" ? "Print receipt" : "Print bill"} for ${order.orderNumber}`}
-                        >
-                          <Printer className="h-4 w-4" />
-                        </button>
-
-                        {order.paymentStatus !== "paid" && order.status !== "cancelled" && !order.diningSessionId && (
-                          <button
+                    {/* Mobile Touch Action Buttons (at least 44px min height) */}
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">
+                      {isTab ? (
+                        <>
+                          {!isPaid && (
+                            <Button
+                              type="button"
+                              data-testid="settle-tab-btn"
+                              variant="primary"
+                              onClick={() => handleOpenSettleTab(group)}
+                              aria-label={`Settle Tab for Table ${group.tableNumber}`}
+                              className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold shadow-xs"
+                              leftIcon={<Banknote className="h-4 w-4" />}
+                            >
+                              Settle Tab
+                            </Button>
+                          )}
+                          <Button
                             type="button"
-                            onClick={() => handleOpenRecordPayment(order)}
-                            className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                            title="Record counter payment"
-                            aria-label={`Record payment for ${order.orderNumber}`}
+                            data-testid="expand-tab-btn"
+                            variant="outline"
+                            aria-expanded={isExpanded}
+                            aria-label={`Expand Tab for Table ${group.tableNumber}`}
+                            onClick={() => toggleTabExpand(group.id)}
+                            className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                            rightIcon={
+                              isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )
+                            }
                           >
-                            <Banknote className="h-4 w-4" />
-                          </button>
-                        )}
-
-                        {canCancel && (
-                          <button
+                            {isExpanded ? "Hide Rounds" : `View Rounds (${group.orders.length})`}
+                          </Button>
+                        </>
+                      ) : (
+                        // Legacy single order mobile actions
+                        <div className="flex items-center gap-2 w-full">
+                          <Button
                             type="button"
-                            data-testid="cancel-order-btn"
-                            onClick={() => {
-                              setCancelModalOrder(order);
-                              setCancelReason("");
-                              setCancelError(null);
-                            }}
-                            className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                            title="Cancel order"
-                            aria-label={`Cancel order ${order.orderNumber}`}
+                            variant="outline"
+                            onClick={() => setSelectedOrder(group.orders[0])}
+                            className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                            leftIcon={<Eye className="h-4 w-4" />}
                           >
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            Details
+                          </Button>
+                          {group.orders[0]?.paymentStatus !== "paid" &&
+                            group.orders[0]?.status !== "cancelled" &&
+                            !group.orders[0]?.diningSessionId && (
+                              <Button
+                                type="button"
+                                variant="primary"
+                                onClick={() => handleOpenRecordPayment(group.orders[0])}
+                                className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold shadow-xs"
+                                leftIcon={<Banknote className="h-4 w-4" />}
+                              >
+                                Record Payment
+                              </Button>
+                            )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mobile Expanded Rounds Accordion */}
+                    {isTab && isExpanded && (
+                      <div className="space-y-3 pt-3 border-t border-[var(--border-subtle)]">
+                        <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                          Rounds in this Tab ({group.orders.length})
+                        </div>
+                        {group.orders.map((round) => {
+                          const isCancelled = round.status === "cancelled";
+                          const canCancelRound =
+                            round.status !== "served" && round.status !== "cancelled";
+                          const stageIndex = STAGE_ORDER.indexOf(round.status);
+
+                          return (
+                            <div
+                              key={round.id}
+                              data-testid="round-row"
+                              className={`p-3 rounded-xl border space-y-2.5 ${
+                                isCancelled
+                                  ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20 opacity-70"
+                                  : "border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    data-testid="order-round-badge"
+                                    className="px-2 py-0.5 rounded text-xs font-bold font-mono uppercase bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                  >
+                                    Round {round.roundNumber ?? 1}
+                                  </span>
+                                  <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">
+                                    #{round.orderNumber}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`font-mono font-bold text-sm tabular-nums ${
+                                    isCancelled ? "line-through text-[var(--text-muted)]" : ""
+                                  }`}
+                                >
+                                  {formatPaiseToINR(round.totalPaise)}
+                                </span>
+                              </div>
+
+                              <div
+                                className={`text-xs text-[var(--text-secondary)] ${
+                                  isCancelled ? "line-through" : ""
+                                }`}
+                              >
+                                {round.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
+                              </div>
+
+                              {!isCancelled && (
+                                <>
+                                  {/* Mobile Stage Track */}
+                                  <div
+                                    data-testid="stage-track"
+                                    className="flex items-center justify-between text-[11px] font-medium pt-1 border-t border-[var(--border-subtle)]"
+                                  >
+                                    {STAGE_ORDER.map((stage, idx) => {
+                                      const isCompleted = stageIndex > idx;
+                                      const isCurrent = stageIndex === idx;
+
+                                      return (
+                                        <div
+                                          key={stage}
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize ${
+                                            isCurrent
+                                              ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200"
+                                              : isCompleted
+                                              ? "text-emerald-700 dark:text-emerald-400 font-medium"
+                                              : "text-[var(--text-muted)]"
+                                          }`}
+                                        >
+                                          {isCompleted ? "✓ " : ""}
+                                          {stage}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Kitchen action button on mobile (min 44px) */}
+                                  <div className="flex items-center gap-2 pt-1">
+                                    {(round.status === "placed" || round.status === "accepted") && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        isLoading={transitioningOrderId === round.id}
+                                        onClick={() => handleTransition(round.id, "preparing")}
+                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold"
+                                      >
+                                        Mark Preparing
+                                      </Button>
+                                    )}
+                                    {round.status === "preparing" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        isLoading={transitioningOrderId === round.id}
+                                        onClick={() => handleTransition(round.id, "ready")}
+                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-300"
+                                      >
+                                        Mark Ready
+                                      </Button>
+                                    )}
+                                    {round.status === "ready" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        isLoading={transitioningOrderId === round.id}
+                                        onClick={() => handleTransition(round.id, "served")}
+                                        className="h-11 min-h-[44px] flex-1 justify-center text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
+                                      >
+                                        Mark Served
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setSelectedOrder(round)}
+                                      className="h-11 min-h-[44px] px-3 text-xs"
+                                      aria-label={`Details for round ${round.orderNumber}`}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {canCancelRound && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setCancelModalOrder(round);
+                                          setCancelReason("");
+                                          setCancelError(null);
+                                        }}
+                                        className="h-11 min-h-[44px] px-3 text-red-500 hover:text-red-700"
+                                        aria-label={`Cancel round ${round.orderNumber}`}
+                                      >
+                                        <XCircle className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -615,7 +1468,7 @@ export function AdminOrdersTab({
             <span className="font-semibold text-[var(--text-primary)]">
               {totalCount}
             </span>{" "}
-            orders
+            {totalCount === 1 ? "group / tab" : "groups / tabs"}
           </div>
 
           <div className="flex items-center gap-2">
@@ -624,7 +1477,7 @@ export function AdminOrdersTab({
               size="sm"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="h-8 px-2.5 text-xs"
+              className="h-9 min-h-[36px] px-2.5 text-xs"
               leftIcon={<ChevronLeft className="h-3.5 w-3.5" />}
             >
               Previous
@@ -639,7 +1492,7 @@ export function AdminOrdersTab({
               size="sm"
               disabled={page >= totalPages || isLoading}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 px-2.5 text-xs"
+              className="h-9 min-h-[36px] px-2.5 text-xs"
               rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
             >
               Next
@@ -648,14 +1501,173 @@ export function AdminOrdersTab({
         </div>
       </div>
 
+      {/* Settle Dining Tab Modal */}
+      {settleModalGroup && (
+        <div
+          data-testid="settle-tab-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settle-tab-title"
+        >
+          <div className="w-full max-w-md bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-subtle)] shadow-2xl p-6 text-[var(--text-primary)]">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 mb-4">
+              <div className="p-2.5 rounded-full bg-amber-100 dark:bg-amber-950/60">
+                <Banknote className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 id="settle-tab-title" className="font-bold text-base">
+                  Settle Table {settleModalGroup.tableNumber} Tab
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Consolidated bill across {settleModalGroup.orders.length} round{settleModalGroup.orders.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            {/* Financial breakdown */}
+            <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] mb-4 space-y-1.5 font-mono text-xs tabular-nums">
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Subtotal</span>
+                <span>
+                  {formatPaiseToINR(settleModalGroup.tabSummary?.subtotalPaise ?? 0)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>GST (5%)</span>
+                <span>
+                  {formatPaiseToINR(settleModalGroup.tabSummary?.taxPaise ?? 0)}
+                </span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-[var(--border-subtle)] font-bold text-sm text-[var(--text-primary)]">
+                <span>Tab Total</span>
+                <span>
+                  {formatPaiseToINR(settleModalGroup.tabSummary?.totalPaise ?? 0)}
+                </span>
+              </div>
+              {(settleModalGroup.tabSummary?.paidPaise ?? 0) > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span>Already Paid</span>
+                  <span>
+                    - {formatPaiseToINR(settleModalGroup.tabSummary?.paidPaise ?? 0)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between pt-1.5 border-t border-dashed border-[var(--border-subtle)] text-base font-extrabold text-[var(--primary)]">
+                <span>Amount Due</span>
+                <span>
+                  {formatPaiseToINR(
+                    settleModalGroup.tabSummary?.amountDuePaise ??
+                      settleModalGroup.tabSummary?.totalPaise ??
+                      0
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {tabSettleError && (
+              <div className="mb-4 p-2.5 rounded-lg bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+                {tabSettleError}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmSettleTab} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                  Select Settlement Method
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTabPaymentMethod("cash")}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
+                      tabPaymentMethod === "cash"
+                        ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
+                        : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    <Banknote className="h-4 w-4" />
+                    <span className="text-xs">Cash</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTabPaymentMethod("card")}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
+                      tabPaymentMethod === "card"
+                        ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
+                        : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    <span className="text-xs">Card / POS</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTabPaymentMethod("upi")}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
+                      tabPaymentMethod === "upi"
+                        ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
+                        : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    <QrCode className="h-4 w-4" />
+                    <span className="text-xs">Counter UPI</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="tab-settle-note"
+                  className="block text-xs font-semibold text-[var(--text-secondary)] mb-1"
+                >
+                  Cashier Audit Note (Optional)
+                </label>
+                <input
+                  id="tab-settle-note"
+                  type="text"
+                  value={tabPaymentNote}
+                  onChange={(e) => setTabPaymentNote(e.target.value)}
+                  placeholder="e.g. Settle table tab at counter"
+                  className="w-full p-2.5 text-xs rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSettleModalGroup(null)}
+                  className="min-h-[44px] px-4"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  data-testid="confirm-settle-tab-btn"
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={isSettlingTab}
+                  leftIcon={<CheckCircle2 className="h-4 w-4" />}
+                  className="min-h-[44px] px-4 font-semibold"
+                >
+                  Confirm & Close Tab
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* View Order Detail Sheet */}
       <Sheet
         isOpen={Boolean(selectedOrder)}
         onClose={() => setSelectedOrder(null)}
         side="right"
-        title={
-          selectedOrder ? `Order ${selectedOrder.orderNumber}` : "Order Details"
-        }
+        title={selectedOrder ? `Order ${selectedOrder.orderNumber}` : "Order Details"}
         description={
           selectedOrder
             ? `${selectedOrder.tableNumber} · Placed ${formatElapsedTime(selectedOrder.createdAt)}`
@@ -676,7 +1688,9 @@ export function AdminOrdersTab({
                 <span className="text-xs text-[var(--text-muted)] uppercase font-mono block">
                   Payment Status
                 </span>
-                <div className="mt-1">{getPaymentBadge(selectedOrder.paymentStatus, selectedOrder.paymentMethod)}</div>
+                <div className="mt-1">
+                  {getPaymentBadge(selectedOrder.paymentStatus, selectedOrder.paymentMethod)}
+                </div>
               </div>
             </div>
 
@@ -853,9 +1867,7 @@ export function AdminOrdersTab({
                     <div className="font-semibold text-[var(--text-primary)] capitalize">
                       {evt.toStatus}
                     </div>
-                    {evt.note && (
-                      <p className="text-[11px] text-[var(--text-secondary)]">{evt.note}</p>
-                    )}
+                    {evt.note && <p className="text-[11px] text-[var(--text-secondary)]">{evt.note}</p>}
                     <span className="text-[10px] text-[var(--text-muted)] font-mono">
                       {new Date(evt.createdAt).toLocaleTimeString("en-IN", {
                         hour: "2-digit",
@@ -941,7 +1953,7 @@ export function AdminOrdersTab({
         </div>
       )}
 
-      {/* Record Counter Payment Modal */}
+      {/* Record Counter Payment Modal (Legacy Single Orders Only) */}
       {paymentModalOrder && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
@@ -988,7 +2000,7 @@ export function AdminOrdersTab({
                   <button
                     type="button"
                     onClick={() => setCounterPaymentMethod("cash")}
-                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
                       counterPaymentMethod === "cash"
                         ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
                         : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
@@ -1001,7 +2013,7 @@ export function AdminOrdersTab({
                   <button
                     type="button"
                     onClick={() => setCounterPaymentMethod("card")}
-                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
                       counterPaymentMethod === "card"
                         ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
                         : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
@@ -1014,7 +2026,7 @@ export function AdminOrdersTab({
                   <button
                     type="button"
                     onClick={() => setCounterPaymentMethod("upi")}
-                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer min-h-[44px] ${
                       counterPaymentMethod === "upi"
                         ? "border-[var(--primary)] bg-[var(--primary-subtle)] text-[var(--primary)] font-bold shadow-xs"
                         : "border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"

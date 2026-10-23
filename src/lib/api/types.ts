@@ -39,6 +39,8 @@ import type {
 import type {
   AdminOrderRow,
   AdminOrderItemSummary,
+  AdminOrderTabSummary,
+  AdminOrderGroup,
   GetAdminOrdersData,
   AdminCategoryData,
   AdminModifierData,
@@ -103,6 +105,8 @@ export type {
   TransitionOrderInput,
   AdminOrderRow,
   AdminOrderItemSummary,
+  AdminOrderTabSummary,
+  AdminOrderGroup,
   GetAdminOrdersData,
   AdminCategoryData,
   AdminModifierData,

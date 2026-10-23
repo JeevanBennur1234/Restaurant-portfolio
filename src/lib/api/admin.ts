@@ -17,6 +17,7 @@ import type {
   AdminReportsData,
   ReceiptData,
   RecordCounterPaymentInput,
+  OrderStatus,
 } from "./types";
 
 export interface RequestOptions {
@@ -68,6 +69,21 @@ export const adminApi = {
       {
         method: "POST",
         body: data,
+        signal: opts?.signal,
+      }
+    );
+  },
+
+  async transitionOrderStatus(
+    orderId: string,
+    toStatus: OrderStatus,
+    opts?: RequestOptions
+  ): Promise<ApiResult<{ newStatus: OrderStatus }>> {
+    return apiFetch<{ newStatus: OrderStatus }>(
+      `/api/v1/kitchen/orders/${encodeURIComponent(orderId)}/transition`,
+      {
+        method: "POST",
+        body: { toStatus },
         signal: opts?.signal,
       }
     );

@@ -90,6 +90,43 @@ function AdminDashboardContent({
             variant: "success",
           });
           setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "tab.bill_requested" }, (msg) => {
+          const payload = msg.payload as { tableNumber?: string } | undefined;
+          showToast({
+            title: "Bill Requested",
+            message: payload?.tableNumber
+              ? `Table ${payload.tableNumber} requested the bill`
+              : "A table has requested their bill",
+            variant: "info",
+          });
+          setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "tab.round_added" }, (msg) => {
+          const payload = msg.payload as { tableNumber?: string; roundNumber?: number } | undefined;
+          showToast({
+            title: "New Round Added",
+            message: payload?.tableNumber
+              ? `Table ${payload.tableNumber} ordered Round ${payload.roundNumber ?? ""}`
+              : "A new round was added to an open tab",
+            variant: "info",
+          });
+          setActiveOrdersCount((prev) => prev + 1);
+          setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "tab.updated" }, () => {
+          setRefreshKey((prev) => prev + 1);
+        })
+        .on("broadcast", { event: "tab.closed" }, (msg) => {
+          const payload = msg.payload as { tableNumber?: string } | undefined;
+          showToast({
+            title: "Tab Closed",
+            message: payload?.tableNumber
+              ? `Table ${payload.tableNumber} tab was settled and closed`
+              : "A dining tab was settled",
+            variant: "success",
+          });
+          setRefreshKey((prev) => prev + 1);
         });
 
       channel.subscribe();
