@@ -640,12 +640,13 @@ export function MenuView({
                   </p>
                 </div>
 
-                {/* Mobile: single-column cards give dish names, descriptions, prices, and controls room to breathe. */}
-                <div className="grid w-full grid-cols-1 items-stretch gap-4 pb-3 pt-1 sm:hidden">
+                {/* Mobile: aligned product grid; narrow phones use one column, wider phones use two. */}
+                <div className="grid w-full grid-cols-1 min-[360px]:grid-cols-2 items-stretch gap-3 pb-3 pt-1 sm:hidden">
                   {catItems.map((item, itemIdx) => (
                     <div key={item.id} className="min-w-0 w-full">
                       <MenuItemCard
                         item={item}
+                        compact
                         priority={catIndex === 0 && itemIdx < 2}
                         searchQuery={searchQuery}
                         isSignature={signatureCategoryIds.has(item.categoryId)}

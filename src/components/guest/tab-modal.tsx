@@ -196,6 +196,7 @@ export function TabModal({
 
   const isClosed = tab?.status === "closed";
   const isBillRequested = tab?.status === "bill_requested";
+  const isCounterRequested = isBillRequested && tab?.paymentMethod === "counter";
 
   return (
     <div
@@ -217,7 +218,13 @@ export function TabModal({
                 Dining Tab • {tableLabel}
               </h3>
               <p className="text-xs text-[var(--text-secondary)]">
-                {isClosed ? "Settled & Closed" : isBillRequested ? "Bill Requested" : "Open Table Tab"}
+                {isClosed
+                  ? "Settled & Closed"
+                  : isCounterRequested
+                    ? "Waiting for counter staff"
+                    : isBillRequested
+                      ? "Online payment requested"
+                      : "Open Table Tab"}
               </p>
             </div>
           </div>
@@ -298,7 +305,7 @@ export function TabModal({
                         : "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300"
                     }`}
                   >
-                    {isClosed ? "Tab Settled" : isBillRequested ? "Bill Requested" : "Tab Active"}
+                    {isClosed ? "Tab Settled" : isCounterRequested ? "Counter Requested" : isBillRequested ? "Bill Requested" : "Tab Active"}
                   </span>
                 </div>
               </div>
@@ -393,7 +400,24 @@ export function TabModal({
               </div>
             )}
 
-            {!isClosed && isBillRequested && (
+            {!isClosed && isCounterRequested && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                <p className="font-semibold">Counter payment requested</p>
+                <p className="mt-1 text-xs">Your order rounds are saved. Please pay the displayed total to staff at the counter. Staff must confirm payment to close this tab.</p>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={fetchTab}
+                  isLoading={isLoading}
+                  className="mt-3 w-full text-xs"
+                  leftIcon={<RefreshCw className="h-4 w-4" />}
+                >
+                  Refresh Tab Status
+                </Button>
+              </div>
+            )}
+
+            {!isClosed && isBillRequested && !isCounterRequested && (
               <div className="space-y-2">
                 {paymentsEnabled && (
                   <Button

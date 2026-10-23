@@ -297,10 +297,10 @@ export function MenuItemCard({
         {/* Separate body keeps dish names, descriptions, prices, and quantity controls easy to scan. */}
         <div className={cn("flex flex-1 flex-col justify-between", compact ? "p-3" : "p-4 sm:p-5")}>
           <div>
-            <div className={cn("mb-2 text-xs text-stone-400", compact ? "flex flex-col items-start gap-1.5" : "flex items-center justify-between gap-2")}>
+            <div className="mb-2 flex items-center justify-between gap-1.5 text-xs text-stone-400">
               <div data-testid="spice-level-slot" className="flex min-w-0 items-center gap-1.5">
                 {spiceInfo.flames > 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-1" title={`Spice level: ${spiceInfo.label}`}>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5 sm:py-1" title={`Spice level: ${spiceInfo.label}`}>
                     <span className="flex items-center gap-0.5">
                       {Array.from({ length: 3 }).map((_, index) => (
                         <Flame
@@ -322,7 +322,7 @@ export function MenuItemCard({
                 )}
               </div>
               {item.prepTimeMinutes > 0 && (
-                <span className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 font-mono text-[11px] text-stone-200">
+                <span className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-0.5 sm:px-2.5 sm:py-1 font-mono text-[10px] sm:text-[11px] text-stone-200">
                   <Clock className="h-3.5 w-3.5 text-amber-400/80" aria-hidden="true" />
                   {item.prepTimeMinutes} min
                 </span>
@@ -341,35 +341,35 @@ export function MenuItemCard({
             </p>
           </div>
 
-          <div className={cn("border-t border-[#2F2722] pt-3", compact ? "mt-3 flex flex-col items-start gap-3" : "mt-4 flex items-end justify-between gap-3")}>
+          <div className={cn("mt-auto flex items-end justify-between gap-2 border-t border-[#2F2722] pt-3", compact && "pt-2.5")}>
             <div className="min-w-0">
               <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
                 Price
               </span>
-              <span className={cn("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem] font-mono tabular-nums tracking-tight", compact && "text-lg")}>
+              <span className={cn("font-serif text-2xl font-bold text-amber-300 sm:text-[1.75rem] font-mono tabular-nums tracking-tight", compact && "text-base sm:text-lg")}>
                 {formatPaiseToINR(item.pricePaise)}
               </span>
             </div>
 
-            <div className={cn("shrink-0", compact && "w-full")} onClick={(e) => e.stopPropagation()}>
+            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
               {totalQuantityInCart > 0 ? (
-                <div className={cn("flex min-h-[44px] items-center rounded-full border border-amber-300/40 bg-gradient-to-br from-[#D4A373] to-[#B37840] p-0.5 text-[#1A1614] shadow-md", compact && "w-full justify-between")}>
+                <div className="flex min-h-[44px] items-center rounded-full border border-amber-300/40 bg-gradient-to-br from-[#D4A373] to-[#B37840] p-0.5 text-[#1A1614] shadow-md">
                   <button
                     type="button"
                     aria-label={`Decrease ${item.name} quantity`}
                     onClick={handleDecrement}
-                    className="flex h-10 min-h-[44px] min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
+                    className="flex h-10 min-h-[44px] min-w-[32px] sm:min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
-                  <span data-testid="item-card-quantity" className="min-w-6 px-1 text-center font-mono text-sm font-bold">
+                  <span data-testid="item-card-quantity" className="min-w-5 sm:min-w-6 px-0.5 sm:px-1 text-center font-mono text-xs sm:text-sm font-bold">
                     {totalQuantityInCart}
                   </span>
                   <button
                     type="button"
                     aria-label={`Increase ${item.name} quantity`}
                     onClick={handleIncrement}
-                    className="flex h-10 min-h-[44px] min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
+                    className="flex h-10 min-h-[44px] min-w-[32px] sm:min-w-[36px] items-center justify-center rounded-full transition-all hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A1614] active:scale-90"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -382,15 +382,13 @@ export function MenuItemCard({
                   onClick={handleQuickAdd}
                   aria-label={isAvailable ? `Add ${item.name} to order` : `${item.name} is sold out`}
                   className={cn(
-                    "flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center border border-amber-300/40 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] active:scale-95",
-                    compact ? "h-11 w-full gap-2 rounded-xl px-3" : "min-h-[44px] min-w-[44px] rounded-full h-11 w-11",
+                    "flex min-h-[44px] min-w-[44px] rounded-full h-11 w-11 cursor-pointer items-center justify-center border border-amber-300/40 shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] active:scale-95",
                     isAvailable
                       ? "bg-gradient-to-br from-[#D4A373] to-[#B37840] text-[#1A1614] hover:brightness-110"
                       : "cursor-not-allowed bg-white/20 text-white/40 opacity-50"
                   )}
                 >
                   <Plus className="h-5 w-5 stroke-[2.5]" />
-                  {compact && <span className="text-sm font-semibold">Add to order</span>}
                 </button>
               )}
             </div>
