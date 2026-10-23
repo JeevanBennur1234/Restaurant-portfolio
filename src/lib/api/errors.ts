@@ -11,6 +11,8 @@ export const ERROR_MESSAGES: Record<ApiErrorCode | "NETWORK", string> = {
   FORBIDDEN:
     "Unauthorized table session. Please scan your table QR code again.",
   UNAUTHENTICATED: "Authentication required. Please sign in to continue.",
+  TAB_ROUND_NOT_PAYABLE:
+    "This order belongs to an open dining tab and cannot be paid individually. Please settle the whole tab.",
   INTERNAL: "Could not place order. Please try again.",
   NETWORK: "Network error. Please check your internet connection and retry.",
 };

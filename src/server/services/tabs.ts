@@ -70,9 +70,12 @@ export interface TabDetailsData {
   subtotalPaise: number;
   taxPaise: number;
   totalPaise: number;
+  paidPaise: number;
+  amountDuePaise: number;
   formattedSubtotal: string;
   formattedTax: string;
   formattedTotal: string;
+  formattedAmountDue: string;
   customerName: string | null;
   customerPhone: string | null;
   createdAt: string;
@@ -80,6 +83,30 @@ export interface TabDetailsData {
   orders: TabOrderSummary[];
   paymentsEnabled: boolean;
   paymentsTestMode: boolean;
+}
+
+/**
+ * Checks whether an order belongs to an open tab (session status is active or bill_requested).
+ */
+export async function isOrderInOpenTab(
+  ctx: Ctx,
+  order: { diningSessionId?: string | null; diningSession?: { status: string } | null }
+): Promise<boolean> {
+  if (!order.diningSessionId) return false;
+  if (order.diningSession) {
+    return (
+      order.diningSession.status === "active" ||
+      order.diningSession.status === "bill_requested"
+    );
+  }
+  const session = ctx.db.query?.diningSessions?.findFirst
+    ? await ctx.db.query.diningSessions.findFirst({
+        where: eq(diningSessions.id, order.diningSessionId),
+      })
+    : null;
+  return session
+    ? session.status === "active" || session.status === "bill_requested"
+    : false;
 }
 
 export interface PlaceTabRoundData {
@@ -152,6 +179,44 @@ export async function getActiveTab(
       return ok(null);
     }
 
+    const nonCancelledOrders = session.orders;
+    const computedSubtotal =
+      nonCancelledOrders.some((o) => o.subtotalPaise != null)
+        ? nonCancelledOrders.reduce((sum, o) => sum + (o.subtotalPaise ?? 0), 0)
+        : session.subtotalPaise ?? 0;
+    const computedTax =
+      nonCancelledOrders.some((o) => o.taxPaise != null)
+        ? nonCancelledOrders.reduce((sum, o) => sum + (o.taxPaise ?? 0), 0)
+        : session.taxPaise ?? 0;
+    const computedTotal =
+      nonCancelledOrders.some((o) => o.totalPaise != null)
+        ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
+        : session.totalPaise ?? 0;
+
+    // Sum of already-paid non-cancelled rounds (pre-paid rounds)
+    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
+    const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const amountDuePaise = Math.max(0, computedTotal - paidPaise);
+
+    // Invariant guard: ensure diningSessions row in DB stays synchronized with non-cancelled rounds
+    if (
+      session.totalPaise !== computedTotal ||
+      session.subtotalPaise !== computedSubtotal ||
+      session.taxPaise !== computedTax
+    ) {
+      if (ctx.db.update) {
+        await ctx.db
+          .update(diningSessions)
+          .set({
+            subtotalPaise: computedSubtotal,
+            taxPaise: computedTax,
+            totalPaise: computedTotal,
+            updatedAt: new Date(),
+          })
+          .where(eq(diningSessions.id, session.id));
+      }
+    }
+
     const formattedOrders: TabOrderSummary[] = session.orders.map((o) => ({
       orderId: o.id,
       orderNumber: o.orderNumber,
@@ -194,16 +259,19 @@ export async function getActiveTab(
       paymentStatus: session.paymentStatus as TabDetailsData["paymentStatus"],
       paymentMethod: session.paymentMethod,
       roundCount: session.orders.length,
-      subtotalPaise: session.subtotalPaise,
-      taxPaise: session.taxPaise,
-      totalPaise: session.totalPaise,
-      formattedSubtotal: formatPaiseToINR(session.subtotalPaise),
-      formattedTax: formatPaiseToINR(session.taxPaise),
-      formattedTotal: formatPaiseToINR(session.totalPaise),
+      subtotalPaise: computedSubtotal,
+      taxPaise: computedTax,
+      totalPaise: computedTotal,
+      paidPaise,
+      amountDuePaise,
+      formattedSubtotal: formatPaiseToINR(computedSubtotal),
+      formattedTax: formatPaiseToINR(computedTax),
+      formattedTotal: formatPaiseToINR(computedTotal),
+      formattedAmountDue: formatPaiseToINR(amountDuePaise),
       customerName: session.customerName,
       customerPhone: session.customerPhone,
-      createdAt: session.createdAt.toISOString(),
-      closedAt: session.closedAt ? session.closedAt.toISOString() : null,
+      createdAt: session.createdAt ? new Date(session.createdAt).toISOString() : new Date().toISOString(),
+      closedAt: session.closedAt ? new Date(session.closedAt).toISOString() : null,
       orders: formattedOrders,
       paymentsEnabled: isOnlinePaymentsEnabled(),
       paymentsTestMode: isRazorpayTestMode(),
@@ -412,10 +480,23 @@ export async function placeTabRound(
         note: `Round ${nextRound} placed on Open Tab`,
       });
 
-      // Update session totals
-      const newSubtotal = (activeSession.subtotalPaise ?? 0) + roundSubtotalPaise;
-      const newTax = (activeSession.taxPaise ?? 0) + roundTaxPaise;
-      const newTotal = (activeSession.totalPaise ?? 0) + roundTotalPaise;
+      // Update session totals strictly matching sum of all non-cancelled rounds including the new one
+      const priorSubtotal =
+        priorOrders.length > 0 && priorOrders.some((o) => o.subtotalPaise != null)
+          ? priorOrders.reduce((s, o) => s + (o.subtotalPaise ?? 0), 0)
+          : activeSession.subtotalPaise ?? 0;
+      const priorTax =
+        priorOrders.length > 0 && priorOrders.some((o) => o.taxPaise != null)
+          ? priorOrders.reduce((s, o) => s + (o.taxPaise ?? 0), 0)
+          : activeSession.taxPaise ?? 0;
+      const priorTotal =
+        priorOrders.length > 0 && priorOrders.some((o) => o.totalPaise != null)
+          ? priorOrders.reduce((s, o) => s + (o.totalPaise ?? 0), 0)
+          : activeSession.totalPaise ?? 0;
+
+      const newSubtotal = priorSubtotal + roundSubtotalPaise;
+      const newTax = priorTax + roundTaxPaise;
+      const newTotal = priorTotal + roundTotalPaise;
 
       await tx
         .update(diningSessions)
@@ -577,10 +658,23 @@ export async function createTabRazorpayOrder(
       return fail("NOT_FOUND", "No active orders on this tab", 404);
     }
 
+    const nonCancelledOrders = session.orders;
+    const computedTotal =
+      nonCancelledOrders.some((o) => o.totalPaise != null)
+        ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
+        : session.totalPaise ?? 0;
+    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
+    const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const amountDuePaise = Math.max(0, computedTotal - paidPaise);
+
+    if (amountDuePaise === 0) {
+      return fail("CONFLICT", "Tab is already fully paid", 400);
+    }
+
     let rzpOrder;
     try {
       rzpOrder = await createRzpOrder(
-        session.totalPaise,
+        amountDuePaise,
         `ML-TAB-${session.id.slice(0, 8)}`,
         {
           tabId: session.id,
@@ -599,7 +693,7 @@ export async function createTabRazorpayOrder(
       orderId: firstOrder.id,
       diningSessionId: session.id,
       restaurantId: tableRecord.restaurantId,
-      amountPaise: session.totalPaise,
+      amountPaise: amountDuePaise,
       status: "pending",
       provider: "razorpay",
       razorpayOrderId: rzpOrder.id,
@@ -608,7 +702,7 @@ export async function createTabRazorpayOrder(
     return ok({
       tabId: session.id,
       razorpayOrderId: rzpOrder.id,
-      amountPaise: session.totalPaise,
+      amountPaise: amountDuePaise,
       currency: "INR",
       keyId: rzpOrder.keyId,
     });
@@ -687,7 +781,11 @@ export async function verifyTabPayment(
       if (orderIds.length > 0) {
         await tx
           .update(orders)
-          .set({ paymentStatus: "paid", updatedAt: now })
+          .set({
+            paymentStatus: "paid",
+            paymentMethod: "pay_now",
+            updatedAt: now,
+          })
           .where(inArray(orders.id, orderIds));
 
         for (const oId of orderIds) {
@@ -869,6 +967,16 @@ export async function settleTabAtCounter(
     }
 
     const now = new Date();
+    const paymentMethodToRecord = paymentMethod || "counter";
+
+    const nonCancelledOrders = session.orders;
+    const computedTotal =
+      nonCancelledOrders.some((o) => o.totalPaise != null)
+        ? nonCancelledOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0)
+        : session.totalPaise ?? 0;
+    const paidOrders = nonCancelledOrders.filter((o) => o.paymentStatus === "paid");
+    const paidPaise = paidOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+    const amountDuePaise = Math.max(0, computedTotal - paidPaise);
 
     await ctx.db.transaction(async (tx) => {
       await tx
@@ -876,7 +984,7 @@ export async function settleTabAtCounter(
         .set({
           status: "closed",
           paymentStatus: "paid",
-          paymentMethod: "counter",
+          paymentMethod: paymentMethodToRecord,
           notes: notes ?? null,
           closedAt: now,
           updatedAt: now,
@@ -887,7 +995,11 @@ export async function settleTabAtCounter(
       if (orderIds.length > 0) {
         await tx
           .update(orders)
-          .set({ paymentStatus: "paid", updatedAt: now })
+          .set({
+            paymentStatus: "paid",
+            paymentMethod: paymentMethodToRecord,
+            updatedAt: now,
+          })
           .where(inArray(orders.id, orderIds));
 
         for (const oId of orderIds) {
@@ -895,7 +1007,7 @@ export async function settleTabAtCounter(
             orderId: oId,
             fromStatus: null,
             toStatus: "accepted",
-            note: `Tab settled at counter by ${ctx.actor!.username}`,
+            note: `Tab settled at counter (${paymentMethodToRecord}) by ${ctx.actor!.username}`,
             staffUserId: ctx.actor!.userId,
           });
         }
@@ -906,9 +1018,9 @@ export async function settleTabAtCounter(
           orderId: session.orders[0].id,
           diningSessionId: session.id,
           restaurantId: session.restaurantId,
-          amountPaise: session.totalPaise,
+          amountPaise: amountDuePaise,
           status: "completed",
-          provider: paymentMethod || "counter",
+          provider: paymentMethodToRecord,
           razorpayOrderId: null,
           razorpayPaymentId: `COUNTER-${Date.now()}`,
         });

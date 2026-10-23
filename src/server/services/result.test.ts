@@ -34,6 +34,7 @@ describe("ServiceResult helpers", () => {
     const rateLimitedError = fail("RATE_LIMITED", "Too many requests", 429);
     const conflictError = fail("CONFLICT", "Status transition invalid", 409);
     const paymentError = fail("PAYMENT", "Payment gateway failed", 402);
+    const tabRoundError = fail("TAB_ROUND_NOT_PAYABLE", "Tab round cannot be paid individually", 400);
     const internalError = fail("INTERNAL", "Server error", 500);
 
     expect(validationError.ok).toBe(false);
@@ -42,6 +43,7 @@ describe("ServiceResult helpers", () => {
     expect(rateLimitedError.ok).toBe(false);
     expect(conflictError.ok).toBe(false);
     expect(paymentError.ok).toBe(false);
+    expect(tabRoundError.ok).toBe(false);
     expect(internalError.ok).toBe(false);
   });
 });

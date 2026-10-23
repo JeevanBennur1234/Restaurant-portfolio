@@ -339,14 +339,21 @@ export function AdminOrdersTab({
     }
   };
 
-  const getPaymentBadge = (status: string) => {
+  const getPaymentBadge = (status: string, method?: string | null) => {
     switch (status) {
-      case "paid":
+      case "paid": {
+        const isOnline = method === "pay_now" || method === "online";
+        const label = isOnline
+          ? "Paid (Online)"
+          : method
+          ? `Paid (${method === "counter" || method === "cash" ? "Counter" : method.toUpperCase()})`
+          : "Paid (Online)";
         return (
           <span className="inline-flex items-center text-xs sm:text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            ● Paid (Online)
+            ● {label}
           </span>
         );
+      }
       case "counter":
         return (
           <span className="inline-flex items-center text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400">
@@ -527,7 +534,7 @@ export function AdminOrdersTab({
                       <td className="py-3 px-3">{getStatusBadge(order.status)}</td>
 
                       {/* Payment */}
-                      <td className="py-3 px-3">{getPaymentBadge(order.paymentStatus)}</td>
+                      <td className="py-3 px-3">{getPaymentBadge(order.paymentStatus, order.paymentMethod)}</td>
 
                       {/* Elapsed Time */}
                       <td className="py-3 px-3 text-[var(--text-muted)] font-mono text-xs sm:text-sm">
@@ -556,7 +563,7 @@ export function AdminOrdersTab({
                           <Printer className="h-4 w-4" />
                         </button>
 
-                        {order.paymentStatus !== "paid" && order.status !== "cancelled" && (
+                        {order.paymentStatus !== "paid" && order.status !== "cancelled" && !order.diningSessionId && (
                           <button
                             type="button"
                             onClick={() => handleOpenRecordPayment(order)}
@@ -669,7 +676,7 @@ export function AdminOrdersTab({
                 <span className="text-xs text-[var(--text-muted)] uppercase font-mono block">
                   Payment Status
                 </span>
-                <div className="mt-1">{getPaymentBadge(selectedOrder.paymentStatus)}</div>
+                <div className="mt-1">{getPaymentBadge(selectedOrder.paymentStatus, selectedOrder.paymentMethod)}</div>
               </div>
             </div>
 
@@ -778,7 +785,7 @@ export function AdminOrdersTab({
                     >
                       View / Print Bill
                     </Button>
-                    {selectedOrder.status !== "cancelled" && (
+                    {selectedOrder.status !== "cancelled" && !selectedOrder.diningSessionId && (
                       <Button
                         type="button"
                         variant="primary"
@@ -791,6 +798,11 @@ export function AdminOrdersTab({
                       </Button>
                     )}
                   </div>
+                  {selectedOrder.diningSessionId && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 italic">
+                      This order belongs to an open dining tab and cannot be paid individually. Please settle the whole tab.
+                    </p>
+                  )}
                   <p className="text-[11px] text-[var(--text-muted)] italic">
                     Generating an unpaid bill leaves order status and payment status untouched.
                   </p>

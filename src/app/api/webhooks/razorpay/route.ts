@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
-import { orders, payments, orderEvents } from "@/server/db/schema";
+import { orders, payments, orderEvents, diningSessions } from "@/server/db/schema";
 import { verifyRazorpayWebhookSignature } from "@/server/razorpay";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { env } from "@/server/env";
@@ -101,18 +101,44 @@ export async function POST(req: NextRequest) {
     try {
       let existingPayment = await db.query.payments.findFirst({
         where: eq(payments.razorpayOrderId, razorpayOrderId),
-        with: { order: { with: { table: true } } },
+        with: { order: { with: { table: true, diningSession: true } } },
       });
 
       if (!existingPayment && data.payload?.qr_code?.entity?.notes?.orderId) {
         existingPayment = await db.query.payments.findFirst({
           where: eq(payments.orderId, data.payload.qr_code.entity.notes.orderId),
-          with: { order: { with: { table: true } } },
+          with: { order: { with: { table: true, diningSession: true } } },
         });
       }
 
 
       if (existingPayment) {
+        // RULE: An order that belongs to an open tab can never be paid on its own.
+        if (
+          !existingPayment.diningSessionId &&
+          existingPayment.order?.diningSessionId
+        ) {
+          const session =
+            (existingPayment.order as { diningSession?: { id?: string; status: string } }).diningSession ||
+            (db.query?.diningSessions?.findFirst
+              ? await db.query.diningSessions.findFirst({
+                  where: eq(diningSessions.id, existingPayment.order.diningSessionId),
+                })
+              : null);
+
+          if (session && (session.status === "active" || session.status === "bill_requested")) {
+            console.error(
+              `[Security Alert] Rejected individual payment webhook for order ${existingPayment.orderId} belonging to open tab ${session.id}`
+            );
+            return NextResponse.json(
+              {
+                error: "TAB_ROUND_NOT_PAYABLE",
+                message: "Order belongs to an open dining tab and cannot be paid individually",
+              },
+              { status: 400 }
+            );
+          }
+        }
         // Idempotency check: if payment already completed or order already marked paid
         if (existingPayment.status === "completed" || existingPayment.order.paymentStatus === "paid") {
           if (existingPayment.status !== "completed") {

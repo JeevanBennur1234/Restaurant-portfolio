@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { orders, payments, orderEvents, diningSessions, type OrderStatus } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
 import { formatPaiseToINR } from "@/lib/currency";
@@ -332,6 +332,7 @@ export async function recordCounterPayment(
         restaurant: true,
         items: true,
         payments: true,
+        diningSession: true,
       },
     });
 
@@ -341,6 +342,25 @@ export async function recordCounterPayment(
 
     if (dbOrder.status === "cancelled") {
       return fail("CONFLICT", "Cannot record payment for a cancelled order", 400);
+    }
+
+    // RULE: An order that belongs to an open tab can never be paid on its own.
+    if (dbOrder.diningSessionId) {
+      const session =
+        dbOrder.diningSession ||
+        (ctx.db.query?.diningSessions?.findFirst
+          ? await ctx.db.query.diningSessions.findFirst({
+              where: eq(diningSessions.id, dbOrder.diningSessionId),
+            })
+          : null);
+
+      if (session && (session.status === "active" || session.status === "bill_requested")) {
+        return fail(
+          "TAB_ROUND_NOT_PAYABLE",
+          "This order belongs to an open dining tab and cannot be paid individually. Please settle the whole tab.",
+          400
+        );
+      }
     }
 
     // Idempotency: If already paid, return existing receipt without duplicate records
@@ -387,32 +407,6 @@ export async function recordCounterPayment(
         note: auditNote,
         staffUserId: ctx.actor!.userId,
       });
-
-      // 4. If this order belongs to an active dining session, check if all orders are settled
-      if (dbOrder.diningSessionId) {
-        const sessionOrders = await tx.query.orders.findMany({
-          where: and(
-            eq(orders.diningSessionId, dbOrder.diningSessionId),
-            sql`${orders.status} != 'cancelled'`
-          ),
-        });
-        const allOtherOrdersPaid = sessionOrders
-          .filter((o) => o.id !== dbOrder.id)
-          .every((o) => o.paymentStatus === "paid");
-
-        if (allOtherOrdersPaid) {
-          await tx
-            .update(diningSessions)
-            .set({
-              status: "closed",
-              paymentStatus: "paid",
-              paymentMethod: paymentMethod,
-              closedAt: now,
-              updatedAt: now,
-            })
-            .where(eq(diningSessions.id, dbOrder.diningSessionId));
-        }
-      }
     });
 
     // 5. Publish realtime event to notify KDS and guest tracker

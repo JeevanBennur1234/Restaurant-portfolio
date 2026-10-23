@@ -8,6 +8,7 @@ export type ErrorCode =
   | "CONFLICT"
   | "RATE_LIMITED"
   | "PAYMENT"
+  | "TAB_ROUND_NOT_PAYABLE"
   | "INTERNAL";
 
 export type ServiceResult<T> =

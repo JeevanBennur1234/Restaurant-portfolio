@@ -46,6 +46,7 @@ import {
 import { isIsolatedLocalTestDatabase } from "@/server/db/safe-test-db";
 import { env } from "@/server/env";
 import { ok, fail, type ServiceResult, type Ctx } from "./result";
+import { isOrderInOpenTab } from "./tabs";
 
 export { isOnlinePaymentsEnabled, isRazorpayTestMode };
 
@@ -551,10 +552,11 @@ export async function placeOrder(
 
       let nextRound = 1;
       let sessionId = null;
+      let priorOrders: Array<{ subtotalPaise?: number; taxPaise?: number; totalPaise?: number }> = [];
       if (activeSession) {
         sessionId = activeSession.id;
         if (tx.query?.orders?.findMany) {
-          const priorOrders = await tx.query.orders.findMany({
+          priorOrders = await tx.query.orders.findMany({
             where: and(
               eq(orders.diningSessionId, activeSession.id),
               sql`${orders.status} != 'cancelled'`
@@ -563,6 +565,12 @@ export async function placeOrder(
           nextRound = priorOrders.length + 1;
         }
       }
+
+      // If attached to an active dining session, this order is an open tab round:
+      // must be counter payment method and immediately routed to kitchen.
+      const isTabRound = Boolean(activeSession);
+      const effectivePaymentStatus = isTabRound ? "counter" : initialPaymentStatus;
+      const effectivePaymentMethod = isTabRound ? "counter" : paymentMethod;
 
       const [order] = await tx
         .insert(orders)
@@ -573,8 +581,8 @@ export async function placeOrder(
           roundNumber: nextRound,
           orderNumber: generatedOrderNumber,
           status: "placed",
-          paymentStatus: initialPaymentStatus,
-          paymentMethod,
+          paymentStatus: effectivePaymentStatus,
+          paymentMethod: effectivePaymentMethod,
           subtotalPaise: calculatedSubtotalPaise,
           taxPaise: calculatedTaxPaise,
           totalPaise: calculatedTotalPaise,
@@ -601,20 +609,28 @@ export async function placeOrder(
         fromStatus: null,
         toStatus: "placed",
         note:
-          paymentMethod === "counter"
+          effectivePaymentMethod === "counter"
             ? "Order placed (Pay at counter)"
             : "Order placed (Payment pending)",
       });
 
       if (activeSession) {
+        const priorSubtotal = priorOrders.reduce((s: number, o) => s + (o.subtotalPaise ?? 0), 0);
+        const priorTax = priorOrders.reduce((s: number, o) => s + (o.taxPaise ?? 0), 0);
+        const priorTotal = priorOrders.reduce((s: number, o) => s + (o.totalPaise ?? 0), 0);
+
+        const newSubtotal = priorSubtotal + calculatedSubtotalPaise;
+        const newTax = priorTax + calculatedTaxPaise;
+        const newTotal = priorTotal + calculatedTotalPaise;
+
         await tx
           .update(diningSessions)
           .set({
             status: "active",
             paymentStatus: "open",
-            subtotalPaise: (activeSession.subtotalPaise ?? 0) + calculatedSubtotalPaise,
-            taxPaise: (activeSession.taxPaise ?? 0) + calculatedTaxPaise,
-            totalPaise: (activeSession.totalPaise ?? 0) + calculatedTotalPaise,
+            subtotalPaise: newSubtotal,
+            taxPaise: newTax,
+            totalPaise: newTotal,
             updatedAt: new Date(),
           })
           .where(eq(diningSessions.id, activeSession.id));
@@ -797,6 +813,14 @@ export async function createRazorpayOrder(
       return fail("FORBIDDEN", "Unauthorized access to order", 403);
     }
 
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
+    }
+
     if (dbOrder.paymentStatus === "paid") {
       return fail("CONFLICT", "Order is already paid", 409);
     }
@@ -912,6 +936,14 @@ export async function verifyRazorpayPayment(
       return fail("FORBIDDEN", "Unauthorized access", 403);
     }
 
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
+    }
+
     // 1. Load the payments row WHERE order_id = orderId AND razorpay_order_id = razorpayOrderId
     const payment = await ctx.db.query.payments.findFirst({
       where: and(
@@ -1013,6 +1045,14 @@ export async function switchOrderToCounter(
 
     if (dbOrder.table.qrToken !== token) {
       return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
     }
 
     const isPaid =
@@ -1131,6 +1171,14 @@ export async function createUpiQrPayment(
       return fail("FORBIDDEN", "Unauthorized access to order", 403);
     }
 
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
+    }
+
     if (dbOrder.paymentStatus === "paid") {
       return fail("CONFLICT", "Order is already paid", 409);
     }
@@ -1243,6 +1291,14 @@ export async function getPaymentStatus(
 
     if (dbOrder.table.qrToken !== token) {
       return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
     }
 
     if (dbOrder.paymentStatus === "paid") {
@@ -1497,6 +1553,14 @@ export async function verifyTestUpiPayment(
 
     if (dbOrder.table.qrToken !== token) {
       return fail("FORBIDDEN", "Unauthorized access", 403);
+    }
+
+    if (await isOrderInOpenTab(ctx, dbOrder)) {
+      return fail(
+        "TAB_ROUND_NOT_PAYABLE",
+        "This order belongs to an open dining tab and cannot be paid individually. Please settle your dining tab.",
+        400
+      );
     }
 
     // Idempotent: if already paid, return ok immediately

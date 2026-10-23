@@ -410,6 +410,29 @@ export async function cancelOrder(
           note: `Cancelled by Manager ${ctx.actor!.username ?? ctx.actor!.role}: ${reason}`,
         });
       }
+
+      // Maintain invariant: tab total must always equal the sum of its non-cancelled rounds
+      if (existing.diningSessionId && tx.query?.orders?.findMany) {
+        const remainingSessionOrders = await tx.query.orders.findMany({
+          where: and(
+            eq(orders.diningSessionId, existing.diningSessionId),
+            sql`${orders.status} != 'cancelled' AND ${orders.id} != ${orderId}`
+          ),
+        });
+        const newSubtotal = remainingSessionOrders.reduce((sum, o) => sum + (o.subtotalPaise ?? 0), 0);
+        const newTax = remainingSessionOrders.reduce((sum, o) => sum + (o.taxPaise ?? 0), 0);
+        const newTotal = remainingSessionOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+
+        await tx
+          .update(diningSessions)
+          .set({
+            subtotalPaise: newSubtotal,
+            taxPaise: newTax,
+            totalPaise: newTotal,
+            updatedAt: new Date(),
+          })
+          .where(eq(diningSessions.id, existing.diningSessionId));
+      }
     });
 
     // Broadcast realtime event

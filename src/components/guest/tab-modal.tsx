@@ -341,9 +341,19 @@ export function TabModal({
                       <span className="font-bold text-[var(--text-primary)]">
                         Round {round.roundNumber} (#{round.orderNumber})
                       </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded capitalize bg-[var(--bg-subtle)] font-semibold text-[var(--text-secondary)]">
-                        {round.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {round.paymentStatus === "paid" && (
+                          <span
+                            data-testid={`round-already-paid-${round.roundNumber}`}
+                            className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800"
+                          >
+                            Already paid
+                          </span>
+                        )}
+                        <span className="text-[11px] px-2 py-0.5 rounded capitalize bg-[var(--bg-subtle)] font-semibold text-[var(--text-secondary)]">
+                          {round.status}
+                        </span>
+                      </div>
                     </div>
 
                     <ul className="space-y-1.5 text-xs">
@@ -377,10 +387,27 @@ export function TabModal({
                   <span>5% GST (2.5% CGST + 2.5% SGST)</span>
                   <span className="tabular-nums font-semibold">{tab.formattedTax}</span>
                 </div>
-                <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-bold text-[var(--text-primary)]">
-                  <span>Total Amount Due</span>
-                  <span className="tabular-nums">{tab.formattedTotal}</span>
-                </div>
+                {tab.paidPaise && tab.paidPaise > 0 ? (
+                  <>
+                    <div className="flex justify-between text-[var(--text-secondary)] pt-1 border-t border-[var(--border-subtle)]">
+                      <span>Tab Total</span>
+                      <span className="tabular-nums font-semibold">{tab.formattedTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <span>Already paid</span>
+                      <span className="tabular-nums">-{formatPaiseToINR(tab.paidPaise)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-bold text-[var(--text-primary)]">
+                      <span>Total Amount Due</span>
+                      <span className="tabular-nums">{tab.formattedAmountDue || tab.formattedTotal}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="pt-2 border-t border-[var(--border-subtle)] flex justify-between text-sm font-bold text-[var(--text-primary)]">
+                    <span>Total Amount Due</span>
+                    <span className="tabular-nums">{tab.formattedAmountDue || tab.formattedTotal}</span>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -468,7 +495,7 @@ export function TabModal({
                     className="w-full text-xs font-semibold"
                     leftIcon={<CreditCard className="h-4 w-4" />}
                   >
-                    Pay Online Now ({tab.formattedTotal})
+                    Pay Online Now ({tab.formattedAmountDue || tab.formattedTotal})
                   </Button>
                 )}
                 <Button
