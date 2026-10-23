@@ -120,11 +120,8 @@ test.describe("Customer Food Ordering Journey", () => {
     // 7. Submit the order (with double click to verify idempotency)
     const submitBtn = page.locator('[data-testid="checkout-submit-btn"]');
     await expect(submitBtn).toBeVisible();
-    try {
-      await submitBtn.dblclick({ force: true, timeout: 5_000 });
-    } catch {
-      await submitBtn.click({ force: true }).catch(() => {});
-    }
+    await submitBtn.click();
+    await submitBtn.click({ force: true }).catch(() => {});
 
     // 8. Assert navigation to order live tracker and order number display
     await page.waitForURL(/\/t\/demo-table-7\/order\/.+/, { timeout: 30_000 });

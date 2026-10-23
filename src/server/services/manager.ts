@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { eq, desc, asc, and, count } from "drizzle-orm";
+import { eq, desc, asc, and, count, sql } from "drizzle-orm";
 import {
   orders,
   orderItems,
@@ -9,6 +9,7 @@ import {
   categories,
   menuItems,
   modifiers,
+  diningSessions,
   type OrderStatus,
 } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
@@ -153,6 +154,13 @@ export interface AdminTableData {
   qrToken: string;
   isActive: boolean;
   createdAt: string;
+  activeTab?: {
+    id: string;
+    status: string;
+    paymentStatus: string;
+    roundCount: number;
+    totalPaise: number;
+  } | null;
 }
 
 export interface TopSellingItem {
@@ -972,15 +980,41 @@ export async function getAdminTables(
       orderBy: [asc(tables.tableNumber)],
     });
 
+    const activeSessions = await ctx.db.query.diningSessions.findMany({
+      where: and(
+        eq(diningSessions.restaurantId, ctx.actor!.restaurantId),
+        sql`${diningSessions.status} IN ('active', 'bill_requested')`
+      ),
+      with: {
+        orders: {
+          where: sql`${orders.status} != 'cancelled'`,
+        },
+      },
+    });
+
+    const sessionByTable = new Map(activeSessions.map((s) => [s.tableId, s]));
+
     return ok(
-      dbTables.map((t) => ({
-        id: t.id,
-        tableNumber: t.tableNumber,
-        capacity: t.capacity,
-        qrToken: t.qrToken,
-        isActive: t.isActive,
-        createdAt: t.createdAt.toISOString(),
-      }))
+      dbTables.map((t) => {
+        const s = sessionByTable.get(t.id);
+        return {
+          id: t.id,
+          tableNumber: t.tableNumber,
+          capacity: t.capacity,
+          qrToken: t.qrToken,
+          isActive: t.isActive,
+          createdAt: t.createdAt.toISOString(),
+          activeTab: s
+            ? {
+                id: s.id,
+                status: s.status,
+                paymentStatus: s.paymentStatus,
+                roundCount: s.orders.length,
+                totalPaise: s.totalPaise,
+              }
+            : null,
+        };
+      })
     );
   } catch (err) {
     console.error("Database error in getAdminTables service:", err);

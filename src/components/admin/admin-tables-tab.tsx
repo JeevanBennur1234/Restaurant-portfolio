@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminApi } from "@/lib/api/admin";
+import { formatPaiseToINR } from "@/lib/currency";
 import { userMessageFor } from "@/lib/api/errors";
 import type { AdminTableData } from "@/lib/api/types";
 import { resolveSiteUrl } from "@/lib/site-urls";
@@ -28,6 +29,19 @@ export function AdminTablesTab() {
   const [tableNumber, setTableNumber] = React.useState("");
   const [capacity, setCapacity] = React.useState(4);
   const [isCreating, setIsCreating] = React.useState(false);
+  const [settlingTabId, setSettlingTabId] = React.useState<string | null>(null);
+
+  const handleSettleTab = async (tabId: string) => {
+    setSettlingTabId(tabId);
+    try {
+      const res = await adminApi.settleTab(tabId, "counter");
+      if (res.ok) {
+        await fetchTables();
+      }
+    } finally {
+      setSettlingTabId(null);
+    }
+  };
 
   const fetchTables = React.useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
@@ -253,6 +267,38 @@ export function AdminTablesTab() {
                     </span>
                     <QrCode className="h-4 w-4 text-[var(--primary)] shrink-0" />
                   </div>
+
+                  {/* Active Open Tab Badge & Settlement */}
+                  {table.activeTab && (
+                    <div
+                      data-testid={`active-tab-card-${table.id}`}
+                      className="mt-2.5 p-2.5 rounded-lg border border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/40 space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-amber-900 dark:text-amber-200">
+                          {table.activeTab.status === "bill_requested" ? "🔔 Bill Requested" : "Open Tab"}
+                        </span>
+                        <span className="font-mono font-bold text-amber-900 dark:text-amber-200 tabular-nums">
+                          {formatPaiseToINR(table.activeTab.totalPaise)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-300">
+                        <span>
+                          {table.activeTab.roundCount} {table.activeTab.roundCount === 1 ? "round" : "rounds"} ordered
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          data-testid={`settle-tab-${table.id}`}
+                          isLoading={settlingTabId === table.activeTab.id}
+                          onClick={() => handleSettleTab(table.activeTab!.id)}
+                          className="h-7 text-xs px-2.5 py-0"
+                        >
+                          Settle Tab
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer Action Links */}

@@ -9,6 +9,9 @@ import type {
   CreateUpiQrData,
   PaymentStatusData,
   ReceiptData,
+  TabDetailsData,
+  PlaceTabRoundData,
+  PlaceTabRoundInput,
 } from "./types";
 
 export interface PlaceOrderOptions {
@@ -373,6 +376,142 @@ export function getReceiptPdfUrl(
   return `/api/v1/customer/orders/${encodeURIComponent(orderId)}/receipt/pdf?token=${encodeURIComponent(token)}&format=${format}`;
 }
 
+/**
+ * Fetch active dining tab for table session
+ */
+export async function getActiveTab(
+  token: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<TabDetailsData | null>> {
+  return apiFetch<TabDetailsData | null>(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab`,
+    {
+      method: "GET",
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Places an additional round on the table's open tab
+ */
+export async function placeTabRound(
+  token: string,
+  data: Omit<PlaceTabRoundInput, "token">,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<PlaceTabRoundData>> {
+  return apiFetch<PlaceTabRoundData>(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/orders`,
+    {
+      method: "POST",
+      body: { ...data, token },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Requests bill for table tab
+ */
+export async function requestTabBill(
+  token: string,
+  paymentMethod: "pay_now" | "counter" = "pay_now",
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{ tabId: string; status: string; totalPaise: number }>> {
+  return apiFetch<{ tabId: string; status: string; totalPaise: number }>(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/request-bill`,
+    {
+      method: "POST",
+      body: { token, paymentMethod },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Initiates Razorpay payment for tab
+ */
+export async function createTabRazorpayPayment(
+  token: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{
+  tabId: string;
+  razorpayOrderId: string;
+  amountPaise: number;
+  currency: string;
+  keyId: string;
+}>> {
+  return apiFetch(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/payment/razorpay`,
+    {
+      method: "POST",
+      body: { token },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Verifies Razorpay payment for tab
+ */
+export async function verifyTabPayment(
+  token: string,
+  data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string },
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{ success: true; tabId: string }>> {
+  return apiFetch(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/payment/verify`,
+    {
+      method: "POST",
+      body: { ...data, token },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Test simulated payment for tab in dev/e2e
+ */
+export async function testVerifyTabPayment(
+  token: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<{ success: true; tabId: string }>> {
+  return apiFetch(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/payment/test-verify`,
+    {
+      method: "POST",
+      body: { token },
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * Fetch consolidated receipt for tab
+ */
+export async function getTabReceipt(
+  token: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<ReceiptData>> {
+  return apiFetch<ReceiptData>(
+    `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/receipt`,
+    {
+      method: "GET",
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
+ * PDF download URL for tab receipt
+ */
+export function getTabReceiptPdfUrl(
+  token: string,
+  format: "a4" | "thermal" = "a4"
+): string {
+  return `/api/v1/customer/tables/${encodeURIComponent(token)}/tab/receipt/pdf?format=${format}`;
+}
+
 export const customerApi = {
   getMenu,
   placeOrder,
@@ -386,5 +525,13 @@ export const customerApi = {
   verifyTestUpiPayment,
   payAtCounter,
   switchOrderToCounter: payAtCounter,
+  getActiveTab,
+  placeTabRound,
+  requestTabBill,
+  createTabRazorpayPayment,
+  verifyTabPayment,
+  testVerifyTabPayment,
+  getTabReceipt,
+  getTabReceiptPdfUrl,
 };
 

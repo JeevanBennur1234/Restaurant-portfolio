@@ -207,6 +207,57 @@ export const modifiers = pgTable(
 );
 
 // ============================================================================
+// 5.5 Dining Sessions (Open Tab)
+// ============================================================================
+export const diningSessionStatusEnum = pgEnum("dining_session_status", [
+  "active",
+  "bill_requested",
+  "closed",
+]);
+
+export type DiningSessionStatus = (typeof diningSessionStatusEnum.enumValues)[number];
+
+export const diningSessions = pgTable(
+  "dining_sessions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id, { onDelete: "cascade" }),
+    tableId: text("table_id")
+      .notNull()
+      .references(() => tables.id, { onDelete: "cascade" }),
+    sessionToken: text("session_token").notNull().unique(),
+    status: text("status").notNull().default("active"),
+    paymentStatus: text("payment_status").notNull().default("open"),
+    paymentMethod: text("payment_method"),
+    customerName: text("customer_name"),
+    customerPhone: text("customer_phone"),
+    subtotalPaise: integer("subtotal_paise").notNull().default(0),
+    taxPaise: integer("tax_paise").notNull().default(0),
+    totalPaise: integer("total_paise").notNull().default(0),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("dining_sessions_restaurant_id_idx").on(table.restaurantId),
+    index("dining_sessions_table_id_status_idx").on(table.tableId, table.status),
+    index("dining_sessions_session_token_idx").on(table.sessionToken),
+    check("dining_sessions_subtotal_paise_nonnegative", sql`${table.subtotalPaise} >= 0`),
+    check("dining_sessions_tax_paise_nonnegative", sql`${table.taxPaise} >= 0`),
+    check("dining_sessions_total_paise_nonnegative", sql`${table.totalPaise} >= 0`),
+  ]
+);
+
+// ============================================================================
 // 6. Orders
 // ============================================================================
 export const orders = pgTable(
@@ -221,6 +272,10 @@ export const orders = pgTable(
     tableId: text("table_id")
       .notNull()
       .references(() => tables.id, { onDelete: "restrict" }),
+    diningSessionId: text("dining_session_id").references(() => diningSessions.id, {
+      onDelete: "set null",
+    }),
+    roundNumber: integer("round_number").notNull().default(1),
     orderNumber: text("order_number").notNull(),
     status: orderStatusEnum("status").notNull().default("placed"),
     // Financial fields computed only on server in integer paise
@@ -244,6 +299,7 @@ export const orders = pgTable(
     index("orders_status_created_at_idx").on(table.status, table.createdAt),
     index("orders_restaurant_id_idx").on(table.restaurantId),
     index("orders_table_id_idx").on(table.tableId),
+    index("orders_dining_session_id_idx").on(table.diningSessionId),
     uniqueIndex("orders_restaurant_order_number_idx").on(
       table.restaurantId,
       table.orderNumber
@@ -326,6 +382,8 @@ export const payments = pgTable(
     orderId: text("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
+    diningSessionId: text("dining_session_id")
+      .references(() => diningSessions.id, { onDelete: "set null" }),
     restaurantId: text("restaurant_id")
       .notNull()
       .references(() => restaurants.id, { onDelete: "restrict" }),
@@ -344,6 +402,7 @@ export const payments = pgTable(
   },
   (table) => [
     index("payments_order_id_idx").on(table.orderId),
+    index("payments_dining_session_id_idx").on(table.diningSessionId),
     index("payments_restaurant_id_idx").on(table.restaurantId),
     uniqueIndex("payments_razorpay_order_id_unique_idx").on(table.razorpayOrderId),
     check("payments_amount_paise_nonnegative", sql`${table.amountPaise} >= 0`),
@@ -446,6 +505,7 @@ export const restaurantsRelations = relations(restaurants, ({ many, one }) => ({
   categories: many(categories),
   menuItems: many(menuItems),
   orders: many(orders),
+  diningSessions: many(diningSessions),
   staffUsers: many(staffUsers),
   orderCounter: one(orderCounters),
   idempotencyKeys: many(idempotencyKeys),
@@ -457,6 +517,7 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
     references: [restaurants.id],
   }),
   orders: many(orders),
+  diningSessions: many(diningSessions),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -495,6 +556,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.tableId],
     references: [tables.id],
   }),
+  diningSession: one(diningSessions, {
+    fields: [orders.diningSessionId],
+    references: [diningSessions.id],
+  }),
   items: many(orderItems),
   events: many(orderEvents),
   payments: many(payments),
@@ -523,10 +588,27 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.orderId],
     references: [orders.id],
   }),
+  diningSession: one(diningSessions, {
+    fields: [payments.diningSessionId],
+    references: [diningSessions.id],
+  }),
   restaurant: one(restaurants, {
     fields: [payments.restaurantId],
     references: [restaurants.id],
   }),
+}));
+
+export const diningSessionsRelations = relations(diningSessions, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [diningSessions.restaurantId],
+    references: [restaurants.id],
+  }),
+  table: one(tables, {
+    fields: [diningSessions.tableId],
+    references: [tables.id],
+  }),
+  orders: many(orders),
+  payments: many(payments),
 }));
 
 export const staffUsersRelations = relations(staffUsers, ({ one }) => ({

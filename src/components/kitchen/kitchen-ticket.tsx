@@ -126,6 +126,19 @@ export function KitchenTicketCard({
           >
             #{ticket.orderNumber}
           </span>
+          {ticket.roundNumber !== undefined && ticket.roundNumber !== null && ticket.roundNumber >= 1 && (
+            <span
+              data-testid="ticket-round-badge"
+              className={cn(
+                "font-mono text-xs font-bold px-2 py-0.5 rounded border",
+                ticket.roundNumber > 1
+                  ? "bg-orange-950/80 text-orange-300 border-orange-700/80"
+                  : "bg-stone-800 text-stone-300 border-stone-600/80"
+              )}
+            >
+              Round {ticket.roundNumber}
+            </span>
+          )}
         </div>
 
         {/* Live Urgency Timer with Color + Distinct Icon + Explicit Text Label (Non-color reliant) */}

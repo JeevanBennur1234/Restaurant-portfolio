@@ -1,5 +1,6 @@
 import { eq, ne, isNotNull, inArray, and, sql, gte, asc, desc, like } from "drizzle-orm";
 import {
+  diningSessions,
   orders,
   orderItems,
   orderEvents,
@@ -538,11 +539,38 @@ export async function placeOrder(
       const seqNumber = counterRow?.lastOrderNumber ?? 1;
       const generatedOrderNumber = `ML-${String(seqNumber).padStart(4, "0")}`;
 
+      // Check if there is an active dining tab for this table
+      const activeSession = tx.query?.diningSessions?.findFirst
+        ? await tx.query.diningSessions.findFirst({
+            where: and(
+              eq(diningSessions.tableId, dbTable.id),
+              sql`${diningSessions.status} IN ('active', 'bill_requested')`
+            ),
+          })
+        : null;
+
+      let nextRound = 1;
+      let sessionId = null;
+      if (activeSession) {
+        sessionId = activeSession.id;
+        if (tx.query?.orders?.findMany) {
+          const priorOrders = await tx.query.orders.findMany({
+            where: and(
+              eq(orders.diningSessionId, activeSession.id),
+              sql`${orders.status} != 'cancelled'`
+            ),
+          });
+          nextRound = priorOrders.length + 1;
+        }
+      }
+
       const [order] = await tx
         .insert(orders)
         .values({
           restaurantId,
           tableId: dbTable.id,
+          diningSessionId: sessionId,
+          roundNumber: nextRound,
           orderNumber: generatedOrderNumber,
           status: "placed",
           paymentStatus: initialPaymentStatus,
@@ -578,11 +606,23 @@ export async function placeOrder(
             : "Order placed (Payment pending)",
       });
 
+      if (activeSession) {
+        await tx
+          .update(diningSessions)
+          .set({
+            subtotalPaise: (activeSession.subtotalPaise ?? 0) + calculatedSubtotalPaise,
+            taxPaise: (activeSession.taxPaise ?? 0) + calculatedTaxPaise,
+            totalPaise: (activeSession.totalPaise ?? 0) + calculatedTotalPaise,
+            updatedAt: new Date(),
+          })
+          .where(eq(diningSessions.id, activeSession.id));
+      }
+
       return order;
     });
 
     // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter.
-    if (paymentMethod === "counter") {
+    if (paymentMethod === "counter" || Boolean(insertedOrder.diningSessionId)) {
       await publishRealtimeEvent(
         getRestaurantChannel(restaurantId),
         "order.created",

@@ -25,6 +25,18 @@ import type {
   TransitionOrderInput,
 } from "@/server/services/kitchen";
 import type {
+  TabDetailsData,
+  TabOrderSummary,
+  PlaceTabRoundData,
+} from "@/server/services/tabs";
+import type {
+  PlaceTabRoundInput,
+  RequestTabBillInput,
+  VerifyTabPaymentInput,
+  TestVerifyTabPaymentInput,
+  SettleTabInput,
+} from "@/lib/validations/order";
+import type {
   AdminOrderRow,
   AdminOrderItemSummary,
   GetAdminOrdersData,
@@ -120,4 +132,12 @@ export type {
   UpdateTableInput,
   DeleteTableInput,
   RecordCounterPaymentInput,
+  TabDetailsData,
+  TabOrderSummary,
+  PlaceTabRoundData,
+  PlaceTabRoundInput,
+  RequestTabBillInput,
+  VerifyTabPaymentInput,
+  TestVerifyTabPaymentInput,
+  SettleTabInput,
 };

@@ -40,7 +40,13 @@
     ".next-customer/types/**/*.ts",
     ".next-customer/dev/types/**/*.ts",
     ".next-kitchen/types/**/*.ts",
-    ".next-kitchen/dev/types/**/*.ts"
+    ".next-kitchen/dev/types/**/*.ts",
+    ".next/dev-customer/types/**/*.ts",
+    ".next/dev-customer/dev/types/**/*.ts",
+    ".next/dev-kitchen/types/**/*.ts",
+    ".next/dev-kitchen/dev/types/**/*.ts",
+    ".next/dev-manager/types/**/*.ts",
+    ".next/dev-manager/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

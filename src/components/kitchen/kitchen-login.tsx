@@ -18,15 +18,20 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    if (!username || !password || isLoading) return;
+    const form = e?.currentTarget;
+    const formUsername = form ? (new FormData(form).get("username") as string) : "";
+    const formPassword = form ? (new FormData(form).get("password") as string) : "";
+    const targetUsername = (username || formUsername || "").trim();
+    const targetPassword = password || formPassword || "";
+    if (!targetUsername || !targetPassword || isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await authApi.login(username, password);
+      const res = await authApi.login(targetUsername, targetPassword);
       if (res.ok) {
         window.location.reload();
       } else {
@@ -80,7 +85,7 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
                 Staff Username
               </label>
               <input
-                id="staff-username"
+                id="staff-username" name="username"
                 data-testid="kitchen-username-input"
                 type="text"
                 value={username}
@@ -98,7 +103,7 @@ export function KitchenLogin({ managerUrl }: KitchenLoginProps) {
                 Password
               </label>
               <input
-                id="staff-password"
+                id="staff-password" name="password"
                 data-testid="kitchen-password-input"
                 type="password"
                 value={password}

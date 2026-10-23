@@ -7,6 +7,7 @@ import { PairingCard } from "./pairing-card";
 import { ItemDetailSheet } from "./item-detail-sheet";
 import { CartBar } from "./cart-bar";
 import { CartSheet } from "./cart-sheet";
+import { ActiveTabBanner } from "./active-tab-banner";
 import { VegIndicator } from "./veg-indicator";
 import {
   ChevronLeft,
@@ -260,6 +261,12 @@ export function MenuView({
 
   return (
     <div className="flex-1 flex flex-col pb-28 overflow-x-hidden">
+      <ActiveTabBanner
+        token={table.qrToken}
+        tableLabel={table.tableNumber}
+        paymentsEnabled={paymentsEnabled}
+        paymentsTestMode={paymentsTestMode}
+      />
       {/* Search Bar & Dietary/Spice Filter Section */}
       <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
         <div className="mx-auto w-full max-w-7xl space-y-1.5 px-3 py-1.5 sm:space-y-3 sm:px-6 sm:py-3 lg:px-8">

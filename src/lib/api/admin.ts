@@ -320,4 +320,25 @@ export const adminApi = {
   qrPdfUrl(): string {
     return "/api/v1/admin/tables/qr.pdf";
   },
+
+  // --- Dining Sessions / Open Tabs ---
+  async settleTab(
+    tabId: string,
+    paymentMethod: "counter" | "cash" | "card" | "upi" = "counter",
+    notes?: string,
+    opts?: RequestOptions
+  ): Promise<ApiResult<{ success: true; tabId: string }>> {
+    return apiFetch<{ success: true; tabId: string }>(
+      `/api/v1/admin/tabs/${encodeURIComponent(tabId)}/settle`,
+      {
+        method: "POST",
+        body: { tabId, paymentMethod, notes },
+        signal: opts?.signal,
+      }
+    );
+  },
+
+  tabReceiptPdfUrl(tabId: string, format: "a4" | "thermal" = "a4"): string {
+    return `/api/v1/admin/tabs/${encodeURIComponent(tabId)}/receipt/pdf?format=${format}`;
+  },
 };

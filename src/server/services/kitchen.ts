@@ -21,6 +21,8 @@ export interface KitchenTicket {
   id: string;
   orderNumber: string;
   tableNumber: string;
+  roundNumber?: number;
+  diningSessionId?: string | null;
   status: OrderStatus;
   paymentStatus: "pending" | "paid" | "counter" | "failed";
   paymentMethod: "pay_now" | "counter" | null;
@@ -68,15 +70,17 @@ export async function listKitchenTickets(
       orderBy: [asc(orders.createdAt)],
     });
 
-    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter
+    // RULE: Orders are only sent to the kitchen once paid, or immediately for pay-at-counter or open tab
     const visibleOrders = dbOrders.filter(
-      (o) => o.paymentStatus === "paid" || o.paymentStatus === "counter"
+      (o) => o.paymentStatus === "paid" || o.paymentStatus === "counter" || Boolean(o.diningSessionId)
     );
 
     const tickets: KitchenTicket[] = visibleOrders.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
       tableNumber: o.table.tableNumber,
+      roundNumber: o.roundNumber || 1,
+      diningSessionId: o.diningSessionId,
       status: o.status,
       paymentStatus: (o.paymentStatus as KitchenTicket["paymentStatus"]) || "pending",
       paymentMethod: (o.paymentMethod as KitchenTicket["paymentMethod"]) || null,
