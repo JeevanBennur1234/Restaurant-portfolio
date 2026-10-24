@@ -132,6 +132,7 @@ export interface OrderEventDetail {
 
 export interface OrderDetails {
   id: string;
+  diningSessionId?: string | null;
   orderNumber: string;
   status: OrderStatus;
   paymentStatus: "pending" | "paid" | "counter" | "failed";
@@ -720,6 +721,7 @@ export async function getOrder(
 
     return ok({
       id: dbOrder.id,
+      diningSessionId: dbOrder.diningSessionId ?? null,
       orderNumber: dbOrder.orderNumber,
       status: dbOrder.status,
       paymentStatus: (dbOrder.paymentStatus as OrderDetails["paymentStatus"]) || "pending",

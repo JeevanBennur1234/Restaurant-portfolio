@@ -50,11 +50,13 @@ export function CartSheet({
   const { showToast } = useToast();
   const [notes, setNotes] = React.useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("pay_now");
-  const paymentMethod: PaymentOption =
-    !paymentsEnabled && selectedPaymentMethod === "pay_now"
+  const [isExistingDineInTab, setIsExistingDineInTab] = React.useState(false);
+  const [isCheckingActiveTab, setIsCheckingActiveTab] = React.useState(true);
+  const paymentMethod: PaymentOption = isExistingDineInTab
+    ? "open_tab"
+    : !paymentsEnabled && selectedPaymentMethod === "pay_now"
       ? "counter"
       : selectedPaymentMethod;
-  const [activeTabRound, setActiveTabRound] = React.useState<number | null>(null);
   const setPaymentMethod = setSelectedPaymentMethod;
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isSubmittingRef = React.useRef(false);
@@ -88,14 +90,18 @@ export function CartSheet({
     customerApi
       .getActiveTab(token)
       .then((res) => {
-        if (res.ok && res.data && res.data.status !== "closed" && res.data.roundCount > 0) {
-          setActiveTabRound(res.data.roundCount + 1);
+        const hasOpenTab = Boolean(
+          res.ok && res.data && res.data.status === "active" && res.data.roundCount > 0
+        );
+        setIsExistingDineInTab(hasOpenTab);
+        if (hasOpenTab) {
           setSelectedPaymentMethod("open_tab");
-        } else {
-          setActiveTabRound(1);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Preserve the current selection if a background refresh fails.
+      })
+      .finally(() => setIsCheckingActiveTab(false));
   }, [token]);
 
   React.useEffect(() => {
@@ -126,7 +132,7 @@ export function CartSheet({
         target?.scrollIntoView({ behavior: "smooth", block: "start" });
         showToast({
           title: "Adding Dishes to Tab",
-          message: `Browse the menu to pick dishes for Round ${activeTabRound || 2}.`,
+          message: "Browse the menu to add dishes to your existing dining tab.",
           variant: "info",
           duration: 3500,
         });
@@ -134,7 +140,7 @@ export function CartSheet({
     };
     window.addEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
     return () => window.removeEventListener("dinepulse:add-more-dishes", handleAddMoreDishes);
-  }, [items.length, activeTabRound, setIsCartOpen, showToast]);
+  }, [items.length, setIsCartOpen, showToast]);
 
   // Regenerate idempotency key when full request body changes (items, paymentMethod, trimmed notes)
   const cartBodySignature = React.useMemo(
@@ -332,7 +338,7 @@ export function CartSheet({
           setPaymentError(
             userMessageFor(
               result.code,
-              result.message || "Could not add round to tab. Please try again."
+              result.message || "Could not add items to your dining tab. Please try again."
             )
           );
           isSubmittingRef.current = false;
@@ -341,10 +347,12 @@ export function CartSheet({
           return;
         }
         clearCart();
+        setIsExistingDineInTab(true);
+        setSelectedPaymentMethod("open_tab");
         setIsCartOpen(false);
         showToast({
           title: "Order Sent to Kitchen!",
-          message: `Round #${result.data.roundNumber} sent to kitchen for ${tableLabel}. Pay when done dining.`,
+          message: `Order #${result.data.orderNumber} sent to kitchen for ${tableLabel}. Added to your dining tab; pay once after your meal.`,
           variant: "success",
           duration: 4000,
         });
@@ -354,6 +362,7 @@ export function CartSheet({
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
         }
+        router.push(`/t/${token}/order/${result.data.orderId}`);
         return;
       }
 
@@ -578,24 +587,28 @@ export function CartSheet({
                     size="md"
                     variant="primary"
                     isLoading={isSubmitting}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isCheckingActiveTab}
                     onClick={handleCheckoutSubmit}
                     className="flex-1 font-semibold shadow-sm justify-between px-4 text-base min-w-0 min-h-[52px] h-[52px]"
                   >
                     <span className="truncate pr-1">
                       {statusMessage ||
-                        (paymentMethod === "open_tab"
-                          ? `Send ${activeTabRound && activeTabRound > 1 ? `Round ${activeTabRound}` : "Round"} to Kitchen`
-                          : paymentMethod === "pay_now"
-                          ? "Pay Now"
-                          : "Pay at Counter")}
+                        (isCheckingActiveTab
+                          ? "Checking table tab…"
+                          : paymentMethod === "open_tab"
+                            ? isExistingDineInTab
+                              ? "Send to Kitchen"
+                              : "Open Dine-In Tab & Send to Kitchen"
+                            : paymentMethod === "pay_now"
+                              ? "Pay Now"
+                              : "Pay at Counter")}
                     </span>
                     <span className="text-sm shrink-0 tabular-nums">
                       {formatPaiseToINR(grandTotalPaise)}
                     </span>
                   </Button>
                 </div>
-                {paymentsTestMode && (
+                {paymentsTestMode && paymentMethod !== "open_tab" && (
                   <p
                     data-testid="payments-test-mode-notice"
                     className="text-[11px] text-amber-600 dark:text-amber-400 font-medium text-center"
@@ -609,7 +622,9 @@ export function CartSheet({
             <p className="text-[10px] text-center text-[var(--text-muted)]">
               {paymentMethod === "pay_now"
                 ? "Orders are sent to kitchen upon verified payment."
-                : "Order sent immediately to kitchen; settle bill at counter."}
+                : paymentMethod === "open_tab"
+                  ? "Dine-in orders go straight to the kitchen. Pay once after your meal."
+                  : "Order sent immediately to kitchen; settle bill at counter."}
             </p>
           </div>
         ) : (
@@ -758,8 +773,9 @@ export function CartSheet({
             })}
           </div>
 
-          {/* Payment Method Selector (min 64px tap targets) */}
-          <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
+          {/* Payment is selected for the first order only; an active dine-in tab reuses its existing payment flow. */}
+          {!isCheckingActiveTab && !isExistingDineInTab ? (
+          <div data-testid="payment-choice-section" className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] block">
               Payment Choice
             </label>
@@ -846,6 +862,17 @@ export function CartSheet({
               </button>
             </div>
           </div>
+          ) : isExistingDineInTab ? (
+            <div data-testid="existing-dine-in-tab-note" className="flex items-start gap-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 p-3.5">
+              <Receipt className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Open dining tab active</p>
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">New dishes will go straight to the kitchen and be added to your existing bill. No payment is needed now.</p>
+              </div>
+            </div>
+          ) : (
+            <p data-testid="checking-active-tab" className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]">Checking your table&apos;s open tab…</p>
+          )}
 
           {/* Kitchen Notes */}
           <div className="pt-2 border-t border-[var(--border-subtle)] space-y-1.5">

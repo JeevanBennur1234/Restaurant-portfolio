@@ -361,7 +361,7 @@ export function OrderLiveTracker({
             </Badge>
           ) : order.paymentStatus === "counter" ? (
             <Badge variant="secondary" size="sm" className="font-sans text-xs">
-              Pay at Counter
+              {order.diningSessionId ? "Open Dine-In Tab" : "Pay at Counter"}
             </Badge>
           ) : (
             <Badge variant="destructive" size="sm" className="font-sans text-xs">
@@ -623,8 +623,8 @@ export function OrderLiveTracker({
         </CardContent>
       </Card>
 
-      {/* Pay-at-counter is a single-order flow; do not invite another order from this tracker. */}
-      {order.paymentStatus !== "counter" && (
+      {/* Tab orders remain open for more dishes; standalone counter orders do not. */}
+      {(order.paymentStatus !== "counter" || Boolean(order.diningSessionId)) && (
         <div className="fixed bottom-4 inset-x-4 max-w-md mx-auto z-30">
           <Link href={`/t/${token}`} className="block w-full">
             <Button

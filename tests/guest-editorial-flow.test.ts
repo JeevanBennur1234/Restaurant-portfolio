@@ -156,6 +156,25 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(cartSheetCode).toContain("min-h-[44px] min-w-[44px]"); // steppers
     expect(cartSheetCode).toContain("min-h-[48px]"); // buttons
     expect(cartSheetCode).toContain("grandTotalPaise");
+    expect(cartSheetCode).toContain('data-testid="payment-choice-section"');
+    expect(cartSheetCode).toContain('!isCheckingActiveTab && !isExistingDineInTab');
+    expect(cartSheetCode).toContain('data-testid="existing-dine-in-tab-note"');
+    expect(cartSheetCode).toContain('"Send to Kitchen"');
+    expect(cartSheetCode).not.toContain('`Send ${activeTabRound');
+    expect(cartSheetCode).toContain('router.push(`/t/${token}/order/${result.data.orderId}`)');
+    expect(cartSheetCode).toContain('paymentsTestMode && paymentMethod !== "open_tab"');
+
+    const customerServiceCode = fs.readFileSync(
+      path.resolve(process.cwd(), "src/server/services/customer.ts"),
+      "utf-8"
+    );
+    const orderTrackerCode = fs.readFileSync(
+      path.resolve(process.cwd(), "src/components/guest/order-live-tracker.tsx"),
+      "utf-8"
+    );
+    expect(customerServiceCode).toContain("diningSessionId: dbOrder.diningSessionId ?? null");
+    expect(orderTrackerCode).toContain('order.diningSessionId ? "Open Dine-In Tab" : "Pay at Counter"');
+    expect(orderTrackerCode).toContain('order.paymentStatus !== "counter" || Boolean(order.diningSessionId)');
 
     // Focus trap and return intact in sheet.tsx
     expect(sheetCode).toContain("triggerRef.current");
