@@ -38,7 +38,7 @@ export function RoundStageTrack({
         <div>
           <span className="font-semibold">Cancelled</span>
           <p className="text-[11px] text-[var(--text-secondary)]">
-            This round was cancelled and is excluded from the tab bill.
+            This order was cancelled and is excluded from the tab bill.
           </p>
         </div>
       </div>
