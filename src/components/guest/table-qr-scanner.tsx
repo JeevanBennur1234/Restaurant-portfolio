@@ -111,7 +111,9 @@ export function TableQrScanner() {
       stopScanner();
       const err = scanError as { name?: string; message?: string };
       if ((err.name === "NotAllowedError" || err.name === "PermissionDeniedError") && !cameraPermissionGranted) {
-        setError("Chrome could not grant camera access. Check Android's Camera access toggle and Chrome's site permission, then reload the page. If both are allowed, try opening this page directly in Chrome rather than inside another app.");
+        const secureContext = window.isSecureContext;
+        const detail = [err.name, err.message].filter(Boolean).join(": ");
+        setError(`Chrome blocked the camera request${detail ? ` (${detail})` : ""}. Secure context: ${secureContext ? "yes" : "no"}; page: ${window.location.origin}. Check Chrome's camera setting for this exact site and Android's global Camera access toggle, then reload.`);
       } else if (!cameraPermissionGranted && (err.name === "NotFoundError" || err.name === "DevicesNotFoundError")) {
         setError("No camera was found on this device. Enter the table code below instead.");
       } else if (cameraPermissionGranted) {
