@@ -44,7 +44,6 @@ export function CartSheet({
   tableLabel,
   token,
   paymentsEnabled = true,
-  paymentsTestMode = false,
 }: CartSheetProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -237,9 +236,7 @@ export function CartSheet({
       name: "Masala Lane",
       description: `Order #${orderNumber} • ${tableLabel}`,
       order_id: rzpOrderRes.data.razorpayOrderId,
-      prefill: {
-        contact: "9876543210",
-      },
+      prefill: {},
       config: {
         display: {
           blocks: {
@@ -567,7 +564,7 @@ export function CartSheet({
                             className="text-sm min-h-[48px] h-12 px-3 flex-1"
                             leftIcon={<CreditCard className="h-3 w-3" />}
                           >
-                            Cards / Netbanking
+                            Pay Online
                           </Button>
                         </div>
                       )}
@@ -626,14 +623,6 @@ export function CartSheet({
                     </span>
                   </Button>
                 </div>
-                {paymentsTestMode && paymentMethod !== "open_tab" && (
-                  <p
-                    data-testid="payments-test-mode-notice"
-                    className="text-[11px] text-amber-600 dark:text-amber-400 font-medium text-center"
-                  >
-                    Test mode: no real money is charged.
-                  </p>
-                )}
               </div>
             )}
 

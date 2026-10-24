@@ -12,7 +12,6 @@ import {
   Banknote,
   ShieldCheck,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -328,44 +327,14 @@ export function UpiQrModal({
                 </span>
               </div>
 
-              {qrData?.isTestMode ? (
-                /* Documented Test Mode Explanation */
-                <div className="w-full p-4 rounded-xl bg-amber-50 border border-amber-300 text-left space-y-3 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
-                    <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Razorpay Test Mode Notice</span>
-                  </div>
-                  <p className="text-xs text-stone-700 leading-relaxed">
-                    Mobile UPI apps (Google Pay, PhonePe, Paytm) cannot scan test QR codes because banking UPI networks only process live transactions.
-                  </p>
-                  <div className="p-3 bg-white rounded-lg border border-amber-200 text-xs space-y-1.5">
-                    <p className="font-semibold text-amber-950 text-xs">
-                      Simulate UPI Payment via Razorpay Checkout:
-                    </p>
-                    <p className="text-[11px] text-stone-700">
-                      Click <strong>Open Test Checkout</strong> below, select <strong>UPI</strong>, and enter the simulated VPA:
-                    </p>
-                    <div className="flex flex-col gap-1 font-mono text-[11px] pt-1">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                        ✓ success@razorpay <span className="font-normal text-[var(--text-muted)]">(Simulates success)</span>
-                      </span>
-                      <span className="text-rose-700 dark:text-rose-400 font-semibold">
-                        ✗ failure@razorpay <span className="font-normal text-[var(--text-muted)]">(Simulates failure)</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Dynamic QR Not Active on Merchant Account */
+              {/* Customer-facing QR status; never expose provider test instructions. */}
+              {!qrData?.qrAvailable && (
                 <div className="w-full p-4 rounded-xl bg-stone-500/10 border border-stone-500/30 text-left space-y-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>UPI QR Unavailable</span>
+                    <span>UPI QR unavailable</span>
                   </div>
-                  <p className="text-xs text-stone-700 leading-relaxed">
-                    {qrData?.message ||
-                      "Live dynamic UPI QR codes are not currently active on this Razorpay merchant account. Please use Cards / Netbanking or Pay at Counter."}
-                  </p>
+                  <p className="text-xs text-stone-700 leading-relaxed">Online checkout is available instead, or you can pay at the counter.</p>
                 </div>
               )}
 
@@ -379,7 +348,7 @@ export function UpiQrModal({
                   className="w-full gap-2 text-xs font-semibold min-h-[44px]"
                 >
                   <CreditCard className="w-4 h-4" />
-                  {qrData?.isTestMode ? "Open Test Checkout (success@razorpay)" : "Pay with Cards / Netbanking"}
+                  Continue to secure checkout
                 </Button>
                 <Button
                   variant="outline"

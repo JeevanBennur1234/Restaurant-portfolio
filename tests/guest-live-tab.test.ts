@@ -423,6 +423,8 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
         "utf-8"
       );
       expect(trackerSrc).toContain('data-testid="view-served-bill-btn"');
+      expect(trackerSrc).toContain('data-testid="request-served-bill-btn"');
+      expect(trackerSrc).toContain('customerApi.requestTabBill(token, "counter")');
       expect(trackerSrc).toContain("customerApi.getTabReceipt(token)");
       expect(trackerSrc).toContain("customerApi.getBillOrReceipt(order.id, token)");
       expect(trackerSrc).toContain("onClose={handleCloseReceipt}");

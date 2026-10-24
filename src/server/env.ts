@@ -181,6 +181,12 @@ const rawEnvSchema = z.object({
       return String(val);
     }, z.enum(["true", "false"]))
     .default("false"),
+  ENABLE_UPI_QR: z
+    .preprocess((val) => {
+      if (val === undefined || val === "" || val === null) return "false";
+      return String(val);
+    }, z.enum(["true", "false"]))
+    .default("false"),
   ALLOW_TEST_PAYMENT_SIMULATION: z
     .preprocess((val) => {
       if (val === undefined || val === "" || val === null) return "false";

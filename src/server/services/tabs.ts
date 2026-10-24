@@ -346,7 +346,11 @@ export async function placeTabRound(
     // Validate menu items and compute prices server-side
     const menuItemIds = inputItems.map((i) => i.menuItemId);
     const dbMenuItems = await ctx.db.query.menuItems.findMany({
-      where: and(inArray(menuItems.id, menuItemIds), eq(menuItems.isActive, true)),
+      where: and(
+        inArray(menuItems.id, menuItemIds),
+        eq(menuItems.restaurantId, restaurantId),
+        eq(menuItems.isActive, true)
+      ),
     });
     const dbMenuMap = new Map(dbMenuItems.map((m) => [m.id, m]));
 
@@ -364,7 +368,10 @@ export async function placeTabRound(
     const dbModifiers =
       allSelectedModIds.length > 0
         ? await ctx.db.query.modifiers.findMany({
-            where: inArray(modifiers.id, allSelectedModIds),
+            where: and(
+              inArray(modifiers.id, allSelectedModIds),
+              inArray(modifiers.menuItemId, menuItemIds)
+            ),
           })
         : [];
     const dbModMap = new Map(dbModifiers.map((m) => [m.id, m]));
@@ -386,14 +393,19 @@ export async function placeTabRound(
 
       for (const modId of inputItem.selectedModifierIds) {
         const dbMod = dbModMap.get(modId);
-        if (dbMod) {
-          unitPricePaise += dbMod.pricePaise;
-          verifiedMods.push({
-            id: dbMod.id,
-            name: dbMod.name,
-            pricePaise: dbMod.pricePaise,
-          });
+        if (!dbMod || dbMod.menuItemId !== dbItem.id) {
+          return fail(
+            "VALIDATION",
+            `Invalid modifier selected for ${dbItem.name}. Please refresh the menu and try again.`,
+            400
+          );
         }
+        unitPricePaise += dbMod.pricePaise;
+        verifiedMods.push({
+          id: dbMod.id,
+          name: dbMod.name,
+          pricePaise: dbMod.pricePaise,
+        });
       }
 
       const lineTotalPaise = unitPricePaise * inputItem.quantity;

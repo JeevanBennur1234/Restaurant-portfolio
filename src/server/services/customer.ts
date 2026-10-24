@@ -449,7 +449,11 @@ export async function placeOrder(
 
     const menuItemIds = inputItems.map((i) => i.menuItemId);
     const dbMenuItems = await ctx.db.query.menuItems.findMany({
-      where: and(inArray(menuItems.id, menuItemIds), eq(menuItems.isActive, true)),
+      where: and(
+        inArray(menuItems.id, menuItemIds),
+        eq(menuItems.restaurantId, restaurantId),
+        eq(menuItems.isActive, true)
+      ),
     });
 
     const dbMenuMap = new Map(dbMenuItems.map((m) => [m.id, m]));
@@ -470,7 +474,10 @@ export async function placeOrder(
     const dbModifiers =
       allSelectedModIds.length > 0
         ? await ctx.db.query.modifiers.findMany({
-            where: inArray(modifiers.id, allSelectedModIds),
+            where: and(
+              inArray(modifiers.id, allSelectedModIds),
+              inArray(modifiers.menuItemId, menuItemIds)
+            ),
           })
         : [];
     const dbModMap = new Map(dbModifiers.map((m) => [m.id, m]));
@@ -493,14 +500,19 @@ export async function placeOrder(
 
       for (const modId of inputItem.selectedModifierIds) {
         const dbMod = dbModMap.get(modId);
-        if (dbMod) {
-          unitPricePaise += dbMod.pricePaise;
-          verifiedMods.push({
-            id: dbMod.id,
-            name: dbMod.name,
-            pricePaise: dbMod.pricePaise,
-          });
+        if (!dbMod || dbMod.menuItemId !== dbItem.id) {
+          return fail(
+            "VALIDATION",
+            `Invalid modifier selected for ${dbItem.name}. Please refresh the menu and try again.`,
+            400
+          );
         }
+        unitPricePaise += dbMod.pricePaise;
+        verifiedMods.push({
+          id: dbMod.id,
+          name: dbMod.name,
+          pricePaise: dbMod.pricePaise,
+        });
       }
 
       const lineTotalPaise = unitPricePaise * inputItem.quantity;
@@ -1115,6 +1127,10 @@ export async function createUpiQrPayment(
 
   const { orderId, token } = validation.data;
 
+  if (env.ENABLE_UPI_QR !== "true" && !process.env.VITEST && process.env.NODE_ENV !== "test") {
+    return fail("PAYMENT", "UPI QR payments are disabled. Use standard online checkout or pay at the counter.", 503);
+  }
+
   if (!isOnlinePaymentsEnabled()) {
     return fail(
       "PAYMENT",
@@ -1235,7 +1251,7 @@ export async function createUpiQrPayment(
       isTestMode: testMode,
       testSimulationAvailable: testSimulationAllowed,
       message: testMode
-        ? "Dynamic UPI QR codes are not available in Razorpay Test Mode. In Test Mode, mobile UPI apps cannot scan test QRs. Please use Razorpay Test Checkout with simulated success@razorpay VPA, or Pay at Counter."
+        ? "UPI QR payments are unavailable for this demo. Please use secure online checkout or pay at the counter."
         : "Live UPI QR payments are not currently active on this account. Please use Cards/Netbanking Checkout or Pay at Counter.",
     });
   } catch (err) {

@@ -165,7 +165,8 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(cartSheetCode).toContain('"Send to Kitchen"');
     expect(cartSheetCode).not.toContain('`Send ${activeTabRound');
     expect(cartSheetCode).toContain('router.push(`/t/${token}`)'); // open-tab orders return to the menu
-    expect(cartSheetCode).toContain('paymentsTestMode && paymentMethod !== "open_tab"');
+    expect(cartSheetCode).not.toContain('paymentsTestMode && paymentMethod !== "open_tab"');
+    expect(cartSheetCode).not.toContain("Test mode: no real money is charged.");
 
     const customerServiceCode = fs.readFileSync(
       path.resolve(process.cwd(), "src/server/services/customer.ts"),

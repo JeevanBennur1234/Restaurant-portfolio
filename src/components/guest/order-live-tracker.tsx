@@ -115,6 +115,8 @@ export function OrderLiveTracker({
   const [isReceiptOpen, setIsReceiptOpen] = React.useState(false);
   const [isLoadingReceipt, setIsLoadingReceipt] = React.useState(false);
   const [billViewError, setBillViewError] = React.useState<string | null>(null);
+  const [isRequestingBill, setIsRequestingBill] = React.useState(false);
+  const [billRequestMessage, setBillRequestMessage] = React.useState<string | null>(null);
 
   const fetchReceipt = React.useCallback(async () => {
     setIsLoadingReceipt(true);
@@ -140,6 +142,24 @@ export function OrderLiveTracker({
       }
     } else {
       setIsReceiptOpen(true);
+    }
+  };
+
+  const handleRequestBill = async () => {
+    setIsRequestingBill(true);
+    setBillViewError(null);
+    setBillRequestMessage(null);
+    try {
+      const result = await customerApi.requestTabBill(token, "counter");
+      if (!result.ok) {
+        setBillViewError(result.message || "Could not request your bill. Please ask your server for help.");
+        return;
+      }
+      setBillRequestMessage("Bill requested! Your server has been notified. Please pay at the counter when they arrive.");
+    } catch {
+      setBillViewError("Could not request your bill. Please try again or ask your server for help.");
+    } finally {
+      setIsRequestingBill(false);
     }
   };
 
@@ -305,9 +325,7 @@ export function OrderLiveTracker({
         name: "Masala Lane",
         description: `Order #${order.orderNumber} • ${order.tableNumber}`,
         order_id: rzpRes.data.razorpayOrderId,
-        prefill: {
-          contact: "9876543210",
-        },
+        prefill: {},
         config: {
           display: {
             blocks: {
@@ -569,11 +587,28 @@ export function OrderLiveTracker({
           </div>
           {shouldOfferServedBill(order.status) && (
             <div data-testid="served-bill-actions" className="mt-4 space-y-3 border-t border-[var(--border-subtle)] pt-4">
-              <p className="text-sm text-[var(--text-secondary)]">Your order is served. View your bill, then close it when you’re finished.</p>
+              <p className="text-sm text-[var(--text-secondary)]">Your order has been served.</p>
+              {billRequestMessage && (
+                <p role="status" className="rounded-lg border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--text-primary)]">{billRequestMessage}</p>
+              )}
               {billViewError && (
                 <p role="alert" className="rounded-lg border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 text-sm text-[var(--destructive-foreground)]">
                   {billViewError}
                 </p>
+              )}
+              {order.paymentStatus === "counter" && order.diningSessionId && !billRequestMessage && (
+                <Button
+                  type="button"
+                  data-testid="request-served-bill-btn"
+                  size="lg"
+                  variant="primary"
+                  isLoading={isRequestingBill}
+                  onClick={handleRequestBill}
+                  className="w-full justify-center gap-2"
+                  leftIcon={<Receipt className="h-5 w-5" />}
+                >
+                  Request a Bill
+                </Button>
               )}
               <Button
                 type="button"
