@@ -105,7 +105,7 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       expect(adminNavbarCode).toContain("min-h-[44px]");
 
       // Admin orders table
-      expect(adminOrdersCode).toContain("text-left text-base border-collapse min-w-[1380px]");
+      expect(adminOrdersCode).toContain("text-left text-base border-collapse min-w-[1325px]");
       expect(adminOrdersCode).toContain("text-[10px] tracking-wider");
       expect(adminOrdersCode).toContain("max-w-[340px]");
       expect(fs.readFileSync(path.resolve(root, "src/components/admin/admin-dashboard.tsx"), "utf-8")).toContain("w-[calc(100%-24px)] sm:w-[90%] max-w-[1500px]");

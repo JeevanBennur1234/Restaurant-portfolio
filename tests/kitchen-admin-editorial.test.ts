@@ -81,7 +81,7 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
   it("Admin Tables: horizontal scrolling container with min-w and row hover/focus states", () => {
     // Orders tab horizontal scroll container and min-width
     expect(adminOrdersCode).toContain("w-full overflow-x-auto");
-    expect(adminOrdersCode).toContain("min-w-[1380px]");
+    expect(adminOrdersCode).toContain("min-w-[1325px]");
     expect(adminOrdersCode).toContain("hover:bg-[var(--bg-subtle)]/80");
     expect(adminOrdersCode).toContain("focus-within:bg-[var(--bg-subtle)]/80");
 

@@ -649,9 +649,10 @@ describe("Task T2: Admin Orders Grouping by Dining Tab", () => {
       expect(html).not.toContain("Tab Breakdown");
       expect(html).not.toContain('data-testid="round-row"');
 
-      // All order IDs and item names remain available in the consolidated row.
-      for (const orderId of ["ML-0034", "ML-0035", "ML-0036", "ML-0037", "ML-0039"]) {
-        expect(html).toContain(orderId);
+      // One customer-facing order reference is shown for the dining tab.
+      expect(html).toContain("ML-0034");
+      for (const roundOrderId of ["ML-0035", "ML-0036", "ML-0037", "ML-0039"]) {
+        expect(html).not.toContain(roundOrderId);
       }
       expect(html).toContain("Paneer Tikka");
       expect(html).toContain("Dal Makhani");
