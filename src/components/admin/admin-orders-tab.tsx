@@ -808,10 +808,13 @@ export function AdminOrdersTab({
                             </div>
                           </td>
 
-                          {/* Dedicated order IDs column */}
+                          {/* One customer-facing order ID per open dining tab; kitchen rounds stay internal. */}
                           <td className="py-3 px-2 align-top">
-                            <div className="flex flex-wrap gap-x-1.5 gap-y-1 text-base font-semibold leading-6 text-[var(--text-primary)]" title={group.orders.map((order) => order.orderNumber).join(", ")}>
-                              {group.orders.map((order) => <span key={order.id} className="whitespace-nowrap">#{order.orderNumber}</span>)}
+                            <div className="text-base font-semibold leading-6 text-[var(--text-primary)]" title={isTab ? "One dining-tab order reference; individual kitchen rounds are tracked internally" : group.orders[0]?.orderNumber}>
+                              <span className="whitespace-nowrap">#{group.orders[0]?.orderNumber ?? "?"}</span>
+                              {isTab && group.orders.length > 1 && (
+                                <span className="mt-0.5 block text-xs font-normal text-[var(--text-muted)]">{group.orders.length} kitchen rounds</span>
+                              )}
                             </div>
                           </td>
 
@@ -973,7 +976,10 @@ export function AdminOrdersTab({
                             {getTableDisplayName(group.tableNumber)}
                           </span>
                         <div className="mt-1 space-y-0.5 text-base text-[var(--text-secondary)]">
-                          <div>{group.orders.length > 1 ? "Order IDs" : "Order ID"}: {group.orders.map((order) => order.orderNumber).join(", ")}</div>
+                          <div>Order ID: {group.orders[0]?.orderNumber ?? "?"}</div>
+                          {group.type === "tab" && group.orders.length > 1 && (
+                            <div className="text-xs text-[var(--text-muted)]">{group.orders.length} kitchen rounds ? one dining tab</div>
+                          )}
                           <div className="text-[var(--text-muted)]">{formatElapsedTime(group.createdAt)}</div>
                         </div>
                       </div>
