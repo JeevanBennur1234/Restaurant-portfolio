@@ -544,6 +544,18 @@ export function OrderLiveTracker({
         </Card>
       )}
 
+      {order.status === "served" && order.paymentStatus === "paid" && (
+        <Card data-testid="served-paid-completion" className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 shadow-sm">
+          <CardContent className="p-5 space-y-3 text-center">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Order completed!</h2>
+            <p className="text-sm text-[var(--text-secondary)]">Your payment is confirmed and your food has been served. Thank you for dining with us.</p>
+            <Button data-testid="order-again-after-served-paid" className="w-full justify-center" onClick={() => router.replace(`/t/${token}`)} leftIcon={<PlusCircle className="h-4 w-4" />}>Order Again</Button>
+            <Button variant="outline" className="w-full justify-center" onClick={() => { if (window.opener && !window.opener.closed) window.close(); else router.replace("/order"); }}>Close Ordering</Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Status Hero Card */}
       <Card className="border-[var(--border-strong)] shadow-[var(--shadow-card)] bg-[var(--bg-surface)]">
         <CardHeader className="pb-2">
