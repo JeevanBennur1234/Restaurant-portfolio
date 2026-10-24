@@ -7,7 +7,7 @@ import { RoundStageTrack, formatStageTime } from "@/components/guest/round-stage
 import { OrderStepper, STEPS, getStepIndex } from "@/components/guest/order-stepper";
 import {
   getOrderStatusHeadline,
-  shouldAutoReturnToTable,
+  shouldOfferServedBill,
 } from "@/components/guest/order-live-tracker";
 import type { TabDetailsData } from "@/lib/api/types";
 import * as fs from "node:fs";
@@ -373,12 +373,12 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).not.toContain("ring-4");
     });
 
-    it("automatically returns only after the order is served", () => {
-      expect(shouldAutoReturnToTable("served")).toBe(true);
-      expect(shouldAutoReturnToTable("ready")).toBe(false);
-      expect(shouldAutoReturnToTable("preparing")).toBe(false);
-      expect(shouldAutoReturnToTable("placed")).toBe(false);
-      expect(shouldAutoReturnToTable("cancelled")).toBe(false);
+    it("offers the bill only after the order is served", () => {
+      expect(shouldOfferServedBill("served")).toBe(true);
+      expect(shouldOfferServedBill("ready")).toBe(false);
+      expect(shouldOfferServedBill("preparing")).toBe(false);
+      expect(shouldOfferServedBill("placed")).toBe(false);
+      expect(shouldOfferServedBill("cancelled")).toBe(false);
     });
 
     it("shows a thank-you and counter-payment message after service", () => {
@@ -389,6 +389,15 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(counterHeadline.title).toBe("Thank You!");
       expect(counterHeadline.subtitle).toContain("Your order has been served.");
       expect(counterHeadline.subtitle).toContain("pay at the counter");
+      const trackerSrc = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/guest/order-live-tracker.tsx"),
+        "utf-8"
+      );
+      expect(trackerSrc).toContain('data-testid="view-served-bill-btn"');
+      expect(trackerSrc).toContain("customerApi.getTabReceipt(token)");
+      expect(trackerSrc).toContain("customerApi.getBillOrReceipt(order.id, token)");
+      expect(trackerSrc).toContain("onClose={handleCloseReceipt}");
+      expect(trackerSrc).not.toContain("}, 4500);");
 
       const paidHeadline = getOrderStatusHeadline({
         status: "served",

@@ -271,6 +271,45 @@ export async function getCustomerReceipt(
 }
 
 /**
+ * Fetch a customer-facing bill or receipt for their table order.
+ * Unlike getCustomerReceipt, this also allows an unpaid bill to be viewed before counter settlement.
+ * The table QR token authorizes access, and this read never mutates payment/order state.
+ */
+export async function getCustomerBillOrReceipt(
+  ctx: Ctx,
+  rawInput: { orderId: string; token: string }
+): Promise<ServiceResult<ReceiptData>> {
+  const { orderId, token } = rawInput;
+  if (!orderId || !token) {
+    return fail("VALIDATION", "Order ID and table token are required", 400);
+  }
+
+  try {
+    const dbOrder = await ctx.db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        table: true,
+        restaurant: true,
+        items: true,
+        payments: true,
+      },
+    });
+
+    if (!dbOrder) {
+      return fail("NOT_FOUND", "Order not found", 404);
+    }
+    if (dbOrder.table.qrToken !== token) {
+      return fail("FORBIDDEN", "Unauthorized access to this order", 403);
+    }
+
+    return ok(buildReceiptData(dbOrder));
+  } catch (err) {
+    console.error("Database error in getCustomerBillOrReceipt:", err);
+    return fail("INTERNAL", "Service temporarily unavailable", 500);
+  }
+}
+
+/**
  * Fetch bill or receipt for Manager / Cashier.
  * Generating an unpaid bill leaves the order state completely unchanged.
  */

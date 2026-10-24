@@ -75,7 +75,7 @@ const statusHeadlines: Record<
   },
 };
 
-export function shouldAutoReturnToTable(status: OrderStatus): boolean {
+export function shouldOfferServedBill(status: OrderStatus): boolean {
   return status === "served";
 }
 
@@ -114,6 +114,7 @@ export function OrderLiveTracker({
   const [receiptData, setReceiptData] = React.useState<ReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = React.useState(false);
   const [isLoadingReceipt, setIsLoadingReceipt] = React.useState(false);
+  const [billViewError, setBillViewError] = React.useState<string | null>(null);
 
   const fetchReceipt = React.useCallback(async () => {
     setIsLoadingReceipt(true);
@@ -140,6 +141,43 @@ export function OrderLiveTracker({
     } else {
       setIsReceiptOpen(true);
     }
+  };
+
+  const handleViewBill = async () => {
+    setIsLoadingReceipt(true);
+    setBillViewError(null);
+    try {
+      const result = order.diningSessionId
+        ? await customerApi.getTabReceipt(token)
+        : await customerApi.getBillOrReceipt(order.id, token);
+      if (!result.ok) {
+        setBillViewError(result.message || "Could not load your bill. Please ask the staff for help.");
+        return;
+      }
+      if (!result.data) {
+        setBillViewError("Could not load your bill. Please ask the staff for help.");
+        return;
+      }
+      setReceiptData(result.data);
+      setIsReceiptOpen(true);
+    } catch {
+      setBillViewError("Could not load your bill. Please try again or ask the staff for help.");
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  };
+
+  const handleCloseReceipt = () => {
+    setIsReceiptOpen(false);
+    if (!shouldOfferServedBill(order.status)) return;
+
+    // A browser only permits window.close() for windows opened by script.
+    // For a normal user-opened tab, return to the table menu instead.
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+    router.replace(`/t/${token}`);
   };
 
   const refreshOrder = React.useCallback(async () => {
@@ -220,21 +258,7 @@ export function OrderLiveTracker({
 
   const currentHeadline = getOrderStatusHeadline(order);
 
-  // Give the customer time to read the thank-you, then close a script-opened popup
-  // when possible. Normal tab navigation falls back to the table menu because
-  // browsers do not allow pages to close tabs they did not open themselves.
-  React.useEffect(() => {
-    if (!shouldAutoReturnToTable(order.status)) return;
-
-    const timeout = window.setTimeout(() => {
-      if (window.opener && !window.opener.closed) {
-        window.close();
-      }
-      router.replace(`/t/${token}`);
-    }, 4500);
-
-    return () => window.clearTimeout(timeout);
-  }, [order.status, router, token]);
+  // The customer chooses when to view and close the bill after the kitchen marks the order served.
 
   // Online Payment Retry handler
   const handleRetryOnlinePayment = async () => {
@@ -517,12 +541,8 @@ export function OrderLiveTracker({
                 {currentHeadline.subtitle}
               </p>
               {order.status === "served" && (
-                <p
-                  data-testid="served-auto-return"
-                  role="status"
-                  className="mt-2 text-xs font-medium text-[var(--success)]"
-                >
-                  Returning to your table menu…
+                <p role="status" className="mt-2 text-xs font-medium text-[var(--success)]">
+                  Your bill is ready to view below.
                 </p>
               )}
             </div>
@@ -540,16 +560,40 @@ export function OrderLiveTracker({
                 minute: "2-digit",
               })}
             </span>
-            <span className="flex items-center gap-1 font-mono">
-              <RotateCw className="h-3.5 w-3.5 animate-spin opacity-50" />
-              Sync ({lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })})
-            </span>
+            {order.status !== "served" && (
+              <span className="flex items-center gap-1 font-mono">
+                <RotateCw className="h-3.5 w-3.5 animate-spin opacity-50" />
+                Sync ({lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })})
+              </span>
+            )}
           </div>
+          {shouldOfferServedBill(order.status) && (
+            <div data-testid="served-bill-actions" className="mt-4 space-y-3 border-t border-[var(--border-subtle)] pt-4">
+              <p className="text-sm text-[var(--text-secondary)]">Your order is served. View your bill, then close it when you’re finished.</p>
+              {billViewError && (
+                <p role="alert" className="rounded-lg border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 text-sm text-[var(--destructive-foreground)]">
+                  {billViewError}
+                </p>
+              )}
+              <Button
+                type="button"
+                data-testid="view-served-bill-btn"
+                size="lg"
+                variant="primary"
+                isLoading={isLoadingReceipt}
+                onClick={handleViewBill}
+                className="w-full justify-center gap-2"
+                leftIcon={<Receipt className="h-5 w-5" />}
+              >
+                View Bill
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Paid Receipt Access Card */}
-      {order.paymentStatus === "paid" && (
+      {order.paymentStatus === "paid" && order.status !== "served" && (
         <Card className="border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/25 shadow-xs">
           <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3">
@@ -671,7 +715,7 @@ export function OrderLiveTracker({
       </Card>
 
       {/* Tab orders remain open for more dishes; standalone counter orders do not. */}
-      {(order.paymentStatus !== "counter" || Boolean(order.diningSessionId)) && (
+      {order.status !== "served" && (order.paymentStatus !== "counter" || Boolean(order.diningSessionId)) && (
         <div className="fixed bottom-4 inset-x-4 max-w-md mx-auto z-30">
           <Link href={`/t/${token}`} className="block w-full">
             <Button
@@ -713,9 +757,15 @@ export function OrderLiveTracker({
       {/* Digital Receipt Modal */}
       <ReceiptModal
         isOpen={isReceiptOpen}
-        onClose={() => setIsReceiptOpen(false)}
+        onClose={handleCloseReceipt}
         receipt={receiptData}
-        pdfDownloadUrl={customerApi.getReceiptPdfUrl(order.id, token)}
+        pdfDownloadUrl={
+          receiptData?.isTabBill
+            ? customerApi.getTabReceiptPdfUrl(token)
+            : receiptData?.isPaid
+              ? customerApi.getReceiptPdfUrl(order.id, token)
+              : undefined
+        }
       />
     </div>
   );

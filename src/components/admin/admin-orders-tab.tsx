@@ -639,6 +639,28 @@ export function AdminOrdersTab({
     }
   };
 
+  const getGroupPaymentState = (group: DisplayGroup) => {
+    if (group.type === "tab") {
+      return {
+        status:
+          group.tabSummary?.paymentStatus ??
+          (group.isBillRequested
+            ? "bill_requested"
+            : group.orders.length > 0 && group.orders.every((order) => order.paymentStatus === "paid")
+              ? "paid"
+              : "open"),
+        method:
+          group.orders.find((order) => order.paymentStatus === "paid")?.paymentMethod ??
+          group.orders[0]?.paymentMethod ??
+          null,
+      };
+    }
+    return {
+      status: group.orders[0]?.paymentStatus ?? "pending",
+      method: group.orders[0]?.paymentMethod ?? null,
+    };
+  };
+
   const formatElapsedTime = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
@@ -740,7 +762,7 @@ export function AdminOrdersTab({
           <div className="w-full">
             {/* Desktop Table View (>= 768px) */}
             <div className="hidden md:block w-full overflow-x-auto">
-              <table className="w-full table-fixed text-left text-base border-collapse min-w-[1160px]">
+              <table className="w-full table-fixed text-left text-base border-collapse min-w-[1325px]">
                 <thead>
                   <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[#29231F] font-mono uppercase text-sm font-extrabold tracking-wide">
                     <th className="w-[115px] py-3 px-2 font-extrabold">Table</th>
@@ -748,6 +770,7 @@ export function AdminOrdersTab({
                     <th className="w-[300px] py-3 px-2 font-extrabold">Items Summary</th>
                     <th className="w-[120px] py-3 px-2 text-right font-extrabold">Total</th>
                     <th className="w-[150px] py-3 px-2 font-extrabold">Final Status</th>
+                    <th className="w-[165px] py-3 px-2 font-extrabold">Payment Status</th>
                     <th className="w-[100px] py-3 px-2 font-extrabold">Time</th>
                     <th className="w-[195px] py-3 px-2 text-right font-extrabold">Actions</th>
                   </tr>
@@ -808,6 +831,14 @@ export function AdminOrdersTab({
                               {getStatusBadge((activeRounds[activeRounds.length - 1] ?? group.orders[group.orders.length - 1])?.status ?? "placed")}
                               {isTab && <span className="text-sm text-[var(--text-muted)]">{getTabStatusBadge(group)}</span>}
                             </div>
+                          </td>
+
+                          {/* Payment status is kept separate from kitchen progress. */}
+                          <td data-testid="payment-status-cell" className="py-3 px-2 align-top">
+                            {(() => {
+                              const payment = getGroupPaymentState(group);
+                              return getPaymentBadge(payment.status, payment.method);
+                            })()}
                           </td>
 
                           {/* Time */}
@@ -962,8 +993,15 @@ export function AdminOrdersTab({
                       {itemsSummaryText}
                     </p>
 
-                    {/* Billing state is distinct from the kitchen stage. */}
+                    {/* Billing and payment are separate from the kitchen stage. */}
                     {isTab && <div className="text-base pt-1">{getTabStatusBadge(group)}</div>}
+                    <div data-testid="mobile-payment-status" className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
+                      <span className="text-sm font-semibold text-[var(--text-secondary)]">Payment Status</span>
+                      {(() => {
+                        const payment = getGroupPaymentState(group);
+                        return getPaymentBadge(payment.status, payment.method);
+                      })()}
+                    </div>
 
                     {/* Mobile Touch Action Buttons (at least 44px min height) */}
                     <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1">

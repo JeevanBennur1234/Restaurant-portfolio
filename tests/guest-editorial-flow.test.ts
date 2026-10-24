@@ -176,8 +176,9 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(orderTrackerCode).toContain('order.diningSessionId ? "Open Dine-In Tab" : "Pay at Counter"');
     expect(orderTrackerCode).toContain('order.paymentStatus !== "counter" || Boolean(order.diningSessionId)');
     expect(orderTrackerCode).toContain('router.replace(`/t/${token}`)');
-    expect(orderTrackerCode).toContain('data-testid="served-auto-return"');
-    expect(orderTrackerCode).toContain('}, 4500);');
+    expect(orderTrackerCode).toContain('data-testid="view-served-bill-btn"');
+    expect(orderTrackerCode).toContain('onClose={handleCloseReceipt}');
+    expect(orderTrackerCode).not.toContain('}, 4500);');
 
     // Focus trap and return intact in sheet.tsx
     expect(sheetCode).toContain("triggerRef.current");

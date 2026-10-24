@@ -634,11 +634,13 @@ describe("Task T2: Admin Orders Grouping by Dining Tab", () => {
         })
       );
 
-      // Kitchen status remains the main status; the payment column is not shown.
+      // Kitchen progress and payment state have separate columns and labels.
       expect(html).toContain(">Final Status</th>");
       expect(html).toContain(">Order ID</th>");
-      expect(html).not.toContain(">Payment</th>");
-      expect(html).not.toContain("Paid (Online)");
+      expect(html).toContain(">Payment Status</th>");
+      expect(html).toContain('data-testid="payment-status-cell"');
+      expect(html).toContain('data-testid="mobile-payment-status"');
+      expect(html).toContain("Pay at Counter");
 
       // The repeated table prefix and rounds badge are gone.
       expect(html).toContain("Table 1");

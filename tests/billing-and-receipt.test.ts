@@ -69,6 +69,7 @@ import {
   formatBillNumber,
   buildReceiptData,
   getCustomerReceipt,
+  getCustomerBillOrReceipt,
   getAdminBillOrReceipt,
   recordCounterPayment,
 } from "@/server/services/billing";
@@ -77,6 +78,7 @@ import type { Ctx, ServiceActor } from "@/server/services/result";
 import { NextRequest } from "next/server";
 import { getStaffSession } from "@/server/auth";
 import { GET as getCustomerReceiptRoute } from "@/app/api/v1/customer/orders/[id]/receipt/route";
+import { GET as getCustomerBillRoute } from "@/app/api/v1/customer/orders/[id]/bill/route";
 import { GET as getCustomerReceiptPdfRoute } from "@/app/api/v1/customer/orders/[id]/receipt/pdf/route";
 import { GET as getAdminBillRoute } from "@/app/api/v1/admin/orders/[id]/bill/route";
 import { POST as postPayCounterRoute } from "@/app/api/v1/admin/orders/[id]/pay-counter/route";
@@ -290,6 +292,46 @@ describe("Billing & Receipt System", () => {
     });
   });
 
+  describe("3a. Customer Bill View", () => {
+    it("allows a table-token customer to view an unpaid counter bill without changing payment state", async () => {
+      const unpaidOrder = {
+        ...baseOrder,
+        paymentStatus: "counter",
+        paymentMethod: "counter",
+        payments: [],
+      };
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue(unpaidOrder as never);
+
+      const res = await getCustomerBillOrReceipt(
+        { db: db as never },
+        { orderId: "order_101", token: "token_table_7_valid" }
+      );
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.data.status).toBe("UNPAID_BILL");
+        expect(res.data.isPaid).toBe(false);
+        expect(res.data.paymentMethod).toBe("counter");
+      }
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a customer bill request when the table token does not match", async () => {
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue(baseOrder as never);
+
+      const res = await getCustomerBillOrReceipt(
+        { db: db as never },
+        { orderId: "order_101", token: "wrong_table_token" }
+      );
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.code).toBe("FORBIDDEN");
+        expect(res.status).toBe(403);
+      }
+    });
+  });
+
   describe("4. Manager Billing & Unpaid Bill Workflow", () => {
     it("allows manager to view unpaid bill without altering order payment status", async () => {
       const pendingOrder = {
@@ -476,6 +518,26 @@ describe("Billing & Receipt System", () => {
       expect(json.success).toBe(true);
       expect(json.data.receiptNumber).toBe("ML-REC-202610-ORD-101");
       expect(json.data.status).toBe("PAID_RECEIPT");
+    });
+
+    it("GET /api/v1/customer/orders/[id]/bill returns an unpaid bill for a valid table token", async () => {
+      const unpaidOrder = { ...baseOrder, paymentStatus: "counter", paymentMethod: "counter" };
+      vi.mocked(db.query.tables.findFirst).mockResolvedValue(tableWithRest as never);
+      vi.mocked(db.query.orders.findFirst).mockResolvedValue(unpaidOrder as never);
+
+      const req = new NextRequest("http://localhost:3000/api/v1/customer/orders/order_101/bill", {
+        headers: { "x-table-token": "token_table_7_valid" },
+      });
+      const res = await getCustomerBillRoute(req, {
+        params: Promise.resolve({ id: "order_101" }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.data.status).toBe("UNPAID_BILL");
+      expect(json.data.isPaid).toBe(false);
+      expect(db.update).not.toHaveBeenCalled();
     });
 
     it("GET /api/v1/customer/orders/[id]/receipt returns 400 for unpaid order", async () => {

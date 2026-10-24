@@ -366,6 +366,24 @@ export async function getReceipt(
 }
 
 /**
+ * Fetch a table-authorized customer bill or receipt, including unpaid counter bills.
+ */
+export async function getBillOrReceipt(
+  orderId: string,
+  token: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ApiResult<ReceiptData>> {
+  return apiFetch<ReceiptData>(
+    `/api/v1/customer/orders/${encodeURIComponent(orderId)}/bill`,
+    {
+      method: "GET",
+      tableToken: token,
+      signal: opts?.signal,
+    }
+  );
+}
+
+/**
  * Constructs direct PDF download URL for guest receipt
  */
 export function getReceiptPdfUrl(
@@ -517,6 +535,7 @@ export const customerApi = {
   placeOrder,
   getOrder,
   getReceipt,
+  getBillOrReceipt,
   getReceiptPdfUrl,
   createRazorpayOrder,
   verifyRazorpayPayment,
