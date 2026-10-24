@@ -485,7 +485,7 @@ export function OrderLiveTracker({
           {/* Stepper (Placed -> Preparing -> Ready -> Served) */}
           <OrderStepper status={order.status} />
 
-          <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)] border-t border-[var(--border-subtle)] pt-3">
+          <div className="mt-2 flex items-center justify-between text-sm text-[var(--text-muted)] border-t border-[var(--border-subtle)] pt-3 gap-3">
             <span>
               Placed at{" "}
               {new Date(order.createdAt).toLocaleTimeString([], {
@@ -559,8 +559,8 @@ export function OrderLiveTracker({
       <Card className="shadow-xs">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">Order Summary</CardTitle>
-            <span className="text-sm text-[var(--text-muted)] font-mono">
+            <CardTitle className="text-xl font-bold">Order Summary</CardTitle>
+            <span className="text-base text-[var(--text-muted)] font-mono">
               {order.items.reduce((s, i) => s + i.quantity, 0)} items
             </span>
           </div>
@@ -573,7 +573,7 @@ export function OrderLiveTracker({
                 className="py-3 flex items-start justify-between gap-2"
               >
                 <div className="space-y-0.5">
-                  <div className="font-semibold text-sm sm:text-base text-[var(--text-primary)]">
+                  <div className="font-semibold text-base sm:text-lg text-[var(--text-primary)]">
                     <span className="font-mono font-bold text-[var(--primary)] mr-1.5">
                       {item.quantity}×
                     </span>
@@ -585,7 +585,7 @@ export function OrderLiveTracker({
                     </div>
                   )}
                 </div>
-                <span className="text-sm sm:text-base text-[var(--text-primary)] tabular-nums shrink-0">
+                <span className="text-base sm:text-lg font-medium text-[var(--text-primary)] tabular-nums shrink-0">
                   {formatPaiseToINR(item.totalPaise)}
                 </span>
               </div>
@@ -593,7 +593,7 @@ export function OrderLiveTracker({
           </div>
 
           {/* Pricing Breakdown (Server Computed) */}
-          <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2 text-sm">
+          <div className="border-t border-[var(--border-subtle)] pt-3 space-y-3 text-base">
             <div className="flex justify-between text-[var(--text-secondary)]">
               <span>Subtotal</span>
               <span className="tabular-nums">
@@ -604,9 +604,9 @@ export function OrderLiveTracker({
               <span>GST (5%)</span>
               <span className="tabular-nums">{formatPaiseToINR(order.taxPaise)}</span>
             </div>
-            <div className="flex justify-between text-sm text-[var(--text-primary)] pt-1.5 border-t border-[var(--border-subtle)]">
+            <div className="flex justify-between text-base font-semibold text-[var(--text-primary)] pt-2 border-t border-[var(--border-subtle)]">
               <span>Total Amount</span>
-              <span className="text-base font-normal text-[var(--text-primary)] tabular-nums">
+              <span className="text-lg font-bold text-[var(--text-primary)] tabular-nums">
                 {formatPaiseToINR(order.totalPaise)}
               </span>
             </div>
@@ -623,19 +623,21 @@ export function OrderLiveTracker({
         </CardContent>
       </Card>
 
-      {/* Sticky Bottom Actions: "Order More" */}
-      <div className="fixed bottom-4 inset-x-4 max-w-md mx-auto z-30">
-        <Link href={`/t/${token}`} className="block w-full">
-          <Button
-            size="lg"
-            variant="primary"
-            className="w-full justify-center gap-2 shadow-[var(--shadow-elevated)]"
-            leftIcon={<PlusCircle className="h-5 w-5" />}
-          >
-            Order More for {order.tableNumber}
-          </Button>
-        </Link>
-      </div>
+      {/* Pay-at-counter is a single-order flow; do not invite another order from this tracker. */}
+      {order.paymentStatus !== "counter" && (
+        <div className="fixed bottom-4 inset-x-4 max-w-md mx-auto z-30">
+          <Link href={`/t/${token}`} className="block w-full">
+            <Button
+              size="lg"
+              variant="primary"
+              className="w-full justify-center gap-2 shadow-[var(--shadow-elevated)]"
+              leftIcon={<PlusCircle className="h-5 w-5" />}
+            >
+              Order More for {order.tableNumber}
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {order.paymentStatus === "pending" && (
         <UpiQrModal

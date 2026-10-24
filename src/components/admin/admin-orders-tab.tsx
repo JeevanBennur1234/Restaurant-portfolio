@@ -740,16 +740,16 @@ export function AdminOrdersTab({
           <div className="w-full">
             {/* Desktop Table View (>= 768px) */}
             <div className="hidden md:block w-full overflow-x-auto">
-              <table className="w-full table-fixed text-left text-base border-collapse min-w-[1520px]">
+              <table className="w-full table-fixed text-left text-base border-collapse min-w-[1380px]">
                 <thead>
-                  <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-sm tracking-wide">
-                    <th className="w-[170px] py-4 px-5 font-semibold">Table</th>
-                    <th className="w-[240px] py-4 px-5 font-semibold">Order ID</th>
-                    <th className="w-[380px] py-4 px-5 font-semibold">Items Summary</th>
-                    <th className="w-[160px] py-4 px-5 text-right font-semibold">Total</th>
-                    <th className="w-[190px] py-4 px-5 font-semibold">Final Status</th>
-                    <th className="w-[140px] py-4 px-5 font-semibold">Time</th>
-                    <th className="w-[240px] py-4 px-5 text-right font-semibold">Actions</th>
+                  <tr className="border-b border-[var(--border-subtle)] bg-[#F4EFEA] text-[var(--text-secondary)] font-mono uppercase text-base font-bold tracking-normal">
+                    <th className="w-[140px] py-3 px-3 font-bold">Table</th>
+                    <th className="w-[210px] py-3 px-3 font-bold">Order ID</th>
+                    <th className="w-[340px] py-3 px-3 font-bold">Items Summary</th>
+                    <th className="w-[140px] py-3 px-3 text-right font-bold">Total</th>
+                    <th className="w-[170px] py-3 px-3 font-bold">Final Status</th>
+                    <th className="w-[120px] py-3 px-3 font-bold">Time</th>
+                    <th className="w-[220px] py-3 px-3 text-right font-bold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -779,31 +779,31 @@ export function AdminOrdersTab({
                           className={`${rowBgClass} focus-within:bg-[var(--bg-subtle)]/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]`}
                         >
                           {/* Table */}
-                          <td className="py-4 px-4 align-top">
+                          <td className="py-4 px-3 align-top">
                             <div className="font-semibold text-base text-[var(--text-primary)]">
                               {getTableDisplayName(group.tableNumber)}
                             </div>
                           </td>
 
                           {/* Dedicated order IDs column */}
-                          <td className="py-4 px-4 align-top">
+                          <td className="py-4 px-3 align-top">
                             <div className="flex flex-wrap gap-x-2 gap-y-1 text-base leading-6 text-[var(--text-secondary)]" title={group.orders.map((order) => order.orderNumber).join(", ")}>
                               {group.orders.map((order) => <span key={order.id} className="whitespace-nowrap">#{order.orderNumber}</span>)}
                             </div>
                           </td>
 
                           {/* Items Summary */}
-                          <td className="py-5 px-5 align-top text-base leading-7 text-[var(--text-secondary)]">
+                          <td className="py-4 px-3 align-top text-base leading-6 text-[var(--text-secondary)]">
                             <span title={itemsSummaryText}>{itemsSummaryText}</span>
                           </td>
 
                           {/* Plain total amount; subtotal and tax belong on the bill. */}
-                          <td className="py-5 px-5 text-right align-top text-lg font-normal text-[var(--text-primary)] tabular-nums whitespace-nowrap">
+                          <td className="py-4 px-3 text-right align-top text-lg font-normal text-[var(--text-primary)] tabular-nums whitespace-nowrap">
                             {formatPaiseToINR(totalAmountPaise)}
                           </td>
 
                           {/* Final kitchen stage is the primary table status; tab billing remains secondary. */}
-                          <td className="py-4 px-4 align-top">
+                          <td className="py-4 px-3 align-top">
                             <div className="flex flex-col items-start gap-1.5">
                               {getStatusBadge((activeRounds[activeRounds.length - 1] ?? group.orders[group.orders.length - 1])?.status ?? "placed")}
                               {isTab && <span className="text-sm text-[var(--text-muted)]">{getTabStatusBadge(group)}</span>}
@@ -811,12 +811,12 @@ export function AdminOrdersTab({
                           </td>
 
                           {/* Time */}
-                          <td className="py-5 px-5 align-top text-base text-[var(--text-muted)] tabular-nums">
+                          <td className="py-4 px-3 align-top text-base text-[var(--text-muted)] tabular-nums">
                             {formatElapsedTime(group.createdAt)}
                           </td>
 
                           {/* Actions */}
-                          <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap align-top">
+                          <td className="py-3 px-3 text-right space-x-2 whitespace-nowrap align-top">
                             {isTab ? (
                               <>
                                 <button type="button" onClick={() => setSelectedTabItemsGroup(group)} className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-[var(--text-secondary)] hover:text-[var(--primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer" title="View all ordered items" aria-label={`View items for ${getTableDisplayName(group.tableNumber)}`}><Eye className="h-5 w-5" /></button>

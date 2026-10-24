@@ -118,7 +118,7 @@ export function OrderStepper({ status, className }: OrderStepperProps) {
 
               <span
                 className={cn(
-                  "mt-2 text-xs font-semibold leading-tight",
+                  "mt-2 text-sm sm:text-base font-bold leading-tight",
                   isCurrent || isCompleted
                     ? "text-[var(--text-primary)]"
                     : "text-[var(--text-muted)]"
@@ -127,7 +127,7 @@ export function OrderStepper({ status, className }: OrderStepperProps) {
                 {step.label}
               </span>
 
-              <span className="text-[10px] text-[var(--text-muted)] hidden sm:block mt-0.5">
+              <span className="text-xs sm:text-sm text-[var(--text-muted)] hidden sm:block mt-1">
                 {step.description}
               </span>
             </div>
