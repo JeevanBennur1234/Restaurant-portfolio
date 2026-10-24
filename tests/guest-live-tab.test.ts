@@ -5,7 +5,10 @@ import { TabModal } from "@/components/guest/tab-modal";
 import { ActiveTabBanner } from "@/components/guest/active-tab-banner";
 import { RoundStageTrack, formatStageTime } from "@/components/guest/round-stage-track";
 import { OrderStepper, STEPS, getStepIndex } from "@/components/guest/order-stepper";
-import { getOrderStatusHeadline } from "@/components/guest/order-live-tracker";
+import {
+  getOrderStatusHeadline,
+  shouldAutoReturnToTable,
+} from "@/components/guest/order-live-tracker";
 import type { TabDetailsData } from "@/lib/api/types";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -368,6 +371,14 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect((html.match(/lucide lucide-check/g) ?? []).length).toBe(4);
       expect(html).not.toContain("animate-pulse");
       expect(html).not.toContain("ring-4");
+    });
+
+    it("automatically returns only after the order is served", () => {
+      expect(shouldAutoReturnToTable("served")).toBe(true);
+      expect(shouldAutoReturnToTable("ready")).toBe(false);
+      expect(shouldAutoReturnToTable("preparing")).toBe(false);
+      expect(shouldAutoReturnToTable("placed")).toBe(false);
+      expect(shouldAutoReturnToTable("cancelled")).toBe(false);
     });
 
     it("shows a thank-you and counter-payment message after service", () => {

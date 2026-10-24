@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { OrderStepper } from "./order-stepper";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -74,6 +75,10 @@ const statusHeadlines: Record<
   },
 };
 
+export function shouldAutoReturnToTable(status: OrderStatus): boolean {
+  return status === "served";
+}
+
 export function getOrderStatusHeadline(
   order: Pick<OrderDetails, "status" | "paymentStatus">
 ): { title: string; subtitle: string; icon: React.ReactNode } {
@@ -96,6 +101,7 @@ export function OrderLiveTracker({
   paymentsEnabled = true,
   paymentsTestMode = false,
 }: OrderLiveTrackerProps) {
+  const router = useRouter();
   const [order, setOrder] = React.useState<OrderDetails>(initialOrder);
   const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
 
@@ -213,6 +219,22 @@ export function OrderLiveTracker({
   }, [refreshOrder]);
 
   const currentHeadline = getOrderStatusHeadline(order);
+
+  // Give the customer time to read the thank-you, then close a script-opened popup
+  // when possible. Normal tab navigation falls back to the table menu because
+  // browsers do not allow pages to close tabs they did not open themselves.
+  React.useEffect(() => {
+    if (!shouldAutoReturnToTable(order.status)) return;
+
+    const timeout = window.setTimeout(() => {
+      if (window.opener && !window.opener.closed) {
+        window.close();
+      }
+      router.replace(`/t/${token}`);
+    }, 4500);
+
+    return () => window.clearTimeout(timeout);
+  }, [order.status, router, token]);
 
   // Online Payment Retry handler
   const handleRetryOnlinePayment = async () => {
@@ -494,6 +516,15 @@ export function OrderLiveTracker({
               <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
                 {currentHeadline.subtitle}
               </p>
+              {order.status === "served" && (
+                <p
+                  data-testid="served-auto-return"
+                  role="status"
+                  className="mt-2 text-xs font-medium text-[var(--success)]"
+                >
+                  Returning to your table menu…
+                </p>
+              )}
             </div>
           </div>
         </CardHeader>
