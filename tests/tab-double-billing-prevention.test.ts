@@ -596,7 +596,7 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
               update: () => {
                 return {
                   set: vi.fn((data: Record<string, unknown>) => {
-                    if (data.status === "closed" && data.paymentMethod === "pay_now") {
+                    if (typeof data.status === "string" && data.paymentStatus === "paid" && data.paymentMethod === "pay_now") {
                       return updateSessionSpy(data);
                     }
                     if (data.paymentStatus === "paid" && data.paymentMethod === "pay_now") {
@@ -628,12 +628,13 @@ describe("Tab Double Billing Prevention (Task T1)", () => {
           paymentMethod: "pay_now",
         })
       );
-      // Verify session was closed with paymentMethod: pay_now
+      // Payment is confirmed, but the tab remains open while a non-cancelled round is unserved.
       expect(updateSessionSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: "closed",
+          status: "bill_requested",
           paymentStatus: "paid",
           paymentMethod: "pay_now",
+          closedAt: null,
         })
       );
     });

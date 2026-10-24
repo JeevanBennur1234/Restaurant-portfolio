@@ -41,11 +41,13 @@ test.describe("Dine-In Open Tab Journey", () => {
       }
     );
     expect(round1Res.ok()).toBe(true);
-    const round1Data = (await round1Res.json()) as { data: { roundNumber: number; tabId: string } };
+    const round1Data = (await round1Res.json()) as { data: { roundNumber: number; tabId: string; orderNumber: string } };
     expect(round1Data.data.roundNumber).toBe(1);
 
-    // 4. Reload table menu and verify persistent Active Tab Banner
-    await page.reload();
+    // 4. Revisit the table menu to verify the active tab survives a full navigation.
+    // Use an explicit navigation rather than reload(), which can be aborted by
+    // Next.js PPR refreshing the current document during realtime polling.
+    await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`, { waitUntil: "domcontentloaded" });
     const tabBanner = page.locator('[data-testid="active-tab-banner"]');
     await expect(tabBanner).toBeVisible({ timeout: 10_000 });
     await expect(tabBanner).toContainText("Open Dining Tab");
@@ -62,7 +64,7 @@ test.describe("Dine-In Open Tab Journey", () => {
       }
     );
     expect(round2Res.ok()).toBe(true);
-    const round2Data = (await round2Res.json()) as { data: { roundNumber: number } };
+    const round2Data = (await round2Res.json()) as { data: { roundNumber: number; orderNumber: string } };
     expect(round2Data.data.roundNumber).toBe(2);
 
     // 6. Reload table menu and verify Active Tab Banner displays Round 2 with updated bill
@@ -79,6 +81,46 @@ test.describe("Dine-In Open Tab Journey", () => {
     const tabModal = page.locator('[data-testid="tab-modal"]');
     await expect(tabModal).toBeVisible({ timeout: 10_000 });
     await expect(tabModal).toContainText("Table 7");
+
+    // Exercise the actual bill modal at the four requested desktop/mobile viewports.
+    const originalViewport = page.viewportSize() ?? { width: 1280, height: 720 };
+    for (const viewport of [
+      { width: 1365, height: 900 },
+      { width: 1024, height: 768 },
+      { width: 393, height: 727 },
+      { width: 360, height: 800 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(tabModal).toBeVisible();
+      const layout = await page.evaluate(() => {
+        const dialog = document.querySelector<HTMLElement>('[data-testid="tab-modal"]');
+        const panel = dialog?.firstElementChild as HTMLElement | null;
+        const rect = panel?.getBoundingClientRect();
+        return {
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          documentWidth: document.documentElement.scrollWidth,
+          panelLeft: rect?.left ?? -1,
+          panelRight: rect?.right ?? Number.MAX_SAFE_INTEGER,
+          panelWidth: rect?.width ?? Number.MAX_SAFE_INTEGER,
+          panelTop: rect?.top ?? -1,
+          panelBottom: rect?.bottom ?? Number.MAX_SAFE_INTEGER,
+          panelHeight: rect?.height ?? Number.MAX_SAFE_INTEGER,
+        };
+      });
+      expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+      expect(layout.panelLeft).toBeGreaterThanOrEqual(0);
+      expect(layout.panelRight).toBeLessThanOrEqual(layout.viewportWidth);
+      expect(layout.panelTop).toBeGreaterThanOrEqual(0);
+      expect(layout.panelBottom).toBeLessThanOrEqual(layout.viewportHeight);
+      expect(layout.panelWidth).toBeLessThanOrEqual(layout.viewportWidth);
+      expect(layout.panelHeight).toBeLessThanOrEqual(layout.viewportHeight);
+      await expect(tabModal.locator('button[aria-label="Close tab modal"]')).toBeVisible();
+      await expect(tabModal.locator('[data-testid="request-tab-bill-btn"]')).toBeVisible();
+      await expect(tabModal.getByRole("button", { name: /Add More Dishes/i })).toBeVisible();
+      await page.screenshot({ path: `test-results/bill-modal-${viewport.width}x${viewport.height}.png` });
+    }
+    await page.setViewportSize(originalViewport);
     // The guest modal consolidates multiple rounds into one item summary.
     const tabItemsSummary = tabModal.locator('[data-testid="tab-items-summary"]');
     await expect(tabItemsSummary).toContainText(firstItem.name);
@@ -90,14 +132,16 @@ test.describe("Dine-In Open Tab Journey", () => {
     await requestBillBtn.click();
 
     const payOnlineBtn = page.locator('[data-testid="pay-tab-online-btn"]');
-    await expect(payOnlineBtn).toBeVisible({ timeout: 10_000 });
+    // The bill request uses a bounded 15s API timeout; allow a little room on mobile CI.
+    await expect(payOnlineBtn).toBeVisible({ timeout: 20_000 });
     await payOnlineBtn.click();
 
     // Verify Tab Settled message and receipt download button
     const receiptDownloadBtn = page.locator('[data-testid="download-tab-receipt-btn"]');
-    await expect(receiptDownloadBtn).toHaveCount(1);
-    await expect(receiptDownloadBtn).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-testid="tab-status-badge"]')).toContainText("Settled");
+    await expect(page.locator('[data-testid="tab-paid-awaiting-service"]')).toBeVisible({ timeout: 15_000 });
+    await expect(receiptDownloadBtn).toHaveCount(0);
+
+    await expect(page.locator('[data-testid="tab-status-badge"]')).toContainText("Awaiting Service");
 
     // 9. Verify Kitchen KDS renders Round 1 and Round 2 badges for staff
     const kitchenPage = await page.context().newPage();
@@ -113,6 +157,20 @@ test.describe("Dine-In Open Tab Journey", () => {
     await expect(round1Badge.first()).toBeVisible({ timeout: 15_000 });
     await expect(round2Badge.first()).toBeVisible({ timeout: 15_000 });
 
+    const round1Ticket = kitchenPage.locator(`[data-testid="kitchen-ticket"]:has([data-testid="ticket-order-number"]:has-text("${round1Data.data.orderNumber}"))`);
+    const round2Ticket = kitchenPage.locator(`[data-testid="kitchen-ticket"]:has([data-testid="ticket-order-number"]:has-text("${round2Data.data.orderNumber}"))`);
+    for (const ticket of [round1Ticket, round2Ticket]) {
+      const actionButton = ticket.locator('[data-testid="ticket-action-btn"]');
+      await expect(actionButton).toContainText(/Start Prep/i, { timeout: 10_000 });
+      await actionButton.click();
+      await expect(actionButton).toContainText(/Mark Ready/i, { timeout: 10_000 });
+      await actionButton.click();
+      await expect(actionButton).toContainText(/Served/i, { timeout: 10_000 });
+      await actionButton.click();
+    }
+
+    await expect(page.locator('[data-testid="tab-status-badge"]')).toContainText("Settled", { timeout: 20_000 });
+    await expect(receiptDownloadBtn).toBeVisible({ timeout: 15_000 });
     await kitchenPage.close();
   });
 });

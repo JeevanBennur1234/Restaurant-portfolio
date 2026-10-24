@@ -1,8 +1,9 @@
-import { eq, and, inArray, asc } from "drizzle-orm";
+import { eq, and, inArray, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   orders,
   orderEvents,
+  diningSessions,
   type OrderStatus,
 } from "@/server/db/schema";
 import { publishRealtimeEvent, getRestaurantChannel } from "@/server/realtime";
@@ -234,6 +235,62 @@ export async function transitionOrderStatus(
       orderId,
       status: toStatus,
     });
+
+    // A paid tab is only completed after every non-cancelled order is served.
+    // Lock the session row while checking fulfillment so concurrent final-serving
+    // transitions serialize: one transition cannot miss another's committed status.
+    if (toStatus === "served" && existing.diningSessionId) {
+      const closedSession = await ctx.db.transaction(async (tx) => {
+        const [session] = await tx
+          .select({
+            id: diningSessions.id,
+            restaurantId: diningSessions.restaurantId,
+            status: diningSessions.status,
+            paymentStatus: diningSessions.paymentStatus,
+          })
+          .from(diningSessions)
+          .where(eq(diningSessions.id, existing.diningSessionId!))
+          .for("update");
+
+        if (!session || session.paymentStatus !== "paid" || session.status === "closed") {
+          return null;
+        }
+
+        const sessionOrders = await tx
+          .select({ status: orders.status })
+          .from(orders)
+          .where(and(
+            eq(orders.diningSessionId, session.id),
+            sql`${orders.status} != 'cancelled'`
+          ));
+        const allOrdersServed = sessionOrders.length > 0 && sessionOrders.every((order) => order.status === "served");
+        if (!allOrdersServed) return null;
+
+        const [closed] = await tx
+          .update(diningSessions)
+          .set({ status: "closed", closedAt: new Date(), updatedAt: new Date() })
+          .where(and(
+            eq(diningSessions.id, session.id),
+            eq(diningSessions.paymentStatus, "paid"),
+            inArray(diningSessions.status, ["active", "bill_requested"])
+          ))
+          .returning({ id: diningSessions.id, restaurantId: diningSessions.restaurantId });
+        return closed ?? null;
+      });
+
+      if (closedSession) {
+        await publishRealtimeEvent(getRestaurantChannel(closedSession.restaurantId), "tab.closed", {
+          tabId: closedSession.id,
+          status: "closed",
+          paymentStatus: "paid",
+        });
+        await publishRealtimeEvent(`tab:${closedSession.id}`, "tab.closed", {
+          tabId: closedSession.id,
+          status: "closed",
+          paymentStatus: "paid",
+        });
+      }
+    }
 
     return ok({ newStatus: toStatus });
   } catch (err) {

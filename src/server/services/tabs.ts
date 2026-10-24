@@ -115,6 +115,47 @@ export function wasRoundPaidBeforeTab(
   );
 }
 
+/**
+ * Re-check fulfillment after payment commits to cover the race where the final
+ * order is served between the initial read and the payment transaction.
+ */
+async function closePaidSessionIfFulfilled(ctx: Ctx, sessionId: string): Promise<boolean> {
+  const session = await ctx.db.query.diningSessions.findFirst({
+    where: eq(diningSessions.id, sessionId),
+    columns: { id: true, status: true, paymentStatus: true },
+  });
+  if (!session || session.paymentStatus !== "paid") return false;
+  if (session.status === "closed") return true;
+
+  const sessionOrders = await ctx.db.query.orders.findMany({
+    where: and(
+      eq(orders.diningSessionId, session.id),
+      sql`${orders.status} != 'cancelled'`
+    ),
+    columns: { status: true },
+  });
+  if (sessionOrders.length === 0 || !sessionOrders.every((order) => order.status === "served")) {
+    return false;
+  }
+
+  const now = new Date();
+  const closedRows = await ctx.db.update(diningSessions)
+    .set({ status: "closed", closedAt: now, updatedAt: now })
+    .where(and(
+      eq(diningSessions.id, session.id),
+      eq(diningSessions.paymentStatus, "paid"),
+      inArray(diningSessions.status, ["active", "bill_requested"])
+    ))
+    .returning({ id: diningSessions.id });
+
+  if (closedRows.length > 0) return true;
+  const currentSession = await ctx.db.query.diningSessions.findFirst({
+    where: eq(diningSessions.id, session.id),
+    columns: { status: true, paymentStatus: true },
+  });
+  return currentSession?.status === "closed" && currentSession.paymentStatus === "paid";
+}
+
 export async function isOrderInOpenTab(
   ctx: Ctx,
   order: { diningSessionId?: string | null; diningSession?: { status: string } | null }
@@ -921,7 +962,7 @@ export async function verifyTabPayment(
     if (!session) {
       return fail("NOT_FOUND", "Dining tab for this payment was not found", 404);
     }
-    if (tabPayment.status === "completed" && session.status === "closed" && session.paymentStatus === "paid") {
+    if (tabPayment.status === "completed" && session.paymentStatus === "paid") {
       return ok({ success: true, tabId: session.id });
     }
     if (tabPayment.status !== "pending") {
@@ -943,22 +984,25 @@ export async function verifyTabPayment(
     }
 
     const now = new Date();
+    // Payment settles the balance, but the tab stays open until every non-cancelled
+    // order has been served. The query above already excludes cancelled orders.
+    let allOrdersServed = session.orders.length > 0 && session.orders.every((order) => order.status === "served");
     const didSettle = await ctx.db.transaction(async (tx) => {
-      const closedRows = await tx
+      const settledRows = await tx
         .update(diningSessions)
         .set({
-          status: "closed",
+          status: allOrdersServed ? "closed" : "bill_requested",
           paymentStatus: "paid",
           paymentMethod: "pay_now",
           subtotalPaise: computedSubtotal,
           taxPaise: computedTax,
           totalPaise: computedTotal,
-          closedAt: now,
+          closedAt: allOrdersServed ? now : null,
           updatedAt: now,
         })
         .where(and(eq(diningSessions.id, session.id), eq(diningSessions.status, "bill_requested")))
         .returning({ id: diningSessions.id });
-      if (closedRows.length === 0) return false;
+      if (settledRows.length === 0) return false;
 
       const unpaidOrders = session.orders.filter((order) => !wasRoundPaidBeforeTab(order, session));
       const unpaidOrderIds = unpaidOrders.map((o) => o.id);
@@ -984,21 +1028,22 @@ export async function verifyTabPayment(
       return true;
     });
     if (!didSettle) return fail("CONFLICT", "This tab has already been settled by another request", 409);
+    allOrdersServed = allOrdersServed || await closePaidSessionIfFulfilled(ctx, session.id);
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
-      "tab.closed",
+      allOrdersServed ? "tab.closed" : "tab.updated",
       {
         tabId: session.id,
         tableNumber: tableRecord.tableNumber,
-        status: "closed",
+        status: allOrdersServed ? "closed" : "bill_requested",
         paymentStatus: "paid",
       }
     );
 
-    await publishRealtimeEvent(`tab:${session.id}`, "tab.closed", {
+    await publishRealtimeEvent(`tab:${session.id}`, allOrdersServed ? "tab.closed" : "tab.updated", {
       tabId: session.id,
-      status: "closed",
+      status: allOrdersServed ? "closed" : "bill_requested",
       paymentStatus: "paid",
     });
 
@@ -1048,17 +1093,21 @@ export async function testVerifyTabPayment(
     if (!session) {
       return fail("NOT_FOUND", "No active dining tab found", 404);
     }
+    if (session.paymentStatus === "paid") {
+      return ok({ success: true, tabId: session.id });
+    }
 
     const now = new Date();
+    let allOrdersServed = session.orders.length > 0 && session.orders.every((order) => order.status === "served");
 
     await ctx.db.transaction(async (tx) => {
       await tx
         .update(diningSessions)
         .set({
-          status: "closed",
+          status: allOrdersServed ? "closed" : "bill_requested",
           paymentStatus: "paid",
           paymentMethod: "pay_now",
-          closedAt: now,
+          closedAt: allOrdersServed ? now : null,
           updatedAt: now,
         })
         .where(eq(diningSessions.id, session.id));
@@ -1084,14 +1133,15 @@ export async function testVerifyTabPayment(
         });
       }
     });
+    allOrdersServed = allOrdersServed || await closePaidSessionIfFulfilled(ctx, session.id);
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
-      "tab.closed",
+      allOrdersServed ? "tab.closed" : "tab.updated",
       {
         tabId: session.id,
         tableNumber: tableRecord.tableNumber,
-        status: "closed",
+        status: allOrdersServed ? "closed" : "bill_requested",
         paymentStatus: "paid",
       }
     );
@@ -1144,9 +1194,13 @@ export async function settleTabAtCounter(
     if (session.status === "closed") {
       return fail("CONFLICT", "This tab has already been settled and closed", 409);
     }
+    if (session.paymentStatus === "paid") {
+      return fail("CONFLICT", "This tab is already paid and is waiting for its orders to be served.", 409);
+    }
 
     const now = new Date();
     const paymentMethodToRecord = paymentMethod || "cash";
+    let allOrdersServed = session.orders.length > 0 && session.orders.every((order) => order.status === "served");
 
     // Never collect at the counter while a Razorpay tab payment could still capture.
     const unresolvedOnlinePayment = (session.payments ?? []).some(
@@ -1181,14 +1235,14 @@ export async function settleTabAtCounter(
       const closedRows = await tx
         .update(diningSessions)
         .set({
-          status: "closed",
+          status: allOrdersServed ? "closed" : "bill_requested",
           paymentStatus: "paid",
           paymentMethod: paymentMethodToRecord,
           notes: notes ?? null,
           subtotalPaise: computedSubtotal,
           taxPaise: computedTax,
           totalPaise: computedTotal,
-          closedAt: now,
+          closedAt: allOrdersServed ? now : null,
           updatedAt: now,
         })
         .where(and(
@@ -1239,22 +1293,23 @@ export async function settleTabAtCounter(
     if (!didSettle) {
       return fail("CONFLICT", "This tab has already been settled by another request.", 409);
     }
+    allOrdersServed = allOrdersServed || await closePaidSessionIfFulfilled(ctx, session.id);
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
-      "tab.closed",
+      allOrdersServed ? "tab.closed" : "tab.updated",
       {
         tabId: session.id,
         tableNumber: session.table.tableNumber,
-        status: "closed",
+        status: allOrdersServed ? "closed" : "bill_requested",
         paymentStatus: "paid",
         settledBy: ctx.actor.username,
       }
     );
 
-    await publishRealtimeEvent(`tab:${session.id}`, "tab.closed", {
+    await publishRealtimeEvent(`tab:${session.id}`, allOrdersServed ? "tab.closed" : "tab.updated", {
       tabId: session.id,
-      status: "closed",
+      status: allOrdersServed ? "closed" : "bill_requested",
       paymentStatus: "paid",
     });
 

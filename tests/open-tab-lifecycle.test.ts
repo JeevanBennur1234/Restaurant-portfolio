@@ -547,12 +547,16 @@ describe("Dine-In Open Tab Lifecycle", () => {
         ],
       };
 
+      const updateValues: Record<string, unknown>[] = [];
       const updateSpy = vi.fn().mockImplementation(() => ({
-        set: vi.fn().mockImplementation((values: Record<string, unknown>) => ({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue(values.status === "closed" ? [{ id: "session-1" }] : []),
-          }),
-        })),
+        set: vi.fn().mockImplementation((values: Record<string, unknown>) => {
+          updateValues.push(values);
+          return {
+            where: vi.fn().mockReturnValue({
+              returning: vi.fn().mockResolvedValue(values.paymentStatus === "paid" ? [{ id: "session-1" }] : []),
+            }),
+          };
+        }),
       }));
 
       const insertSpy = vi.fn().mockReturnValue({
@@ -601,6 +605,12 @@ describe("Dine-In Open Tab Lifecycle", () => {
         expect(res.data.tabId).toBe("session-1");
       }
       expect(mockCtx.db.transaction).toHaveBeenCalled();
+      expect(updateValues).toContainEqual(expect.objectContaining({
+        status: "bill_requested",
+        paymentStatus: "paid",
+        paymentMethod: "pay_now",
+        closedAt: null,
+      }));
     });
 
     it("supports testVerifyTabPayment when test simulation is allowed", async () => {

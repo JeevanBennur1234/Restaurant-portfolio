@@ -268,7 +268,7 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).toContain('data-testid="settle-tab-counter-btn"');
     });
 
-    it("renders State 4 (closed and paid): 'Paid. Thank you!' with receipt download", () => {
+    it("renders State 4 (closed and paid): confirms service completion and offers receipt download", () => {
       mockLiveTabState = {
         ...mockLiveTabState,
         tab: {
@@ -290,12 +290,40 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       );
 
       // Status card wording
-      expect(html).toContain("Paid. Thank you!");
+      expect(html).toContain("Paid and served.");
       expect(html).toContain("Paid · Settled");
 
       // Download Receipt button
       expect(html).toContain('data-testid="download-tab-receipt-btn"');
       expect(html).toContain("Download Receipt (PDF)");
+    });
+
+    it("renders paid-but-unserved tabs as awaiting service without settlement actions", () => {
+      mockLiveTabState = {
+        ...mockLiveTabState,
+        tab: {
+          ...baseMockTab,
+          status: "bill_requested",
+          paymentStatus: "paid",
+          paymentMethod: "pay_now",
+          closedAt: null,
+        },
+      };
+
+      const html = renderToStaticMarkup(
+        React.createElement(TabModal, {
+          isOpen: true,
+          onClose: vi.fn(),
+          token: "token_table_1",
+          tableLabel: "Table 1",
+        })
+      );
+
+      expect(html).toContain("Paid · Awaiting Service");
+      expect(html).toContain("Payment received. The kitchen is finishing your order");
+      expect(html).not.toContain('data-testid="download-tab-receipt-btn"');
+      expect(html).not.toContain('data-testid="pay-tab-online-btn"');
+      expect(html).not.toContain('data-testid="settle-tab-counter-btn"');
     });
   });
 

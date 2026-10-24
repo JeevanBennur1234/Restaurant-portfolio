@@ -23,7 +23,7 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     await expect(guestPage).toHaveTitle(/Table 7/i, { timeout: 15_000 });
     const firstCard = guestPage.locator('[data-testid="menu-item-card"]:visible').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
-    await firstCard.click();
+    await firstCard.locator('[data-testid="menu-item-details-btn"]').click();
 
     const addToOrderBtn = guestPage.locator('[data-testid="add-to-order-btn"]');
     await expect(addToOrderBtn).toBeVisible({ timeout: 15_000 });
@@ -76,7 +76,9 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     await expect(actionBtn).toContainText(/Start Prep/i);
     await actionBtn.click();
 
-    // Verify guest tracker confirms order is cooking (database committed preparing status)
+    // The customer tracker intentionally pauses polling in a hidden tab. Bring it
+    // to the foreground after the kitchen transition so the polling fallback resumes.
+    await guestPage.bringToFront();
     await expect(statusTitle).toContainText(/Cooking|Preparing/i, { timeout: 20_000 });
 
     // 4. Kitchen transitions ticket: preparing -> ready ("Mark Ready")
@@ -90,8 +92,8 @@ test.describe("Cross-Site Live Flow (Customer + Kitchen)", () => {
     await expect(actionBtn).toContainText(/Served/i, { timeout: 10_000 });
     await actionBtn.click();
 
-    // 7. In Guest tracker: verify status reaches "Served" / "Delivered" without reload
-    await expect(statusTitle).toContainText(/Delivered|Served/i, { timeout: 20_000 });
+    // The production tracker labels the final served state "Thank You!".
+    await expect(statusTitle).toContainText(/Delivered|Served|Thank You!/i, { timeout: 20_000 });
 
     // Clean up contexts
     await guestContext.close();

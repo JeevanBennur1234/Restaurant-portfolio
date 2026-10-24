@@ -54,7 +54,6 @@ export function TabModal({
   const router = useRouter();
   const {
     tab,
-    setTab,
     isLoading,
     isReconnecting,
     refreshTab,
@@ -107,18 +106,8 @@ export function TabModal({
         // Safe simulated payment in test environment
         const simRes = await customerApi.testVerifyTabPayment(token);
         if (simRes.ok) {
-          setSuccessMessage("Payment successful! Thank you for dining with us. Returning to table ordering…");
+          setSuccessMessage("Payment received. Your tab will close automatically after all active orders are served.");
           await refreshTab();
-          setTab((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  status: "closed",
-                  paymentStatus: "paid",
-                  paymentMethod: "pay_now",
-                }
-              : null
-          );
           setIsActionLoading(false);
           return;
         }
@@ -153,18 +142,8 @@ export function TabModal({
             razorpaySignature: resp.razorpay_signature,
           });
           if (verifyRes.ok) {
-            setSuccessMessage("Payment verified successfully! Thank you for dining with us. Returning to table ordering…");
+            setSuccessMessage("Payment verified successfully. Your tab will close automatically after all active orders are served.");
             await refreshTab();
-            setTab((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    status: "closed",
-                    paymentStatus: "paid",
-                    paymentMethod: "pay_now",
-                  }
-                : null
-            );
           } else {
             setErrorMessage(verifyRes.message || "Payment verification failed. Please check counter.");
           }
@@ -187,18 +166,21 @@ export function TabModal({
   };
 
   const isClosed = tab?.status === "closed";
+  const isPaid = tab?.paymentStatus === "paid";
   const isBillRequested = tab?.status === "bill_requested";
-  const isCounterRequested = isBillRequested && tab?.paymentMethod === "counter";
-  // Badge text matching the real state
+  const isCounterRequested = isBillRequested && tab?.paymentMethod === "counter" && !isPaid;
+  // Payment and fulfilment are separate: a paid tab stays open while food is being served.
   const statusBadgeText = isClosed
     ? "Paid · Settled"
+    : isPaid
+    ? "Paid · Awaiting Service"
     : isCounterRequested
     ? "Pay at Counter"
     : isBillRequested
     ? "Bill Requested"
     : "Open Tab";
 
-  const statusBadgeClasses = isClosed
+  const statusBadgeClasses = isClosed || isPaid
     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
     : isCounterRequested
     ? "bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
@@ -226,7 +208,9 @@ export function TabModal({
 
   // Calm status card wording following requirements
   const statusCardWording = isClosed
-    ? "Paid. Thank you! Your dining tab is closed. Choose Order Again to start a fresh tab, or Close Ordering to finish. Your receipt remains available below."
+    ? "Paid and served. Your dining tab is closed. Choose Order Again to start a fresh tab, or Close Ordering to finish. Your receipt remains available below."
+    : isPaid
+    ? "Payment is confirmed. Your tab will close once every non-cancelled order has been served."
     : isBillRequested
     ? "Your bill is ready. Choose Pay Online or Pay at Counter below to settle the tab."
     : "Your tab is open. Order more or request the bill anytime.";
@@ -253,10 +237,12 @@ export function TabModal({
               <p className="text-xs text-[var(--text-secondary)]">
                 {isClosed
                   ? "Settled & Closed"
+                  : isPaid
+                  ? "Payment received · Awaiting service"
                   : isCounterRequested
                   ? "Staff notified for counter payment"
                   : isBillRequested
-                  ? "Online payment requested"
+                  ? "Bill requested"
                   : "Open Table Tab"}
               </p>
             </div>
@@ -430,7 +416,7 @@ export function TabModal({
         {tab && (
           <div className="max-h-[34dvh] shrink-0 space-y-2 overflow-y-auto border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:p-4">
             {/* Active Tab State: Add More Dishes & Request Bill */}
-            {!isClosed && !isBillRequested && (
+            {!isClosed && !isPaid && !isBillRequested && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -456,7 +442,7 @@ export function TabModal({
             )}
 
             {/* Bill Requested State: always let the customer choose online or counter payment. */}
-            {!isClosed && isBillRequested && (
+            {!isClosed && !isPaid && isBillRequested && (
               <div className="space-y-2">
                 {paymentsEnabled && (
                   <Button
@@ -483,6 +469,12 @@ export function TabModal({
                   Pay at Counter
                 </Button>
               </div>
+            )}
+
+            {!isClosed && isPaid && (
+              <p role="status" data-testid="tab-paid-awaiting-service" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Payment received. The kitchen is finishing your order; this tab will close after all active orders are served.
+              </p>
             )}
 
             {/* Settled State: let the customer choose instead of auto-redirecting. */}

@@ -556,7 +556,7 @@ test.describe("Payment Processing & Integrity Verification", () => {
     if (upiQrRes.status() === 503) {
       const errBody = await upiQrRes.json();
       expect(errBody.error?.message || errBody.error).toMatch(
-        /Online payments are not available|Payment gateway is not configured/i
+        /Online payments are not available|Payment gateway is not configured|UPI QR payments are disabled/i
       );
       return;
     }

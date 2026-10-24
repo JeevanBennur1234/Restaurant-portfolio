@@ -18,6 +18,9 @@ test.describe("Manager Administration Console", () => {
     await expect(page.locator('[data-testid="admin-login-btn"]')).toBeVisible({
       timeout: 15_000,
     });
+    // Wait for the manager site's client bundle and auth route to finish compiling
+    // before submitting credentials in the dev-server E2E environment.
+    await page.waitForLoadState("networkidle");
 
     await page.fill(
       '[data-testid="admin-username-input"]',
@@ -88,7 +91,7 @@ test.describe("Manager Administration Console", () => {
     await expect(addTableBtn).toBeVisible({ timeout: 10_000 });
     await addTableBtn.click();
 
-    const tableName = `Table 88`;
+    const tableName = `Table ${Date.now()}`;
     await page.fill('[data-testid="table-number-input"]', tableName);
     await page.click('[data-testid="submit-create-table-btn"]');
     await expect(page.getByText(tableName)).toBeVisible({ timeout: 10_000 });
@@ -106,7 +109,7 @@ test.describe("Manager Administration Console", () => {
 
     // 5. Cancel an order in Live Orders
     await navOrders.click();
-    const cancelOrderBtn = page.locator('[data-testid="cancel-order-btn"]').first();
+    const cancelOrderBtn = page.locator('[data-testid="cancel-order-btn"]:visible').first();
     await expect(cancelOrderBtn).toBeVisible({ timeout: 10_000 });
     await cancelOrderBtn.click();
 
@@ -118,7 +121,7 @@ test.describe("Manager Administration Console", () => {
     await page.click('[data-testid="confirm-cancel-btn"]');
 
     // Confirm that Cancelled badge appears
-    await expect(page.locator("span", { hasText: /^Cancelled$/ }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("span:visible").filter({ hasText: /^Cancelled$/ }).first()).toBeVisible({ timeout: 10_000 });
 
     // 6. Open Reports & Insights tab
     const navReports = page

@@ -231,14 +231,26 @@ export function UpiQrModal({
               <p className="text-sm text-[var(--destructive)] font-medium max-w-xs">
                 {error}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshQr}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" /> Try Again
-              </Button>
+              <div className="flex w-full max-w-xs flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshQr}
+                  className="gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" /> Try Again
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    stopTimers();
+                    onSwitchToCounter();
+                  }}
+                  className="w-full min-h-[44px] gap-2"
+                >
+                  <Banknote className="w-4 h-4" /> Pay at Counter Instead
+                </Button>
+              </div>
             </div>
           ) : qrData?.qrAvailable && qrData.qrImageUrl ? (
             /* Genuine Razorpay Dynamic UPI QR Flow */

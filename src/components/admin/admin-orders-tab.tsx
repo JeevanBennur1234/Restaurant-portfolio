@@ -1078,6 +1078,24 @@ export function AdminOrdersTab({
                             )}
                         </div>
                       )}
+                      {group.orders[0] &&
+                        group.orders[0].status !== "served" &&
+                        group.orders[0].status !== "cancelled" && (
+                          <Button
+                            type="button"
+                            data-testid="cancel-order-btn"
+                            variant="outline"
+                            onClick={() => {
+                              setCancelModalOrder(group.orders[0]);
+                              setCancelReason("");
+                              setCancelError(null);
+                            }}
+                            className="h-11 min-h-[44px] w-full justify-center border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+                            leftIcon={<XCircle className="h-4 w-4" />}
+                          >
+                            Cancel Order
+                          </Button>
+                        )}
                     </div>
 
                   </div>

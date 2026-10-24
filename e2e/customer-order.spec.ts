@@ -18,6 +18,8 @@ test.describe("Customer Food Ordering Journey", () => {
     await page.goto(`${CUSTOMER_URL}/`);
     await expect(page).toHaveTitle(/DinePulse/i);
     await expect(page.getByRole("heading", { name: "Masala Lane" }).first()).toBeVisible();
+    // Let client-side navigation handlers hydrate before testing the CTA interaction.
+    await page.waitForLoadState("networkidle");
 
     // 2. Click primary "Order at Table" in header navbar
     const headerOrderBtn = page.locator('[data-testid="header-order-btn"]');
@@ -58,6 +60,8 @@ test.describe("Customer Food Ordering Journey", () => {
     await page.goto(`${CUSTOMER_URL}/order`);
     await expect(page.locator('[data-testid="table-token-input"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="submit-table-token-btn"]')).toBeVisible({ timeout: 15_000 });
+    // The token form uses router.push; wait for the route's client bundle to settle.
+    await page.waitForLoadState("networkidle");
 
     // 2. Enter an invalid token into the form
     const tokenInput = page.locator('[data-testid="table-token-input"]');
@@ -165,14 +169,16 @@ test.describe("Customer Food Ordering Journey", () => {
   test("missing Razorpay configuration in cart does not produce fake payment success and allows Pay at Counter recovery", async ({
     page,
   }) => {
-    // 1. Visit table ordering page
+    // 1. Visit table ordering page and wait for the customer menu to hydrate.
     await page.goto(`${CUSTOMER_URL}/t/${DEMO_TABLE_TOKEN}`);
+    await expect(page.locator('[data-testid="menu-item-card"]:visible').first()).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
     const firstCard = page.locator('[data-testid="menu-item-card"]:visible').first();
-    await expect(firstCard).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(500);
-    await firstCard.click();
+    const openDetails = firstCard.locator('[data-testid="menu-item-details-btn"]');
+    await expect(openDetails).toBeVisible({ timeout: 10_000 });
+    await openDetails.click();
 
-    // 2. Add an item to cart
+    // 2. Add an item to cart from the item-detail sheet.
     const addToOrderBtn = page.locator('[data-testid="add-to-order-btn"]');
     await expect(addToOrderBtn).toBeVisible({ timeout: 10_000 });
     await addToOrderBtn.click();
@@ -194,7 +200,7 @@ test.describe("Customer Food Ordering Journey", () => {
     // 6. Must show useful error or test mode notice and NEVER fake payment success
     await expect(
       page.getByText(
-        /Payment gateway is not configured|Could not initialize payment|Could not retrieve payment|Razorpay Test Mode Notice|UPI QR Unavailable|Dynamic UPI QR codes are not available/i
+        /Payment gateway is not configured|Could not initialize payment|Could not retrieve payment|Razorpay Test Mode Notice|UPI QR Unavailable|UPI QR payments are disabled|Dynamic UPI QR codes are not available/i
       )
     ).toBeVisible({ timeout: 15_000 });
 
