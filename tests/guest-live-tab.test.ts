@@ -526,17 +526,13 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).not.toContain('data-testid="round-toggle-');
       expect(html).not.toContain("Round 1");
       expect(html).not.toContain("rounds");
-      expect(html).toContain('data-testid="tab-order-progress"');
-      expect(html).toContain("Order Progress");
-      expect(html).toContain("Order ML-0034");
-      expect(html).toContain("Order ML-0035");
-      expect(html).toContain("Order ML-0036");
-      expect((html.match(/data-testid="round-stage-track"/g) ?? []).length).toBe(3);
-      expect(html).toContain('data-testid="stage-step-preparing"');
-      expect(html).toContain("Placed");
-      expect(html).toContain("Preparing");
-      expect(html).toContain("Ready");
-      expect(html).toContain("Served");
+      // Tab view consolidates all rounds; per-order progress is shown on the individual order tracker.
+      expect(html).not.toContain('data-testid="tab-order-progress"');
+      expect(html).not.toContain("Order Progress");
+      expect(html).not.toContain("Order ML-0034");
+      expect(html).not.toContain("Order ML-0035");
+      expect(html).not.toContain("Order ML-0036");
+      expect(html).not.toContain('data-testid="round-stage-track"');
       expect(html).toContain("Paneer Tikka");
       expect(html).toContain("Dal Makhani");
       expect(html).toContain("Garlic Naan");
@@ -576,8 +572,8 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).not.toContain("Dal Makhani");
       expect(html).not.toContain('data-testid="round-already-paid-1"');
       expect(html).not.toContain("line-through");
-      expect(html).toContain("Order Progress");
-      expect(html).toContain("Order ML-0034");
+      expect(html).not.toContain("Order Progress");
+      expect(html).not.toContain("Order ML-0034");
       expect(html).not.toContain("This order was cancelled and is excluded from the tab bill.");
       expect(html).toContain("Already paid");
       expect(html).toContain("Total Amount Due");

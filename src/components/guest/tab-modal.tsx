@@ -21,7 +21,6 @@ import { formatTableDisplayName } from "@/lib/table-label";
 import { customerApi } from "@/lib/api/customer";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import { useLiveTab } from "./use-live-tab";
-import { RoundStageTrack } from "./round-stage-track";
 import type { TabDetailsData } from "@/lib/api/types";
 import type { RazorpayOptions, RazorpaySuccessResponse } from "@/types/razorpay";
 
@@ -80,8 +79,6 @@ export function TabModal({
     }, isPaidSettlement ? 2500 : 3500);
     return () => window.clearTimeout(timer);
   }, [isOpen, tab?.status, tab?.paymentStatus, onClose, router]);
-
-  const visibleProgressOrders = (tab?.orders ?? []).filter((order) => order.status !== "cancelled");
 
   if (!isOpen) return null;
 
@@ -400,48 +397,7 @@ export function TabModal({
                 )}
               </section>
 
-              {/* Live kitchen progress for each order in the open dining tab. */}
-              <section className="space-y-2.5" data-testid="tab-order-progress">
-                <h4 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <RefreshCw className="h-4 w-4 text-[var(--primary)]" />
-                  <span>Order Progress</span>
-                </h4>
-                {visibleProgressOrders.length > 0 ? (
-                  <div className="space-y-3">
-                    {visibleProgressOrders.map((order) => (
-                      <article
-                        key={order.orderId}
-                        data-testid={`tab-order-progress-${order.orderId}`}
-                        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-[var(--text-primary)]">
-                              Order {order.orderNumber}
-                            </p>
-                            <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                              {order.items.map((item) => `${item.quantity} × ${item.itemName}`).join(" · ")}
-                            </p>
-                          </div>
-                          <span className="shrink-0 rounded-full border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold capitalize text-[var(--text-secondary)]">
-                            {order.status.replaceAll("_", " ")}
-                          </span>
-                        </div>
-                        <RoundStageTrack
-                          status={order.status}
-                          createdAt={order.createdAt}
-                          className="pt-3"
-                        />
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]">
-                    Order progress will appear here after you place an order.
-                  </p>
-                )}
-              </section>
-
+              {/* A dining tab groups multiple order rounds; individual progress tracks are shown on each order's own tracking page. */}
               {/* Bill Financial Breakdown */}
               <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 space-y-2 text-sm">
                 <div className="flex justify-between text-[var(--text-secondary)]">
