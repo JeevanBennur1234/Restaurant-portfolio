@@ -23,6 +23,11 @@ export function TableQrScanner() {
   const stopScanner = React.useCallback(() => {
     controlsRef.current?.stop();
     controlsRef.current = null;
+    const video = videoRef.current;
+    if (video?.srcObject instanceof MediaStream) {
+      video.srcObject.getTracks().forEach((track) => track.stop());
+      video.srcObject = null;
+    }
     setIsStarting(false);
     setIsScanning(false);
   }, []);
@@ -30,6 +35,11 @@ export function TableQrScanner() {
   React.useEffect(() => () => {
     controlsRef.current?.stop();
     controlsRef.current = null;
+    const video = videoRef.current;
+    if (video?.srcObject instanceof MediaStream) {
+      video.srcObject.getTracks().forEach((track) => track.stop());
+      video.srcObject = null;
+    }
   }, []);
 
   const startScanner = async () => {
@@ -50,10 +60,24 @@ export function TableQrScanner() {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("Camera access is not available in this browser. Please enter the table code below.");
       }
+      // Request the camera explicitly first so permission/device failures are caught
+      // here, and the preview starts before ZXing begins decoding frames.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } },
+      });
+      if (attemptId !== scanAttemptIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      setIsStarting(false);
+      setIsScanning(true);
+      setStatus("Camera is ready. Hold the table QR inside the frame.");
       const { BrowserQRCodeReader } = await import("@zxing/browser");
       const reader = new BrowserQRCodeReader();
-      const controls = await reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" } } },
+      const controls = await reader.decodeFromVideoElement(
         videoRef.current,
         (result, _scanError, callbackControls) => {
           if (attemptId !== scanAttemptIdRef.current || !result || handledResultRef.current) return;
