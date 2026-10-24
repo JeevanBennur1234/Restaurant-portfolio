@@ -192,7 +192,7 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(html).toContain("Request Bill &amp; Pay");
     });
 
-    it("renders State 2 (bill requested, pay at counter): 'Staff have been notified. Please pay ₹X at the counter.' with NO buttons", () => {
+    it("renders State 2 (bill requested, pay at counter): keeps both payment choices available", () => {
       mockLiveTabState = {
         ...mockLiveTabState,
         tab: {
@@ -213,19 +213,18 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
         })
       );
 
-      // Status card wording with net amount due
+      // Bill requested wording and payment options remain available even after selecting counter.
       expect(html).toContain(
-        "Staff have been notified. Please pay ₹1,858.50 at the counter."
+        "Your bill is ready. Choose Pay Online or Pay at Counter below to settle the tab."
       );
 
       // Badge matches real state
       expect(html).toContain("Pay at Counter");
 
-      // With NO buttons: no action buttons in footer or card
-      expect(html).not.toContain('data-testid="pay-tab-online-btn"');
+      // Customer can still choose online payment or counter payment after requesting the bill.
+      expect(html).toContain('data-testid="pay-tab-online-btn"');
+      expect(html).toContain('data-testid="settle-tab-counter-btn"');
       expect(html).not.toContain('data-testid="request-tab-bill-btn"');
-      expect(html).not.toContain('data-testid="settle-tab-counter-btn"');
-      expect(html).not.toContain("Refresh Tab Status");
     });
 
     it("renders State 3 (bill requested, pay online): Pay button with net amount due", () => {
@@ -250,12 +249,12 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       );
 
       // Status card wording
-      expect(html).toContain("Bill requested. Please proceed to pay online.");
+      expect(html).toContain("Your bill is ready. Choose Pay Online or Pay at Counter below to settle the tab.");
       expect(html).toContain("Bill Requested");
 
       // Pay button with net amount due
       expect(html).toContain('data-testid="pay-tab-online-btn"');
-      expect(html).toContain("Pay Online (₹1,858.50)");
+      expect(html).toContain("Pay Now (₹1,858.50)");
 
       // Counter alternative button available
       expect(html).toContain('data-testid="settle-tab-counter-btn"');

@@ -180,10 +180,6 @@ export function TabModal({
   const isClosed = tab?.status === "closed";
   const isBillRequested = tab?.status === "bill_requested";
   const isCounterRequested = isBillRequested && tab?.paymentMethod === "counter";
-  const isOnlineBillRequested = isBillRequested && tab?.paymentMethod !== "counter";
-
-  const amountDueDisplay = tab ? tab.formattedAmountDue || tab.formattedTotal : "";
-
   // Badge text matching the real state
   const statusBadgeText = isClosed
     ? "Paid · Settled"
@@ -222,10 +218,8 @@ export function TabModal({
   // Calm status card wording following requirements
   const statusCardWording = isClosed
     ? "Paid. Thank you!"
-    : isCounterRequested
-    ? `Staff have been notified. Please pay ${amountDueDisplay} at the counter.`
-    : isOnlineBillRequested
-    ? "Bill requested. Please proceed to pay online."
+    : isBillRequested
+    ? "Your bill is ready. Choose Pay Online or Pay at Counter below to settle the tab."
     : "Your tab is open. Order more or request the bill anytime.";
 
   return (
@@ -451,8 +445,8 @@ export function TabModal({
               </div>
             )}
 
-            {/* Bill Requested Online State: Pay button with net amount due */}
-            {!isClosed && isOnlineBillRequested && (
+            {/* Bill Requested State: always let the customer choose online or counter payment. */}
+            {!isClosed && isBillRequested && (
               <div className="space-y-2">
                 {paymentsEnabled && (
                   <Button
@@ -464,7 +458,7 @@ export function TabModal({
                     className="w-full text-xs font-semibold min-h-[44px]"
                     leftIcon={<CreditCard className="h-4 w-4" />}
                   >
-                    Pay Online ({tab.formattedAmountDue || tab.formattedTotal})
+                    Pay Now ({tab.formattedAmountDue || tab.formattedTotal})
                   </Button>
                 )}
                 <Button
@@ -476,7 +470,7 @@ export function TabModal({
                   className="w-full text-xs min-h-[44px]"
                   leftIcon={<Banknote className="h-4 w-4" />}
                 >
-                  Pay at Counter Cash / Card
+                  Pay at Counter
                 </Button>
               </div>
             )}
