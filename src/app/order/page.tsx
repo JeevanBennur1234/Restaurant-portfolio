@@ -6,6 +6,7 @@ import { db } from "@/server/db";
 import { tables } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { TableTokenForm } from "@/components/guest/table-token-form";
+import { TableQrScanner } from "@/components/guest/table-qr-scanner";
 import { Button } from "@/components/ui/button";
 import {
   Smartphone,
@@ -221,6 +222,10 @@ export default function OrderEntryPage() {
                 <strong className="text-[var(--text-primary)]">Settle your way:</strong> Choose instant online payment or Pay at Counter, and track ticket status live.
               </li>
             </ol>
+            <div className="border-t border-[var(--border-subtle)] pt-4">
+              <p className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Or scan your table now</p>
+              <TableQrScanner />
+            </div>
           </div>
 
           {/* Card 2: Manual Token / QR Link Entry */}

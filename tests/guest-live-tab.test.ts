@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TabModal } from "@/components/guest/tab-modal";
+import { TabModal, shouldRedirectToOrderAfterSettlement } from "@/components/guest/tab-modal";
 import { ActiveTabBanner } from "@/components/guest/active-tab-banner";
 import { RoundStageTrack, formatStageTime } from "@/components/guest/round-stage-track";
 import { OrderStepper, STEPS, getStepIndex } from "@/components/guest/order-stepper";
@@ -12,6 +12,10 @@ import {
 import type { TabDetailsData } from "@/lib/api/types";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+}));
 
 // Mock customerApi and razorpay-client
 const mockTabResponse: { current: TabDetailsData | null } = { current: null };
@@ -345,6 +349,16 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(tabModalSrc).not.toContain("Refresh Tab Status");
       expect(tabModalSrc).not.toContain("Counter payment requested");
       expect(tabModalSrc).not.toContain("Staff must confirm payment to close this tab");
+    });
+  });
+
+  describe("Post-payment destination", () => {
+    it("redirects only after the dining tab is paid and closed", () => {
+      expect(shouldRedirectToOrderAfterSettlement({ status: "closed", paymentStatus: "paid" })).toBe(true);
+      expect(shouldRedirectToOrderAfterSettlement({ status: "bill_requested", paymentStatus: "bill_requested" })).toBe(false);
+      expect(shouldRedirectToOrderAfterSettlement({ status: "active", paymentStatus: "open" })).toBe(false);
+      expect(shouldRedirectToOrderAfterSettlement({ status: "closed", paymentStatus: "counter" })).toBe(false);
+      expect(shouldRedirectToOrderAfterSettlement(null)).toBe(false);
     });
   });
 

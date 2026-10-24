@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Utensils,
   Receipt,
@@ -35,6 +36,12 @@ export interface TabModalProps {
   initialTab?: TabDetailsData | null;
 }
 
+export function shouldRedirectToOrderAfterSettlement(
+  tab: Pick<TabDetailsData, "status" | "paymentStatus"> | null | undefined
+): boolean {
+  return tab?.status === "closed" && tab.paymentStatus === "paid";
+}
+
 export function TabModal({
   isOpen,
   onClose,
@@ -45,6 +52,7 @@ export function TabModal({
   paymentsTestMode = false,
   initialTab = null,
 }: TabModalProps) {
+  const router = useRouter();
   const {
     tab,
     setTab,
@@ -61,14 +69,17 @@ export function TabModal({
   const [isActionLoading, setIsActionLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
-  // Auto-close modal after short moment when tab is closed and settled
+  // Return to the ordering entry point only after a verified tab settlement.
+  // Counter-payment requests leave the tab open/unpaid and never enter this path.
   React.useEffect(() => {
     if (!isOpen || tab?.status !== "closed") return;
-    const timer = setTimeout(() => {
+    const isPaidSettlement = tab?.paymentStatus === "paid";
+    const timer = window.setTimeout(() => {
       onClose();
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [isOpen, tab?.status, onClose]);
+      if (isPaidSettlement) router.replace("/order");
+    }, isPaidSettlement ? 2500 : 3500);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, tab?.status, tab?.paymentStatus, onClose, router]);
 
   const visibleProgressOrders = (tab?.orders ?? []).filter((order) => order.status !== "cancelled");
 
@@ -107,7 +118,7 @@ export function TabModal({
         // Safe simulated payment in test environment
         const simRes = await customerApi.testVerifyTabPayment(token);
         if (simRes.ok) {
-          setSuccessMessage("Payment successful! Dining tab closed.");
+          setSuccessMessage("Payment successful! Thank you for dining with us. Returning to table ordering…");
           await refreshTab();
           setTab((prev) =>
             prev
@@ -153,7 +164,7 @@ export function TabModal({
             razorpaySignature: resp.razorpay_signature,
           });
           if (verifyRes.ok) {
-            setSuccessMessage("Payment verified successfully! Thank you for dining with us.");
+            setSuccessMessage("Payment verified successfully! Thank you for dining with us. Returning to table ordering…");
             await refreshTab();
             setTab((prev) =>
               prev
