@@ -158,6 +158,9 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(cartSheetCode).toContain("grandTotalPaise");
     expect(cartSheetCode).toContain('data-testid="payment-choice-section"');
     expect(cartSheetCode).toContain('!isCheckingActiveTab && !isExistingDineInTab');
+    expect(cartSheetCode).toContain('setIsCheckingActiveTab(true)');
+    expect(cartSheetCode).toContain('activeTabCheckIdRef.current');
+    expect(cartSheetCode).toContain('res.data.status === "bill_requested"');
     expect(cartSheetCode).toContain('data-testid="existing-dine-in-tab-note"');
     expect(cartSheetCode).toContain('"Send to Kitchen"');
     expect(cartSheetCode).not.toContain('`Send ${activeTabRound');

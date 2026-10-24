@@ -52,6 +52,7 @@ export function CartSheet({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("pay_now");
   const [isExistingDineInTab, setIsExistingDineInTab] = React.useState(false);
   const [isCheckingActiveTab, setIsCheckingActiveTab] = React.useState(true);
+  const activeTabCheckIdRef = React.useRef(0);
   const paymentMethod: PaymentOption = isExistingDineInTab
     ? "open_tab"
     : !paymentsEnabled && selectedPaymentMethod === "pay_now"
@@ -87,11 +88,21 @@ export function CartSheet({
   } = useCart();
 
   const checkActiveTab = React.useCallback(() => {
+    const requestId = ++activeTabCheckIdRef.current;
+    // Hide payment choices whenever a fresh table-tab check is in progress so stale state cannot flash.
+    setIsCheckingActiveTab(true);
+
     customerApi
       .getActiveTab(token)
       .then((res) => {
+        // Ignore stale responses if the cart opened or the tab changed during another request.
+        if (requestId !== activeTabCheckIdRef.current) return;
+
         const hasOpenTab = Boolean(
-          res.ok && res.data && res.data.status === "active" && res.data.roundCount > 0
+          res.ok &&
+            res.data &&
+            (res.data.status === "active" || res.data.status === "bill_requested") &&
+            res.data.roundCount > 0
         );
         setIsExistingDineInTab(hasOpenTab);
         if (hasOpenTab) {
@@ -101,17 +112,24 @@ export function CartSheet({
       .catch(() => {
         // Preserve the current selection if a background refresh fails.
       })
-      .finally(() => setIsCheckingActiveTab(false));
+      .finally(() => {
+        if (requestId === activeTabCheckIdRef.current) {
+          setIsCheckingActiveTab(false);
+        }
+      });
   }, [token]);
 
   React.useEffect(() => {
-    checkActiveTab();
+    // Schedule the initial async lookup outside the synchronous effect body.
+    const timer = window.setTimeout(checkActiveTab, 0);
+    return () => window.clearTimeout(timer);
   }, [checkActiveTab]);
 
   React.useEffect(() => {
-    if (isCartOpen) {
-      checkActiveTab();
-    }
+    if (!isCartOpen) return;
+    // Re-check immediately on each cart open; state starts loading before the request so stale payment choices cannot flash.
+    const timer = window.setTimeout(checkActiveTab, 0);
+    return () => window.clearTimeout(timer);
   }, [isCartOpen, checkActiveTab]);
 
   React.useEffect(() => {

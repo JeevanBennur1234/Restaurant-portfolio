@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   Printer,
-  Download,
   X,
   CheckCircle2,
   AlertTriangle,
@@ -26,7 +25,6 @@ export function ReceiptModal({
   receipt,
   isOpen,
   onClose,
-  pdfDownloadUrl,
 }: ReceiptModalProps) {
   const [printLayout, setPrintLayout] = React.useState<"a4" | "thermal">("a4");
 
@@ -49,10 +47,6 @@ export function ReceiptModal({
   const handlePrint = () => {
     window.print();
   };
-
-  const currentPdfUrl = pdfDownloadUrl
-    ? `${pdfDownloadUrl}${pdfDownloadUrl.includes("?") ? "&" : "?"}format=${printLayout}`
-    : null;
 
   return (
     <div
@@ -105,34 +99,6 @@ export function ReceiptModal({
                 80mm Thermal
               </button>
             </div>
-
-            {currentPdfUrl && (
-              <a
-                href={currentPdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                download
-              >
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 px-2.5 text-xs"
-                  leftIcon={<Download className="h-3.5 w-3.5" />}
-                >
-                  PDF
-                </Button>
-              </a>
-            )}
-
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={handlePrint}
-              className="h-8 px-3 text-xs"
-              leftIcon={<Printer className="h-3.5 w-3.5" />}
-            >
-              Print
-            </Button>
 
             <button
               type="button"

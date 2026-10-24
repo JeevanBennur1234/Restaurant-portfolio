@@ -348,6 +348,21 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
     });
   });
 
+  describe("Receipt toolbar actions", () => {
+    it("keeps the layout selector at the top but removes duplicate top PDF and Print buttons", () => {
+      const receiptSource = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/common/receipt-view.tsx"),
+        "utf-8"
+      );
+      expect(receiptSource).toContain("A4 Slip");
+      expect(receiptSource).toContain("80mm Thermal");
+      expect(receiptSource).not.toContain("currentPdfUrl");
+      expect(receiptSource).not.toContain(">\n              Print\n            </Button>");
+      expect(receiptSource).toContain("Print {printLayout === \"thermal\"");
+      expect(receiptSource).toContain("Close");
+    });
+  });
+
   describe("Requirement 3: Per-Round Stage Track & Expand Behavior", () => {
     it("reuses stage sequence Placed → Preparing → Ready → Served from order-stepper.tsx", () => {
       expect(STEPS.map((s) => s.key)).toEqual([
