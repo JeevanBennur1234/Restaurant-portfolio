@@ -51,6 +51,7 @@ export function TableQrScanner() {
     setIsOpen(true);
     handledResultRef.current = false;
 
+    let cameraPermissionGranted = false;
     try {
       // Let React mount the video element before attaching the camera stream.
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -66,6 +67,7 @@ export function TableQrScanner() {
         audio: false,
         video: { facingMode: { ideal: "environment" } },
       });
+      cameraPermissionGranted = true;
       if (attemptId !== scanAttemptIdRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
@@ -108,12 +110,16 @@ export function TableQrScanner() {
       if (attemptId !== scanAttemptIdRef.current) return;
       stopScanner();
       const err = scanError as { name?: string; message?: string };
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setError("Camera permission was denied. Allow camera access in your browser, or enter the table code below.");
-      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+      if ((err.name === "NotAllowedError" || err.name === "PermissionDeniedError") && !cameraPermissionGranted) {
+        setError("Chrome could not grant camera access. Check Android's Camera access toggle and Chrome's site permission, then reload the page. If both are allowed, try opening this page directly in Chrome rather than inside another app.");
+      } else if (!cameraPermissionGranted && (err.name === "NotFoundError" || err.name === "DevicesNotFoundError")) {
         setError("No camera was found on this device. Enter the table code below instead.");
+      } else if (cameraPermissionGranted) {
+        const detail = [err.name, err.message].filter(Boolean).join(": ");
+        setError(`The camera opened, but the preview or QR decoder failed${detail ? ` (${detail})` : ""}. Close the scanner and try again, or enter the table code below.`);
       } else {
-        setError(err.message || "Could not start the camera scanner. Please enter the table code below.");
+        const detail = [err.name, err.message].filter(Boolean).join(": ");
+        setError(detail ? `Could not start the camera scanner (${detail}). Enter the table code below or try Chrome again.` : "Could not start the camera scanner. Please enter the table code below.");
       }
       setStatus("Scanner unavailable.");
     }
