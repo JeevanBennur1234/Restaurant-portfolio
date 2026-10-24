@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TabModal } from "@/components/guest/tab-modal";
 import { ActiveTabBanner } from "@/components/guest/active-tab-banner";
 import { RoundStageTrack, formatStageTime } from "@/components/guest/round-stage-track";
-import { STEPS, getStepIndex } from "@/components/guest/order-stepper";
+import { OrderStepper, STEPS, getStepIndex } from "@/components/guest/order-stepper";
+import { getOrderStatusHeadline } from "@/components/guest/order-live-tracker";
 import type { TabDetailsData } from "@/lib/api/types";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -358,6 +359,38 @@ describe("Task T3: Live Guest Dining Tab & Per-Round Stage Track", () => {
       expect(getStepIndex("ready")).toBe(2);
       expect(getStepIndex("served")).toBe(3);
       expect(getStepIndex("cancelled")).toBe(-1);
+    });
+
+    it("marks every customer progress step complete when served", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(OrderStepper, { status: "served" })
+      );
+      expect((html.match(/lucide lucide-check/g) ?? []).length).toBe(4);
+      expect(html).not.toContain("animate-pulse");
+      expect(html).not.toContain("ring-4");
+    });
+
+    it("shows a thank-you and counter-payment message after service", () => {
+      const counterHeadline = getOrderStatusHeadline({
+        status: "served",
+        paymentStatus: "counter",
+      });
+      expect(counterHeadline.title).toBe("Thank You!");
+      expect(counterHeadline.subtitle).toContain("Your order has been served.");
+      expect(counterHeadline.subtitle).toContain("pay at the counter");
+
+      const paidHeadline = getOrderStatusHeadline({
+        status: "served",
+        paymentStatus: "paid",
+      });
+      expect(paidHeadline.subtitle).toContain("Thank you for dining with us!");
+      expect(paidHeadline.subtitle).not.toContain("pay at the counter");
+
+      const readyHeadline = getOrderStatusHeadline({
+        status: "ready",
+        paymentStatus: "counter",
+      });
+      expect(readyHeadline.title).toBe("Plated & Ready to Serve");
     });
 
     it("highlights current stage and ticks completed stages for each status in RoundStageTrack", () => {

@@ -95,8 +95,9 @@ export function OrderStepper({ status, className }: OrderStepperProps) {
 
         {/* Step Circles */}
         {STEPS.map((step, idx) => {
-          const isCompleted = currentStepIdx > idx;
-          const isCurrent = Math.floor(currentStepIdx) === idx;
+          // Once served, every stage is complete; never leave the final step pulsing as active.
+          const isCompleted = currentStepIdx > idx || status === "served";
+          const isCurrent = status !== "served" && Math.floor(currentStepIdx) === idx;
 
           return (
             <div

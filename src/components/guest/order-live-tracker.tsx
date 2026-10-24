@@ -74,6 +74,22 @@ const statusHeadlines: Record<
   },
 };
 
+export function getOrderStatusHeadline(
+  order: Pick<OrderDetails, "status" | "paymentStatus">
+): { title: string; subtitle: string; icon: React.ReactNode } {
+  if (order.status === "served") {
+    return {
+      ...statusHeadlines.served,
+      title: "Thank You!",
+      subtitle:
+        order.paymentStatus === "counter"
+          ? "Your order has been served. Please pay at the counter when you’re ready."
+          : "Your order has been served. Thank you for dining with us!",
+    };
+  }
+  return statusHeadlines[order.status] ?? statusHeadlines.placed;
+}
+
 export function OrderLiveTracker({
   initialOrder,
   token,
@@ -196,7 +212,7 @@ export function OrderLiveTracker({
     return () => clearInterval(interval);
   }, [refreshOrder]);
 
-  const currentHeadline = statusHeadlines[order.status] ?? statusHeadlines.placed;
+  const currentHeadline = getOrderStatusHeadline(order);
 
   // Online Payment Retry handler
   const handleRetryOnlinePayment = async () => {
