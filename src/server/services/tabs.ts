@@ -1336,7 +1336,7 @@ export function buildTabReceiptData(session: {
       }
       allItems.push({
         id: item.id,
-        name: `[Round ${order.roundNumber || 1}] ${item.itemName}`,
+        name: item.itemName,
         quantity: item.quantity,
         unitPricePaise: item.itemPricePaise,
         totalPaise: item.totalPaise,

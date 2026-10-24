@@ -853,10 +853,9 @@ describe("Dine-In Open Tab Lifecycle", () => {
         expect(res.data.isTabBill).toBe(true);
         expect(res.data.totalPaise).toBe(52500);
         expect(res.data.items).toHaveLength(2);
-        expect(res.data.items[0].name).toContain("Round 1");
-        expect(res.data.items[0].name).toContain("Kurkuri Bhindi Fries");
-        expect(res.data.items[1].name).toContain("Round 2");
-        expect(res.data.items[1].name).toContain("Palak Patta Chaat");
+        expect(res.data.items[0].name).toBe("Kurkuri Bhindi Fries");
+        expect(res.data.items[1].name).toBe("Palak Patta Chaat");
+        expect(res.data.items.map((item) => item.name).join(" ")).not.toMatch(/round/i);
         expect(res.data.amountDuePaise).toBe(52500);
       }
     });
@@ -926,8 +925,9 @@ describe("Dine-In Open Tab Lifecycle", () => {
       expect(receipt.taxPaise).toBe(2500);
       expect(receipt.totalPaise).toBe(52500);
       expect(receipt.items.length).toBe(2);
-      expect(receipt.items[0].name).toContain("Round 1");
-      expect(receipt.items[1].name).toContain("Round 2");
+      expect(receipt.items[0].name).toBe("Hyderabadi Dum Biryani");
+      expect(receipt.items[1].name).toBe("Mango Lassi");
+      expect(receipt.items.map((item) => item.name).join(" ")).not.toMatch(/round/i);
     });
   });
 });

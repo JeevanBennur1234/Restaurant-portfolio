@@ -1110,7 +1110,7 @@ export function AdminOrdersTab({
                   Settle {getTableDisplayName(settleModalGroup.tableNumber)} Tab
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Consolidated bill across {settleModalGroup.orders.length} order{settleModalGroup.orders.length !== 1 ? "s" : ""}
+                  Consolidated bill and outstanding balance
                 </p>
               </div>
             </div>
@@ -1486,11 +1486,11 @@ export function AdminOrdersTab({
                   </div>
                   {selectedOrder.alreadyPaidBeforeTab ? (
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-400 italic">
-                      This round was paid before it joined the tab. Its amount is excluded from the balance due.
+                      This order was paid previously, so its amount is excluded from the balance due.
                     </p>
                   ) : selectedOrder.tabSummary?.status !== "closed" ? (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 italic">
-                      This round is included in the consolidated tab. Do not collect payment for it separately; settle the tab once to pay all remaining rounds.
+                      This order is included in the consolidated bill. Collect the outstanding balance once for the entire table.
                     </p>
                   ) : null}
                 </div>

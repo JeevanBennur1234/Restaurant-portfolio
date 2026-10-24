@@ -77,8 +77,14 @@ export function TabModal({
     try {
       const res = await customerApi.requestTabBill(token, method);
       if (res.ok) {
-        setSuccessMessage("Bill requested! Our staff has been notified.");
-        await refreshTab();
+        if (method === "counter") {
+          setSuccessMessage("Your counter-payment request is confirmed. Your tab remains unpaid; please pay at the counter.");
+          // Close only the customer modal. The server-side dining session remains open and unpaid.
+          window.setTimeout(() => onClose(), 1800);
+        } else {
+          setSuccessMessage("Bill requested! Our staff has been notified.");
+          await refreshTab();
+        }
       } else {
         setErrorMessage(res.message || "Failed to request bill");
       }
