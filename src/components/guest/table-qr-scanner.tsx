@@ -112,8 +112,19 @@ export function TableQrScanner() {
       const err = scanError as { name?: string; message?: string };
       if ((err.name === "NotAllowedError" || err.name === "PermissionDeniedError") && !cameraPermissionGranted) {
         const secureContext = window.isSecureContext;
+        const policyDocument = document as Document & {
+          permissionsPolicy?: { allowsFeature?: (feature: string) => boolean };
+          featurePolicy?: { allowsFeature?: (feature: string) => boolean };
+        };
+        const cameraAllowedByPolicy =
+          policyDocument.permissionsPolicy?.allowsFeature?.("camera") ??
+          policyDocument.featurePolicy?.allowsFeature?.("camera");
         const detail = [err.name, err.message].filter(Boolean).join(": ");
-        setError(`Chrome blocked the camera request${detail ? ` (${detail})` : ""}. Secure context: ${secureContext ? "yes" : "no"}; page: ${window.location.origin}. Check Chrome's camera setting for this exact site and Android's global Camera access toggle, then reload.`);
+        if (cameraAllowedByPolicy === false) {
+          setError(`This page's Permissions-Policy is blocking camera access. The site response header must allow camera=(self). Please contact the site administrator; changing Chrome permissions will not fix this policy block.`);
+        } else {
+          setError(`Chrome blocked the camera request${detail ? ` (${detail})` : ""}. Secure context: ${secureContext ? "yes" : "no"}; page: ${window.location.origin}. Check Chrome's camera permission for this exact site and Android's global Camera access toggle, then reload.`);
+        }
       } else if (!cameraPermissionGranted && (err.name === "NotFoundError" || err.name === "DevicesNotFoundError")) {
         setError("No camera was found on this device. Enter the table code below instead.");
       } else if (cameraPermissionGranted) {
