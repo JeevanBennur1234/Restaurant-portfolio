@@ -68,17 +68,8 @@ export function TabModal({
   const [isActionLoading, setIsActionLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
-  // Return to the ordering entry point only after a verified tab settlement.
-  // Counter-payment requests leave the tab open/unpaid and never enter this path.
-  React.useEffect(() => {
-    if (!isOpen || tab?.status !== "closed") return;
-    const isPaidSettlement = tab?.paymentStatus === "paid";
-    const timer = window.setTimeout(() => {
-      onClose();
-      if (isPaidSettlement) router.replace("/order");
-    }, isPaidSettlement ? 2500 : 3500);
-    return () => window.clearTimeout(timer);
-  }, [isOpen, tab?.status, tab?.paymentStatus, onClose, router]);
+  // Keep the settled receipt visible until the customer chooses what to do next.
+  // A counter request is not a settlement and never enters the paid state.
 
   if (!isOpen) return null;
 
@@ -89,9 +80,10 @@ export function TabModal({
       const res = await customerApi.requestTabBill(token, method);
       if (res.ok) {
         if (method === "counter") {
-          setSuccessMessage("Your counter-payment request is confirmed. Your tab remains unpaid; please pay at the counter.");
-          // Close only the customer modal. The server-side dining session remains open and unpaid.
-          window.setTimeout(() => onClose(), 1800);
+          setSuccessMessage("Your request has been sent. The tab stays unpaid until staff confirms the full amount. Keep this screen open; your receipt and next-step options will appear after settlement.");
+          // Keep the screen open so the live tab can show the post-settlement choices
+          // when staff confirms payment. A request itself never marks the tab as paid.
+          await refreshTab();
         } else {
           setSuccessMessage("Bill requested! Our staff has been notified.");
           await refreshTab();
@@ -234,7 +226,7 @@ export function TabModal({
 
   // Calm status card wording following requirements
   const statusCardWording = isClosed
-    ? "Paid. Thank you!"
+    ? "Paid. Thank you! Your dining tab is closed. Choose Order Again to start a fresh tab, or Close Ordering to finish. Your receipt remains available below."
     : isBillRequested
     ? "Your bill is ready. Choose Pay Online or Pay at Counter below to settle the tab."
     : "Your tab is open. Order more or request the bill anytime.";
@@ -493,28 +485,50 @@ export function TabModal({
               </div>
             )}
 
-            {/* Closed and Paid State: Download Receipt and Close */}
-            {isClosed && (
-              <div className="flex items-center gap-2">
+            {/* Settled State: let the customer choose instead of auto-redirecting. */}
+            {isClosed && tab.paymentStatus === "paid" && (
+              <div className="space-y-2" data-testid="tab-settlement-actions">
                 <Button
-                  data-testid="download-tab-receipt-btn"
+                  data-testid="order-again-after-settlement-btn"
                   variant="primary"
                   size="md"
+                  onClick={() => {
+                    onClose();
+                    // The old session is closed; the menu remains available for a fresh checkout.
+                  }}
+                  className="w-full text-sm font-semibold min-h-[46px]"
+                  leftIcon={<Plus className="h-4 w-4" />}
+                >
+                  Order Again
+                </Button>
+                <Button
+                  data-testid="close-ordering-after-settlement-btn"
+                  variant="outline"
+                  size="md"
+                  onClick={() => {
+                    onClose();
+                    router.replace("/order");
+                  }}
+                  className="w-full text-sm min-h-[44px]"
+                >
+                  Close Ordering
+                </Button>
+                <Button
+                  data-testid="download-tab-receipt-btn"
+                  variant="ghost"
+                  size="md"
                   onClick={() => downloadPdf("a4")}
-                  className="flex-1 text-xs min-h-[44px]"
+                  className="w-full text-xs min-h-[40px]"
                   leftIcon={<Download className="h-4 w-4" />}
                 >
                   Download Receipt (PDF)
                 </Button>
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={onClose}
-                  className="text-xs px-4 min-h-[44px]"
-                >
-                  Close
-                </Button>
               </div>
+            )}
+            {isClosed && tab.paymentStatus !== "paid" && (
+              <Button variant="outline" size="md" onClick={onClose} className="w-full min-h-[44px]">
+                Close
+              </Button>
             )}
           </div>
         )}
