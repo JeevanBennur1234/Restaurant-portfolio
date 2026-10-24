@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Receipt, ChevronRight, RotateCcw } from "lucide-react";
+import { Receipt, ChevronRight, RotateCcw, Clock, Flame, CheckCircle2, Sparkles, XCircle } from "lucide-react";
 import { useLiveTab } from "./use-live-tab";
 import { TabModal } from "./tab-modal";
 
@@ -88,6 +88,51 @@ export function ActiveTabBanner({
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
+          {tab.orders.length > 0 && (
+            <div className="max-w-7xl mx-auto mt-2 border-t border-white/15 pt-2">
+              <details data-testid="active-tab-order-progress" className="group">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm text-stone-100 [&::-webkit-details-marker]:hidden">
+                  <span className="flex items-center gap-2 font-medium">
+                    <span>{tab.orders.length} {tab.orders.length === 1 ? "kitchen order" : "kitchen orders"}</span>
+                    <span className="text-stone-300">/</span>
+                    <span className="text-stone-300">Tap to view live progress</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="grid gap-2 pb-2 pt-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {tab.orders.map((order) => {
+                    const statusIndex = order.status === "served" ? 3 : order.status === "ready" ? 2 : order.status === "preparing" || order.status === "accepted" ? 1 : order.status === "cancelled" ? -1 : 0;
+                    const statusLabel = order.status === "placed" ? "Placed" : order.status === "accepted" ? "Accepted" : order.status === "preparing" ? "Preparing" : order.status === "ready" ? "Ready" : order.status === "served" ? "Served" : "Cancelled";
+                    const StatusIcon = order.status === "served" ? CheckCircle2 : order.status === "ready" ? Sparkles : order.status === "preparing" || order.status === "accepted" ? Flame : order.status === "cancelled" ? XCircle : Clock;
+                    return (
+                      <article key={order.orderId} data-testid="tab-order-progress-card" className="rounded-xl border border-white/15 bg-white/5 p-3 text-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">Order round {order.roundNumber}</p>
+                            <p className="mt-0.5 text-xs text-stone-300">{order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p>
+                          </div>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-xs">
+                            <StatusIcon className="h-3.5 w-3.5" />{statusLabel}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-4 gap-1" aria-label={`Round ${order.roundNumber} progress`}>
+                          {["Placed", "Preparing", "Ready", "Served"].map((step, index) => (
+                            <div key={step} className="min-w-0">
+                              <div className={`h-1.5 rounded-full ${statusIndex >= index ? "bg-[var(--primary)]" : "bg-white/20"}`} />
+                              <p className={`mt-1 text-center text-[10px] ${statusIndex >= index ? "text-white" : "text-stone-400"}`}>{step}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <ul className="mt-2 space-y-1 border-t border-white/10 pt-2 text-xs text-stone-200">
+                          {order.items.map((item) => <li key={item.id} className="flex justify-between gap-2"><span className="min-w-0 truncate">{item.quantity}x {item.itemName}</span><span className="shrink-0">{item.totalPaise > 0 ? `INR ${(item.totalPaise / 100).toFixed(2)}` : ""}</span></li>)}
+                        </ul>
+                      </article>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+          )}
         </aside>
       )}
 

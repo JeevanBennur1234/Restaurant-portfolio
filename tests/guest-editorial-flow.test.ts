@@ -164,7 +164,7 @@ describe("Guest Editorial Flow Polish Verification", () => {
     expect(cartSheetCode).toContain('data-testid="existing-dine-in-tab-note"');
     expect(cartSheetCode).toContain('"Send to Kitchen"');
     expect(cartSheetCode).not.toContain('`Send ${activeTabRound');
-    expect(cartSheetCode).toContain('router.push(`/t/${token}/order/${result.data.orderId}`)');
+    expect(cartSheetCode).toContain('router.push(`/t/${token}`)'); // open-tab orders return to the menu
     expect(cartSheetCode).toContain('paymentsTestMode && paymentMethod !== "open_tab"');
 
     const customerServiceCode = fs.readFileSync(

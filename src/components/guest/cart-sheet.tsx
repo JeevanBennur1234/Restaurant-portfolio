@@ -380,7 +380,7 @@ export function CartSheet({
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
         }
-        router.push(`/t/${token}/order/${result.data.orderId}`);
+        router.push(`/t/${token}`);
         return;
       }
 
