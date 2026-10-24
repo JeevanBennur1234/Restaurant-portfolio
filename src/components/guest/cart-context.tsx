@@ -102,7 +102,7 @@ export function CartProvider({ children, menuItems, tableId }: CartProviderProps
       return prev
         .map((item) => {
           if (item.id === cartItemId) {
-            const newQty = item.quantity + delta;
+            const newQty = Math.min(50, item.quantity + delta);
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;

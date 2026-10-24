@@ -21,9 +21,6 @@ export default function HomePage() {
   const root = process.cwd();
 
   // Check on server whether custom food photos or video exist on disk
-  const hasHeroVideo = fs.existsSync(path.resolve(root, "public/media/hero.mp4"));
-  const hasHeroPhoto = fs.existsSync(path.resolve(root, "public/images/hero.jpg"));
-  const hasHeroPoster = fs.existsSync(path.resolve(root, "public/media/hero-poster.jpg"));
   const hasStoryPhoto = fs.existsSync(path.resolve(root, "public/images/story.jpg"));
 
   // 6 Signature Dishes for Section 03
@@ -150,11 +147,11 @@ export default function HomePage() {
             {/* Background Layer: Video or Photo with Espresso Gradient Contrast */}
             <div className="absolute inset-0 z-0 overflow-hidden">
               <HeroMedia
-                hasVideo={hasHeroVideo}
+                hasVideo={false}
                 videoSrc="/media/hero.mp4"
-                posterSrc={hasHeroPoster ? "/media/hero-poster.jpg" : "/media/hero-poster.svg"}
-                photoSrc={hasHeroPhoto ? "/images/hero.jpg" : "/images/hero-placeholder.svg"}
-                isPhotoOptimized={hasHeroPhoto}
+                posterSrc="/images/dishes/murgh-dum-biryani.jpg"
+                photoSrc="/images/dishes/murgh-dum-biryani.jpg"
+                isPhotoOptimized={true}
               />
               {/* Dark Espresso Gradient Overlay for Flawless WCAG AA Text Contrast */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#1F1A18] via-[#2E2723]/75 to-[#1F1A18]/60 z-10" />

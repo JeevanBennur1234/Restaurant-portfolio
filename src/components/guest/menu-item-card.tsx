@@ -142,9 +142,7 @@ export function MenuItemCard({
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!cart) return;
-    if (cartItems.length === 1) {
-      cart.updateQuantity(cartItems[0].id, -1);
-    } else if (cartItems.length > 1) {
+    if (cartItems.length > 0) {
       cart.updateQuantity(cartItems[cartItems.length - 1].id, -1);
     }
   };
@@ -152,14 +150,12 @@ export function MenuItemCard({
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!cart) return;
-    if (isCustomizable) {
+    if (cartItems.length > 0) {
+      cart.updateQuantity(cartItems[cartItems.length - 1].id, 1);
+    } else if (isCustomizable) {
       onSelect(item);
     } else {
-      if (cartItems.length > 0) {
-        cart.updateQuantity(cartItems[0].id, 1);
-      } else {
-        cart.addItem(item.id, 1, []);
-      }
+      cart.addItem(item.id, 1, []);
     }
   };
 

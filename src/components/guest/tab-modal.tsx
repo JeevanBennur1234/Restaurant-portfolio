@@ -239,9 +239,9 @@ export function TabModal({
       data-testid="tab-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 motion-reduce:transition-none"
     >
-      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-2xl overflow-hidden">
+      <div className="relative flex max-h-[min(90dvh,800px)] w-full max-w-xl min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4 bg-[var(--bg-subtle)]/50">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 px-4 py-3.5 sm:px-5 sm:py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)] text-white shadow-xs">
               <Receipt className="h-5 w-5" />
@@ -272,7 +272,7 @@ export function TabModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
           {isLoading && !tab && (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
               <RefreshCw className="h-6 w-6 animate-spin text-[var(--primary)] motion-reduce:animate-none" />
@@ -428,7 +428,7 @@ export function TabModal({
 
         {/* Footer Actions */}
         {tab && (
-          <div className="p-4 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 flex flex-col gap-2">
+          <div className="max-h-[34dvh] shrink-0 space-y-2 overflow-y-auto border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:p-4">
             {/* Active Tab State: Add More Dishes & Request Bill */}
             {!isClosed && !isBillRequested && (
               <div className="flex items-center gap-2">
