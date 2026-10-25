@@ -48,7 +48,9 @@ export function CartSheet({
   const router = useRouter();
   const { showToast } = useToast();
   const [notes, setNotes] = React.useState("");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("pay_now");
+  // Dine-in table orders should accumulate on one tab and settle after the meal.
+  // Online checkout remains available only when the guest explicitly chooses it.
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentOption>("open_tab");
   const [isExistingDineInTab, setIsExistingDineInTab] = React.useState(false);
   const [isCheckingActiveTab, setIsCheckingActiveTab] = React.useState(true);
   const activeTabCheckIdRef = React.useRef(0);
