@@ -56,6 +56,23 @@ export function MenuView({
   const [selectedItemForSheet, setSelectedItemForSheet] =
     React.useState<GuestMenuItem | null>(null);
 
+  // Keep Android/browser Back inside the current table-ordering session.
+  // Back closes item details first and does not return the guest to the QR scanner.
+  const selectedItemForSheetRef = React.useRef<GuestMenuItem | null>(null);
+  React.useEffect(() => {
+    selectedItemForSheetRef.current = selectedItemForSheet;
+  }, [selectedItemForSheet]);
+
+  React.useEffect(() => {
+    window.history.pushState({ guestMenuGuard: true }, "", window.location.href);
+    const handlePopState = () => {
+      if (selectedItemForSheetRef.current) setSelectedItemForSheet(null);
+      window.history.pushState({ guestMenuGuard: true }, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const shouldReduceMotion = useReducedMotion();
   const isManualScrollRef = React.useRef(false);
   const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);

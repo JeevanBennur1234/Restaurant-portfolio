@@ -260,18 +260,18 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
 
         {/* Modifiers List */}
         {modifierGroups.size > 0 && (
-          <div className="space-y-4 border-t border-[#2F2722] pt-4">
+          <div className="space-y-4 border-t border-[#2F2722] px-4 sm:px-6 pt-4 pb-4">
             {Array.from(modifierGroups.entries()).map(([groupName, mods], groupIndex) => {
               const isRadio = mods.some((m) => m.isRequired);
 
               return (
-                <div key={groupName} className="space-y-2.5">
+                <div key={groupName} className="min-w-0 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-sm font-bold text-amber-400">
                         {String(groupIndex + 1).padStart(2, "0")} /
                       </span>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-[#FAF7F2]">
+                      <h3 className="min-w-0 break-words text-sm font-bold uppercase tracking-wider text-[#FAF7F2]">
                         {groupName}
                       </h3>
                     </div>
