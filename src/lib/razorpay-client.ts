@@ -13,11 +13,16 @@ export function loadRazorpayScript(): Promise<boolean> {
     }
 
     // Check if script element already exists
-    const existingScript = document.querySelector(
+    const existingScript = document.querySelector<HTMLScriptElement>(
       'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
     );
     if (existingScript) {
-      resolve(true);
+      if (window.Razorpay) {
+        resolve(true);
+      } else {
+        existingScript.addEventListener("load", () => resolve(Boolean(window.Razorpay)), { once: true });
+        existingScript.addEventListener("error", () => resolve(false), { once: true });
+      }
       return;
     }
 

@@ -120,6 +120,18 @@ export function TabModal({
         return;
       }
 
+      if (
+        !orderRes.data.keyId ||
+        orderRes.data.keyId.trim() === "" ||
+        orderRes.data.keyId.toLowerCase().includes("placeholder")
+      ) {
+        setErrorMessage(
+          "Payment gateway is not configured. Please choose Pay at counter or configure Razorpay test credentials."
+        );
+        setIsActionLoading(false);
+        return;
+      }
+
       const isLoaded = await loadRazorpayScript();
       if (!isLoaded || !window.Razorpay) {
         setErrorMessage("Could not load payment gateway. Please pay at counter.");

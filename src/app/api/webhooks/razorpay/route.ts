@@ -58,6 +58,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const webhookSec = env.RAZORPAY_WEBHOOK_SECRET;
+    if (
+      !webhookSec ||
+      webhookSec.includes("placeholder") ||
+      webhookSec.startsWith("http://") ||
+      webhookSec.startsWith("https://")
+    ) {
+      console.error(
+        "[Security Alert] Razorpay webhook secret is missing, placeholder, or invalid URL format"
+      );
+      return NextResponse.json(
+        { error: "Webhook secret is not configured properly on server" },
+        { status: 500 }
+      );
+    }
+
     // 1. Cryptographically verify webhook signature
     const isValid = verifyRazorpayWebhookSignature(rawBody, signature);
     if (!isValid) {

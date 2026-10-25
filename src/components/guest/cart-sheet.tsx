@@ -179,6 +179,8 @@ export function CartSheet({
 
   // Initiates Razorpay Checkout flow
   const initiateRazorpayPayment = async (orderId: string, orderNumber: string) => {
+    setIsSubmitting(true);
+    setPaymentError(null);
     setStatusMessage("Opening secure checkout...");
     const rzpOrderRes = await customerApi.createRazorpayOrder({ orderId, token });
 
@@ -532,57 +534,68 @@ export function CartSheet({
               </div>
             </div>
 
-            {/* Error & Retry State Alert */}
-            {paymentError && (
+            {/* Pending Order or Error State Alert */}
+            {pendingOrderId ? (
+              <div className="space-y-2">
+                {paymentError ? (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 space-y-1">
+                    <div className="flex items-start gap-2 text-xs text-[var(--destructive-foreground)]">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--destructive)] mt-0.5" />
+                      <p className="leading-snug">{paymentError}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+                    <p className="font-medium">Order #{pendingOrderNumber} is awaiting payment.</p>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2 w-full pt-1">
+                  {paymentsEnabled && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        isLoading={isSubmitting}
+                        onClick={() => setIsUpiQrOpen(true)}
+                        className="text-sm min-h-[48px] h-12 px-3 flex-1"
+                        leftIcon={<QrCode className="h-3.5 w-3.5" />}
+                      >
+                        Scan UPI QR
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        isLoading={isSubmitting}
+                        onClick={() =>
+                          initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
+                        }
+                        className="text-sm min-h-[48px] h-12 px-3 flex-1"
+                        leftIcon={<CreditCard className="h-3 w-3" />}
+                      >
+                        Pay Online
+                      </Button>
+                    </div>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    isLoading={isSubmitting}
+                    onClick={handleSwitchToCounter}
+                    className="text-sm min-h-[44px] h-11 px-3 w-full bg-white"
+                    leftIcon={<Banknote className="h-3.5 w-3.5" />}
+                  >
+                    Pay at Counter Instead
+                  </Button>
+                </div>
+              </div>
+            ) : paymentError ? (
               <div className="rounded-[var(--radius-md)] border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 space-y-2">
                 <div className="flex items-start gap-2 text-xs text-[var(--destructive-foreground)]">
                   <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--destructive)] mt-0.5" />
                   <p className="leading-snug">{paymentError}</p>
                 </div>
-                <div className="flex items-center gap-2 pt-1">
-                  {pendingOrderId && (
-                    <div className="flex flex-col gap-2 w-full">
-                      {paymentsEnabled && (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            isLoading={isSubmitting}
-                            onClick={() => setIsUpiQrOpen(true)}
-                            className="text-sm min-h-[48px] h-12 px-3 flex-1"
-                            leftIcon={<QrCode className="h-3.5 w-3.5" />}
-                          >
-                            Scan UPI QR
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            isLoading={isSubmitting}
-                            onClick={() =>
-                              initiateRazorpayPayment(pendingOrderId, pendingOrderNumber!)
-                            }
-                            className="text-sm min-h-[48px] h-12 px-3 flex-1"
-                            leftIcon={<CreditCard className="h-3 w-3" />}
-                          >
-                            Pay Online
-                          </Button>
-                        </div>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        isLoading={isSubmitting}
-                        onClick={handleSwitchToCounter}
-                        className="text-sm min-h-[44px] h-11 px-3 w-full bg-white"
-                        leftIcon={<Banknote className="h-3.5 w-3.5" />}
-                      >
-                        Pay at Counter Instead
-                      </Button>
-                    </div>
-                  )}
-                </div>
               </div>
-            )}
+            ) : null}
 
             {/* Do not allow a second order while this order is awaiting payment. */}
             {!pendingOrderId && (
@@ -911,7 +924,12 @@ export function CartSheet({
         tableNumber={tableLabel}
         totalPaise={grandTotalPaise}
         token={token}
-        onClose={() => setIsUpiQrOpen(false)}
+        onClose={() => {
+          setIsUpiQrOpen(false);
+          setPaymentError(
+            "Payment window closed. Your order is reserved; please complete payment or choose Pay at counter."
+          );
+        }}
         onSuccess={handleUpiSuccess}
         onSwitchToStandardCheckout={() => {
           setIsUpiQrOpen(false);

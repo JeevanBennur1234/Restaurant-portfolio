@@ -359,6 +359,16 @@ export const envSchema = rawEnvSchema.superRefine((data, ctx) => {
           message:
             'In production with PAYMENTS_MODE=\'online\', RAZORPAY_WEBHOOK_SECRET must not contain "placeholder".',
         });
+      } else if (
+        data.RAZORPAY_WEBHOOK_SECRET.startsWith("http://") ||
+        data.RAZORPAY_WEBHOOK_SECRET.startsWith("https://")
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RAZORPAY_WEBHOOK_SECRET"],
+          message:
+            "RAZORPAY_WEBHOOK_SECRET must be the HMAC webhook signing secret from Razorpay dashboard, not the webhook endpoint URL.",
+        });
       }
     }
 

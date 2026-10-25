@@ -17,4 +17,11 @@ describe("UPI payment modal guest safety and contrast", () => {
     expect(source).not.toContain("success@razorpay");
     expect(source).not.toContain("failure@razorpay");
   });
+
+  it("provides fallback buttons to continue to Razorpay Checkout or pay at counter on error", () => {
+    expect(source).toContain("Continue to Razorpay Checkout");
+    expect(source).toContain("Pay at Counter Instead");
+    expect(source).toContain("onSwitchToStandardCheckout");
+    expect(source).toContain("onSwitchToCounter");
+  });
 });

@@ -308,6 +308,18 @@ export function OrderLiveTracker({
         return;
       }
 
+      if (
+        !rzpRes.data.keyId ||
+        rzpRes.data.keyId.trim() === "" ||
+        rzpRes.data.keyId.toLowerCase().includes("placeholder")
+      ) {
+        setPaymentError(
+          "Payment gateway is not configured. Please choose Pay at counter or configure Razorpay test credentials."
+        );
+        setIsPaying(false);
+        return;
+      }
+
       const isLoaded = await loadRazorpayScript();
 
       if (!isLoaded || !window.Razorpay) {
@@ -319,7 +331,7 @@ export function OrderLiveTracker({
       }
 
       const options: RazorpayOptions = {
-        key: rzpRes.data.keyId ?? "rzp_test_placeholder",
+        key: rzpRes.data.keyId,
         amount: rzpRes.data.amountPaise ?? order.totalPaise,
         currency: "INR",
         name: "Masala Lane",

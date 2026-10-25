@@ -246,15 +246,28 @@ export function UpiQrModal({
               </p>
               <div className="flex w-full max-w-xs flex-col gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefreshQr}
-                  className="gap-2"
+                  data-testid="upi-fallback-checkout-btn"
+                  onClick={() => {
+                    stopTimers();
+                    onSwitchToStandardCheckout();
+                  }}
+                  className="w-full min-h-[48px] gap-2"
                 >
-                  <RotateCcw className="w-4 h-4" /> Try Again
+                  <CreditCard className="w-4 h-4" /> Continue to Razorpay Checkout
                 </Button>
+                {!error.toLowerCase().includes("disabled") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshQr}
+                    className="gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Try QR Again
+                  </Button>
+                )}
                 <Button
-                  variant="primary"
+                  data-testid="upi-fallback-counter-btn"
+                  variant="outline"
                   onClick={() => {
                     stopTimers();
                     onSwitchToCounter();

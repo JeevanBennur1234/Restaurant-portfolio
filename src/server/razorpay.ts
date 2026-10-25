@@ -231,7 +231,17 @@ export function verifyRazorpayWebhookSignature(
 ): boolean {
   if (!signature || !rawBody) return false;
   const webhookSec = getWebhookSecret();
-  if (!webhookSec) return false;
+  if (
+    !webhookSec ||
+    webhookSec.includes("placeholder") ||
+    webhookSec.startsWith("http://") ||
+    webhookSec.startsWith("https://")
+  ) {
+    console.error(
+      "[Security Alert] Webhook signature verification rejected: RAZORPAY_WEBHOOK_SECRET is unconfigured, placeholder, or set to a URL."
+    );
+    return false;
+  }
 
   try {
     const expectedSignature = crypto

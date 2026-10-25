@@ -137,6 +137,23 @@ describe("check-env Script (scripts/check-env.ts)", () => {
       expect(noRzp.items.find((i) => i.name === "RAZORPAY_WEBHOOK_SECRET")?.status).toBe("FAIL");
     });
 
+    it("fails when RAZORPAY_WEBHOOK_SECRET is misconfigured as a URL", () => {
+      const urlWebhook = validateEnvForSite(
+        {
+          ...validBaseEnv,
+          PAYMENTS_MODE: "online",
+          RAZORPAY_KEY_ID: "rzp_test_1234567890",
+          RAZORPAY_KEY_SECRET: "secret_1234567890",
+          RAZORPAY_WEBHOOK_SECRET: "https://dinepulse-customer.vercel.app/api/webhooks/razorpay",
+        },
+        { site: "customer" }
+      );
+      expect(urlWebhook.passed).toBe(false);
+      const item = urlWebhook.items.find((i) => i.name === "RAZORPAY_WEBHOOK_SECRET");
+      expect(item?.status).toBe("FAIL");
+      expect(item?.message).toContain("URL instead of the HMAC signing secret");
+    });
+
     it("allows omitting Razorpay keys when PAYMENTS_MODE is 'counter_only'", () => {
       const counterCustomer = validateEnvForSite(
         {

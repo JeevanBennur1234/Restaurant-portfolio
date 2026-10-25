@@ -300,6 +300,16 @@ export function validateEnvForSite(
             status: "FAIL",
             message: `${keyName} contains placeholder value.`,
           });
+        } else if (
+          keyName === "RAZORPAY_WEBHOOK_SECRET" &&
+          (val.startsWith("http://") || val.startsWith("https://"))
+        ) {
+          items.push({
+            name: keyName,
+            status: "FAIL",
+            message:
+              "RAZORPAY_WEBHOOK_SECRET is configured with a URL instead of the HMAC signing secret from the Razorpay dashboard.",
+          });
         } else if (isProduction && keyName === "RAZORPAY_KEY_ID" && val.startsWith("rzp_test_")) {
           items.push({
             name: keyName,
