@@ -189,10 +189,15 @@ export function OrderLiveTracker({
 
   const handleCloseReceipt = () => {
     setIsReceiptOpen(false);
+
+    // For a dine-in tab, closing the bill must reveal the order screen again,
+    // where the guest can explicitly request the bill. Do not send them back
+    // to the menu before they have had a chance to request settlement.
+    if (order.diningSessionId) return;
+
     if (!shouldOfferServedBill(order.status)) return;
 
     // A browser only permits window.close() for windows opened by script.
-    // For a normal user-opened tab, return to the table menu instead.
     if (window.opener && !window.opener.closed) {
       window.close();
       return;
@@ -620,7 +625,7 @@ export function OrderLiveTracker({
                   {billViewError}
                 </p>
               )}
-              {order.paymentStatus === "counter" && order.diningSessionId && !billRequestMessage && (
+              {order.diningSessionId && !billRequestMessage && (
                 <Button
                   type="button"
                   data-testid="request-served-bill-btn"
