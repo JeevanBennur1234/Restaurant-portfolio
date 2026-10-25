@@ -165,6 +165,9 @@ export function useLiveTab({
     // 2. Subscribe to tab-specific channel tab:${tabId}
     const tabChan = supabase
       .channel(`tab:${tabId}`)
+      .on("broadcast", { event: "tab.bill_requested" }, () => {
+        fetchTab();
+      })
       .on("broadcast", { event: "tab.updated" }, () => {
         fetchTab();
       })

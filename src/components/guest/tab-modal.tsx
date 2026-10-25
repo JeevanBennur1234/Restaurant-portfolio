@@ -78,6 +78,9 @@ export function TabModal({
     try {
       const res = await customerApi.requestTabBill(token, method);
       if (res.ok) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
+        }
         if (method === "counter") {
           setSuccessMessage("Your request has been sent. The tab stays unpaid until staff confirms the full amount. Keep this screen open; your receipt and next-step options will appear after settlement.");
           // Keep the screen open so the live tab can show the post-settlement choices
@@ -511,7 +514,7 @@ export function TabModal({
                   size="md"
                   onClick={() => {
                     onClose();
-                    router.replace("/order");
+                    router.replace("/");
                   }}
                   className="w-full text-sm min-h-[44px]"
                 >

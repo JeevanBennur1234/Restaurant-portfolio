@@ -389,6 +389,7 @@ export function UpiQrModal({
                   Continue to secure checkout
                 </Button>
                 <Button
+                  data-testid="upi-fallback-counter-btn"
                   variant="outline"
                   onClick={() => {
                     stopTimers();

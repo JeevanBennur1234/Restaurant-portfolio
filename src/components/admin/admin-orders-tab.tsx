@@ -384,6 +384,7 @@ export function AdminOrdersTab({
             o.diningSessionId === settleModalGroup.diningSessionId
               ? {
                   ...o,
+                  status: "served",
                   paymentStatus: "paid",
                   paymentMethod: tabPaymentMethod,
                   tabSummary: o.tabSummary

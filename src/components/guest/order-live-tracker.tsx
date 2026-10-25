@@ -156,6 +156,9 @@ export function OrderLiveTracker({
         return;
       }
       setBillRequestMessage("Bill requested! Your server has been notified. Please pay at the counter when they arrive.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
+      }
     } catch {
       setBillViewError("Could not request your bill. Please try again or ask your server for help.");
     } finally {
@@ -189,6 +192,11 @@ export function OrderLiveTracker({
 
   const handleCloseReceipt = () => {
     setIsReceiptOpen(false);
+
+    if (order.status === "served" && order.paymentStatus === "paid") {
+      router.replace("/");
+      return;
+    }
 
     // For a dine-in tab, closing the bill must reveal the order screen again,
     // where the guest can explicitly request the bill. Do not send them back
@@ -789,6 +797,21 @@ export function OrderLiveTracker({
               leftIcon={<PlusCircle className="h-5 w-5" />}
             >
               Order More for {order.tableNumber}
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {order.status === "served" && order.paymentStatus === "paid" && (
+        <div className="fixed bottom-4 inset-x-4 max-w-md mx-auto z-30">
+          <Link href="/" className="block w-full">
+            <Button
+              size="lg"
+              variant="primary"
+              className="w-full justify-center gap-2 shadow-[var(--shadow-elevated)]"
+              data-testid="return-home-btn"
+            >
+              Return to Main Page
             </Button>
           </Link>
         </div>

@@ -537,7 +537,7 @@ export function CartSheet({
             </div>
 
             {/* Pending Order or Error State Alert */}
-            {pendingOrderId ? (
+            {pendingOrderId && !isUpiQrOpen ? (
               <div className="space-y-2">
                 {paymentError ? (
                   <div className="rounded-[var(--radius-md)] border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 space-y-1">
@@ -579,6 +579,7 @@ export function CartSheet({
                     </div>
                   )}
                   <Button
+                    data-testid="cart-drawer-counter-btn"
                     size="sm"
                     variant="outline"
                     isLoading={isSubmitting}

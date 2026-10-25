@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Receipt, ChevronRight, RotateCcw, Clock, Flame, CheckCircle2, Sparkles, XCircle } from "lucide-react";
 import { useLiveTab } from "./use-live-tab";
 import { TabModal } from "./tab-modal";
@@ -18,20 +19,27 @@ export function ActiveTabBanner({
   paymentsEnabled = true,
   paymentsTestMode = false,
 }: ActiveTabBannerProps) {
-  const { tab, refreshTab, isReconnecting } = useLiveTab({ token });
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  const handleTabClosed = React.useCallback(() => {
+    setIsModalOpen(false);
+    router.replace("/");
+  }, [router]);
+
+  const { tab, refreshTab, isReconnecting } = useLiveTab({
+    token,
+    onTabClosed: handleTabClosed,
+  });
 
   if (!tab || tab.roundCount === 0 || (tab.status === "closed" && !isModalOpen)) {
     return null;
   }
 
   const isBillRequested = tab.status === "bill_requested";
-  const isCounterRequested = isBillRequested && tab.paymentMethod === "counter";
 
   const badgeText = isBillRequested
-    ? isCounterRequested
-      ? "Pay at Counter"
-      : "Bill Requested"
+    ? "Bill Requested"
     : "Dining";
 
   return (
@@ -84,7 +92,7 @@ export function ActiveTabBanner({
               onClick={() => setIsModalOpen(true)}
               className="shrink-0 min-h-[44px] flex items-center gap-1 px-3.5 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold shadow-xs transition-colors motion-reduce:transition-none cursor-pointer"
             >
-              <span>{isBillRequested ? "Pay Bill" : "View Tab & Settle"}</span>
+              <span>View Bill</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

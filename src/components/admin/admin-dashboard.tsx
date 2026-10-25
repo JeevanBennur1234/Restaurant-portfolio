@@ -174,7 +174,7 @@ function AdminDashboardContent({
 
         {activeTab === "menu" && <AdminMenuTab />}
 
-        {activeTab === "tables" && <AdminTablesTab />}
+        {activeTab === "tables" && <AdminTablesTab refreshKey={refreshKey} />}
 
         {activeTab === "reports" && <AdminReportsTab />}
       </main>

@@ -207,12 +207,13 @@ test.describe("Customer Food Ordering Journey", () => {
       )
     ).toBeVisible({ timeout: 15_000 });
 
-    // 7. Verify safe recovery: click the cart drawer's counter fallback.
-    // The UPI fallback can render a second button with the same accessible name.
+    // 7. Verify safe recovery: click the counter fallback button (modal or cart drawer).
     const counterRecoveryBtn = page
-      .getByRole("dialog", { name: "Drawer" })
-      .getByRole("button", { name: /Pay at Counter Instead/i });
-    await expect(counterRecoveryBtn).toBeVisible({ timeout: 5_000 });
+      .locator('[data-testid="upi-fallback-counter-btn"]')
+      .or(page.locator('[data-testid="cart-drawer-counter-btn"]'))
+      .or(page.getByRole("button", { name: /Pay at Counter Instead/i }))
+      .first();
+    await expect(counterRecoveryBtn).toBeVisible({ timeout: 10_000 });
     await counterRecoveryBtn.click();
 
     // 8. Assert successful switch to live order tracker with counter payment

@@ -745,6 +745,26 @@ export async function requestTabBill(
       }
     );
 
+    await publishRealtimeEvent(`tab:${session.id}`, "tab.bill_requested", {
+      tabId: session.id,
+      tableNumber: tableRecord.tableNumber,
+      status: "bill_requested",
+      paymentStatus: "bill_requested",
+      paymentMethod,
+      totalPaise: computedTotal,
+      amountDuePaise,
+    });
+
+    await publishRealtimeEvent(`tab:${session.id}`, "tab.updated", {
+      tabId: session.id,
+      tableNumber: tableRecord.tableNumber,
+      status: "bill_requested",
+      paymentStatus: "bill_requested",
+      paymentMethod,
+      totalPaise: computedTotal,
+      amountDuePaise,
+    });
+
     return ok({
       tabId: session.id,
       status: "bill_requested",
@@ -1194,13 +1214,9 @@ export async function settleTabAtCounter(
     if (session.status === "closed") {
       return fail("CONFLICT", "This tab has already been settled and closed", 409);
     }
-    if (session.paymentStatus === "paid") {
-      return fail("CONFLICT", "This tab is already paid and is waiting for its orders to be served.", 409);
-    }
 
     const now = new Date();
     const paymentMethodToRecord = paymentMethod || "cash";
-    let allOrdersServed = session.orders.length > 0 && session.orders.every((order) => order.status === "served");
 
     // Never collect at the counter while a Razorpay tab payment could still capture.
     const unresolvedOnlinePayment = (session.payments ?? []).some(
@@ -1230,19 +1246,19 @@ export async function settleTabAtCounter(
     }
 
     // Conditional close acquires the session row lock and makes settlement one-shot.
-    // Only unpaid rounds are updated; their prior payment history is never overwritten.
+    // Settling at the counter closes the customer dining session and marks orders as served & paid.
     const didSettle = await ctx.db.transaction(async (tx) => {
       const closedRows = await tx
         .update(diningSessions)
         .set({
-          status: allOrdersServed ? "closed" : "bill_requested",
+          status: "closed",
           paymentStatus: "paid",
           paymentMethod: paymentMethodToRecord,
           notes: notes ?? null,
           subtotalPaise: computedSubtotal,
           taxPaise: computedTax,
           totalPaise: computedTotal,
-          closedAt: allOrdersServed ? now : null,
+          closedAt: now,
           updatedAt: now,
         })
         .where(and(
@@ -1259,6 +1275,7 @@ export async function settleTabAtCounter(
         await tx
           .update(orders)
           .set({
+            status: "served",
             paymentStatus: "paid",
             paymentMethod: paymentMethodToRecord,
             updatedAt: now,
@@ -1269,11 +1286,23 @@ export async function settleTabAtCounter(
           await tx.insert(orderEvents).values({
             orderId: order.id,
             fromStatus: order.status,
-            toStatus: order.status,
+            toStatus: "served",
             note: "Tab counter settlement recorded by " + ctx.actor!.username + " (" + paymentMethodToRecord + ")",
             staffUserId: ctx.actor!.userId,
           });
         }
+      }
+
+      // Also ensure any previously paid rounds on this tab are marked served
+      const remainingUnservedOrders = session.orders.filter((order) => wasRoundPaidBeforeTab(order, session) && order.status !== "served");
+      if (remainingUnservedOrders.length > 0) {
+        await tx
+          .update(orders)
+          .set({
+            status: "served",
+            updatedAt: now,
+          })
+          .where(inArray(orders.id, remainingUnservedOrders.map((o) => o.id)));
       }
 
       // One payment record for the consolidated balance only—not one per round.
@@ -1293,25 +1322,44 @@ export async function settleTabAtCounter(
     if (!didSettle) {
       return fail("CONFLICT", "This tab has already been settled by another request.", 409);
     }
-    allOrdersServed = allOrdersServed || await closePaidSessionIfFulfilled(ctx, session.id);
 
     await publishRealtimeEvent(
       getRestaurantChannel(session.restaurantId),
-      allOrdersServed ? "tab.closed" : "tab.updated",
+      "tab.closed",
       {
         tabId: session.id,
         tableNumber: session.table.tableNumber,
-        status: allOrdersServed ? "closed" : "bill_requested",
+        status: "closed",
         paymentStatus: "paid",
         settledBy: ctx.actor.username,
       }
     );
 
-    await publishRealtimeEvent(`tab:${session.id}`, allOrdersServed ? "tab.closed" : "tab.updated", {
+    await publishRealtimeEvent(`tab:${session.id}`, "tab.closed", {
       tabId: session.id,
-      status: allOrdersServed ? "closed" : "bill_requested",
+      status: "closed",
       paymentStatus: "paid",
     });
+
+    for (const order of session.orders) {
+      await publishRealtimeEvent(`order:${order.id}`, "order.status_changed", {
+        orderId: order.id,
+        status: "served",
+      });
+      await publishRealtimeEvent(`order:${order.id}`, "order.paid", {
+        orderId: order.id,
+        paymentStatus: "paid",
+      });
+      await publishRealtimeEvent(
+        getRestaurantChannel(session.restaurantId),
+        "order.status_changed",
+        {
+          orderId: order.id,
+          status: "served",
+          toStatus: "served",
+        }
+      );
+    }
 
     return ok({ success: true, tabId: session.id });
   } catch (err) {

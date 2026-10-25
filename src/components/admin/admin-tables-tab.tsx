@@ -20,7 +20,11 @@ import type { AdminTableData } from "@/lib/api/types";
 import { resolveSiteUrl } from "@/lib/site-urls";
 import { formatTableDisplayName } from "@/lib/table-label";
 
-export function AdminTablesTab() {
+export interface AdminTablesTabProps {
+  refreshKey?: number;
+}
+
+export function AdminTablesTab({ refreshKey }: AdminTablesTabProps = {}) {
   const [tables, setTables] = React.useState<AdminTableData[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -101,6 +105,13 @@ export function AdminTablesTab() {
       isMounted = false;
     };
   }, []);
+
+  // Instant refresh when dashboard signals tab/order update
+  React.useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      fetchTables();
+    }
+  }, [fetchTables, refreshKey]);
 
   // 5-second polling for active dining tabs and table status
   React.useEffect(() => {
