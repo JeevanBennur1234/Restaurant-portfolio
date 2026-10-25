@@ -59,7 +59,14 @@ export async function publishRealtimeEvent(
     };
 
     if (typeof channelAny.httpSend === "function") {
-      const result = await channelAny.httpSend(event, payload ?? {});
+      // Realtime is best-effort: a stalled provider request must never hold up
+      // a successful order cancellation/payment API response.
+      const result = await Promise.race([
+        channelAny.httpSend(event, payload ?? {}),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Realtime broadcast timed out")), 1500)
+        ),
+      ]);
       if (
         result &&
         typeof result === "object" &&

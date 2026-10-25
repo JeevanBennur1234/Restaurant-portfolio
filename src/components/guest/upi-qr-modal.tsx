@@ -81,10 +81,14 @@ export function UpiQrModal({
 
     let isSubscribed = true;
     stopTimers();
+    // A provider/network stall must not leave Pay now spinning forever.
+    const requestController = new AbortController();
+    const requestTimeout = window.setTimeout(() => requestController.abort(), 8000);
 
     customerApi
-      .createUpiQrPayment({ orderId, token })
+      .createUpiQrPayment({ orderId, token }, { signal: requestController.signal })
       .then((res) => {
+        window.clearTimeout(requestTimeout);
         if (!isSubscribed) return;
         if (!res.ok) {
           setError(res.message || "Failed to generate UPI QR code. Please try again.");
@@ -133,13 +137,22 @@ export function UpiQrModal({
         }, 2500);
       })
       .catch((err) => {
+        window.clearTimeout(requestTimeout);
         if (!isSubscribed) return;
-        setError((err as Error).message || "An unexpected error occurred.");
+        const wasTimedOut =
+          requestController.signal.aborted || (err as Error)?.name === "AbortError";
+        setError(
+          wasTimedOut
+            ? "UPI QR Unavailable: Online payment setup timed out. Please try secure checkout or Pay at Counter."
+            : (err as Error).message || "UPI QR Unavailable: Could not prepare online payment. Please try secure checkout or Pay at Counter."
+        );
         setIsLoading(false);
       });
 
     return () => {
       isSubscribed = false;
+      window.clearTimeout(requestTimeout);
+      requestController.abort();
       stopTimers();
     };
   }, [isOpen, orderId, token, fetchTrigger, stopTimers, onSuccess]);
