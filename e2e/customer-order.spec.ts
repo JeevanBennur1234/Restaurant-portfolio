@@ -189,9 +189,12 @@ test.describe("Customer Food Ordering Journey", () => {
     await expect(cartBarBtn).toBeVisible({ timeout: 5_000 });
     await cartBarBtn.click();
 
-    // 4. Default payment method is "Pay now" (online)
+    // 4. Explicitly choose online payment for this recovery-path test.
+    // Dine-in carts now default to Open Tab, so this test must opt into Pay now
+    // to exercise the missing-Razorpay-configuration error and counter fallback.
     const payNowChoice = page.locator('[data-testid="pay-now-choice"]');
     await expect(payNowChoice).toBeVisible();
+    await payNowChoice.click();
 
     // 5. Submit checkout with unconfigured Razorpay test credentials
     const submitBtn = page.locator('[data-testid="checkout-submit-btn"]');
