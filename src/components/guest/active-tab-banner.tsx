@@ -21,10 +21,18 @@ export function ActiveTabBanner({
 }: ActiveTabBannerProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const isModalOpenRef = React.useRef(false);
+
+  React.useEffect(() => {
+    isModalOpenRef.current = isModalOpen;
+  }, [isModalOpen]);
 
   const handleTabClosed = React.useCallback(() => {
-    setIsModalOpen(false);
-    router.replace("/");
+    // If modal is not open, the guest is on the menu page; redirect to main page.
+    // If modal is open, let the guest see their settled receipt, download PDF, or click Close Ordering.
+    if (!isModalOpenRef.current) {
+      router.replace("/");
+    }
   }, [router]);
 
   const { tab, refreshTab, isReconnecting } = useLiveTab({
@@ -149,6 +157,9 @@ export function ActiveTabBanner({
         onClose={() => {
           setIsModalOpen(false);
           refreshTab();
+          if (tab?.status === "closed" && tab.paymentStatus === "paid") {
+            router.replace("/");
+          }
         }}
         onAddMoreDishes={() => {
           setIsModalOpen(false);
