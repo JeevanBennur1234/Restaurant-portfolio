@@ -19,12 +19,18 @@ export interface ReceiptModalProps {
   onClose: () => void;
   pdfDownloadUrl?: string;
   isManager?: boolean;
+  onRequestBill?: () => void;
+  isRequestingBill?: boolean;
+  isBillRequested?: boolean;
 }
 
 export function ReceiptModal({
   receipt,
   isOpen,
   onClose,
+  onRequestBill,
+  isRequestingBill = false,
+  isBillRequested = false,
 }: ReceiptModalProps) {
   const [printLayout, setPrintLayout] = React.useState<"a4" | "thermal">("a4");
 
@@ -327,6 +333,19 @@ export function ReceiptModal({
             {isPaid ? `Receipt #${receipt.receiptNumber}` : `Bill #${receipt.billNumber}`}
           </span>
           <div className="flex items-center gap-2">
+            {onRequestBill && !isPaid && !isBillRequested && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onRequestBill}
+                isLoading={isRequestingBill}
+                leftIcon={<Receipt className="h-4 w-4" />}
+                className="h-9 px-4 text-xs font-semibold"
+                data-testid="modal-request-bill-btn"
+              >
+                Request Bill
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -336,7 +355,7 @@ export function ReceiptModal({
               Close
             </Button>
             <Button
-              variant="primary"
+              variant={onRequestBill && !isPaid && !isBillRequested ? "outline" : "primary"}
               size="sm"
               onClick={handlePrint}
               leftIcon={<Printer className="h-4 w-4" />}

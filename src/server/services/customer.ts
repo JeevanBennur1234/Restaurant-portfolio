@@ -108,7 +108,7 @@ export interface GuestMenuData {
 export interface PlaceOrderData {
   orderId: string;
   orderNumber: string;
-  paymentStatus: "pending" | "paid" | "counter" | "failed";
+  paymentStatus: "pending" | "paid" | "counter" | "failed" | "bill_requested";
   paymentMethod: "pay_now" | "counter";
 }
 
@@ -135,7 +135,7 @@ export interface OrderDetails {
   diningSessionId?: string | null;
   orderNumber: string;
   status: OrderStatus;
-  paymentStatus: "pending" | "paid" | "counter" | "failed";
+  paymentStatus: "pending" | "paid" | "counter" | "failed" | "bill_requested";
   paymentMethod: "pay_now" | "counter" | null;
   subtotalPaise: number;
   taxPaise: number;

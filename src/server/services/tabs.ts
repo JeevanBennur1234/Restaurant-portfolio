@@ -655,7 +655,7 @@ export async function requestTabBill(
       return fail("NOT_FOUND", "Table not found", 404);
     }
 
-    const session = await ctx.db.query.diningSessions.findFirst({
+    let session = await ctx.db.query.diningSessions.findFirst({
       where: and(
         eq(diningSessions.tableId, tableRecord.id),
         sql`${diningSessions.status} IN ('active', 'bill_requested')`
@@ -670,7 +670,52 @@ export async function requestTabBill(
     });
 
     if (!session) {
-      return fail("NOT_FOUND", "No active dining tab found for this table", 404);
+      // Check if there are active table orders placed without an open session
+      const tableOrders = await ctx.db.query.orders.findMany({
+        where: and(
+          eq(orders.tableId, tableRecord.id),
+          sql`${orders.status} != 'cancelled'`,
+          sql`${orders.paymentStatus} != 'paid'`
+        ),
+        with: { payments: true },
+      });
+
+      if (tableOrders.length > 0) {
+        const computedSub = tableOrders.reduce((sum, o) => sum + (o.subtotalPaise ?? 0), 0);
+        const computedTx = tableOrders.reduce((sum, o) => sum + (o.taxPaise ?? 0), 0);
+        const computedTot = tableOrders.reduce((sum, o) => sum + (o.totalPaise ?? 0), 0);
+        const now = new Date();
+
+        const [createdSession] = await ctx.db
+          .insert(diningSessions)
+          .values({
+            restaurantId: tableRecord.restaurantId,
+            tableId: tableRecord.id,
+            sessionToken: crypto.randomBytes(16).toString("hex"),
+            status: "active",
+            paymentStatus: "open",
+            paymentMethod,
+            subtotalPaise: computedSub,
+            taxPaise: computedTx,
+            totalPaise: computedTot,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning();
+
+        await ctx.db
+          .update(orders)
+          .set({ diningSessionId: createdSession.id, updatedAt: now })
+          .where(inArray(orders.id, tableOrders.map((o) => o.id)));
+
+        session = {
+          ...createdSession,
+          payments: [],
+          orders: tableOrders,
+        };
+      } else {
+        return fail("NOT_FOUND", "No active dining tab found for this table", 404);
+      }
     }
 
     const computedSubtotal = session.orders.reduce((sum, order) => sum + (order.subtotalPaise ?? 0), 0);
@@ -764,6 +809,24 @@ export async function requestTabBill(
       totalPaise: computedTotal,
       amountDuePaise,
     });
+
+    const unpaidOrderIds = session.orders
+      .filter((o) => o.paymentStatus !== "paid")
+      .map((o) => o.id);
+
+    if (unpaidOrderIds.length > 0) {
+      await ctx.db
+        .update(orders)
+        .set({ paymentStatus: "bill_requested", updatedAt: new Date() })
+        .where(inArray(orders.id, unpaidOrderIds));
+    }
+
+    for (const order of session.orders) {
+      await publishRealtimeEvent(`order:${order.id}`, "order.updated", {
+        orderId: order.id,
+        paymentStatus: "bill_requested",
+      });
+    }
 
     return ok({
       tabId: session.id,

@@ -87,9 +87,11 @@ export function getOrderStatusHeadline(
       ...statusHeadlines.served,
       title: "Thank You!",
       subtitle:
-        order.paymentStatus === "counter"
-          ? "Your order has been served. Please pay at the counter when you’re ready."
-          : "Your order has been served. Thank you for dining with us!",
+        order.paymentStatus === "bill_requested"
+          ? "Your bill has been requested. Please pay at the counter when staff arrives."
+          : order.paymentStatus === "counter"
+            ? "Your order has been served. Please pay at the counter when you’re ready."
+            : "Your order has been served. Thank you for dining with us!",
     };
   }
   return statusHeadlines[order.status] ?? statusHeadlines.placed;
@@ -155,6 +157,11 @@ export function OrderLiveTracker({
         setBillViewError(result.message || "Could not request your bill. Please ask your server for help.");
         return;
       }
+      setOrder((prev) => ({
+        ...prev,
+        paymentStatus: "bill_requested",
+        diningSessionId: result.data?.tabId ?? prev.diningSessionId,
+      }));
       setBillRequestMessage("Bill requested! Your server has been notified. Please pay at the counter when they arrive.");
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("dinepulse:tab-updated"));
@@ -164,6 +171,11 @@ export function OrderLiveTracker({
     } finally {
       setIsRequestingBill(false);
     }
+  };
+
+  const handleRequestBillFromModal = async () => {
+    setIsReceiptOpen(false);
+    await handleRequestBill();
   };
 
   const handleViewBill = async () => {
@@ -197,20 +209,6 @@ export function OrderLiveTracker({
       router.replace("/");
       return;
     }
-
-    // For a dine-in tab, closing the bill must reveal the order screen again,
-    // where the guest can explicitly request the bill. Do not send them back
-    // to the menu before they have had a chance to request settlement.
-    if (order.diningSessionId) return;
-
-    if (!shouldOfferServedBill(order.status)) return;
-
-    // A browser only permits window.close() for windows opened by script.
-    if (window.opener && !window.opener.closed) {
-      window.close();
-      return;
-    }
-    router.replace(`/t/${token}`);
   };
 
   const refreshOrder = React.useCallback(async () => {
@@ -464,6 +462,10 @@ export function OrderLiveTracker({
             <Badge variant="success" size="sm" className="font-sans text-xs">
               Paid Online
             </Badge>
+          ) : order.paymentStatus === "bill_requested" ? (
+            <Badge variant="secondary" size="sm" className="font-sans text-xs">
+              Bill Requested
+            </Badge>
           ) : order.paymentStatus === "counter" ? (
             <Badge variant="secondary" size="sm" className="font-sans text-xs">
               {order.diningSessionId ? "Open Dine-In Tab" : "Pay at Counter"}
@@ -625,15 +627,17 @@ export function OrderLiveTracker({
           {shouldOfferServedBill(order.status) && (
             <div data-testid="served-bill-actions" className="mt-4 space-y-3 border-t border-[var(--border-subtle)] pt-4">
               <p className="text-sm text-[var(--text-secondary)]">Your order has been served.</p>
-              {billRequestMessage && (
-                <p role="status" className="rounded-lg border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--text-primary)]">{billRequestMessage}</p>
+              {(billRequestMessage || order.paymentStatus === "bill_requested") && (
+                <p role="status" className="rounded-lg border border-[var(--success)]/30 bg-[var(--success)]/10 p-3 text-sm text-[var(--text-primary)]">
+                  {billRequestMessage || "Bill requested! Your server has been notified. Please pay at the counter when they arrive."}
+                </p>
               )}
               {billViewError && (
                 <p role="alert" className="rounded-lg border border-[var(--destructive-border)] bg-[var(--destructive-subtle)] p-3 text-sm text-[var(--destructive-foreground)]">
                   {billViewError}
                 </p>
               )}
-              {order.diningSessionId && !billRequestMessage && (
+              {!billRequestMessage && order.paymentStatus !== "paid" && order.paymentStatus !== "bill_requested" && (
                 <Button
                   type="button"
                   data-testid="request-served-bill-btn"
@@ -651,7 +655,7 @@ export function OrderLiveTracker({
                 type="button"
                 data-testid="view-served-bill-btn"
                 size="lg"
-                variant="primary"
+                variant={billRequestMessage || order.paymentStatus === "bill_requested" || order.paymentStatus === "paid" ? "primary" : "outline"}
                 isLoading={isLoadingReceipt}
                 onClick={handleViewBill}
                 className="w-full justify-center gap-2"
@@ -846,6 +850,9 @@ export function OrderLiveTracker({
         isOpen={isReceiptOpen}
         onClose={handleCloseReceipt}
         receipt={receiptData}
+        onRequestBill={handleRequestBillFromModal}
+        isRequestingBill={isRequestingBill}
+        isBillRequested={Boolean(billRequestMessage || order.paymentStatus === "bill_requested")}
         pdfDownloadUrl={
           receiptData?.isTabBill
             ? customerApi.getTabReceiptPdfUrl(token)
