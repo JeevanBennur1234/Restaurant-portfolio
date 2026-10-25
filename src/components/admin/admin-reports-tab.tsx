@@ -128,10 +128,10 @@ export function AdminReportsTab() {
       </div>
 
       {/* KPI Cards Grid with Large Display Numerals */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* 1. Today's Revenue */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
-          <CardContent className="p-5">
+          <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Today&apos;s Revenue
@@ -140,7 +140,7 @@ export function AdminReportsTab() {
                 <IndianRupee className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="text-2xl font-normal text-[var(--text-primary)] leading-none tabular-nums">
+            <div className="min-w-0 break-words text-lg sm:text-2xl font-normal text-[var(--text-primary)] leading-tight tabular-nums">
               {formatPaiseToINR(reports.todayRevenuePaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -151,7 +151,7 @@ export function AdminReportsTab() {
 
         {/* 2. Today's Order Count */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
-          <CardContent className="p-5">
+          <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Orders Today
@@ -160,7 +160,7 @@ export function AdminReportsTab() {
                 <ShoppingBag className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none tabular-nums">
+            <div className="min-w-0 font-serif text-3xl sm:text-4xl font-extrabold max-[380px]:text-2xl tracking-tight text-[var(--text-primary)] font-mono leading-tight tabular-nums">
               {reports.todayOrderCount}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -171,7 +171,7 @@ export function AdminReportsTab() {
 
         {/* 3. Average Ticket Size */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
-          <CardContent className="p-5">
+          <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Average Ticket
@@ -180,7 +180,7 @@ export function AdminReportsTab() {
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="text-2xl font-normal text-[var(--text-primary)] leading-none tabular-nums">
+            <div className="min-w-0 break-words text-lg sm:text-2xl font-normal text-[var(--text-primary)] leading-tight tabular-nums">
               {formatPaiseToINR(reports.todayAvgTicketPaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -191,7 +191,7 @@ export function AdminReportsTab() {
 
         {/* 4. Average Prep Time */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
-          <CardContent className="p-5">
+          <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
                 Avg. Prep Time
@@ -200,7 +200,7 @@ export function AdminReportsTab() {
                 <Clock className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="font-serif text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-primary)] font-mono leading-none tabular-nums">
+            <div className="min-w-0 font-serif text-3xl sm:text-4xl font-extrabold max-[380px]:text-2xl tracking-tight text-[var(--text-primary)] font-mono leading-tight tabular-nums">
               {reports.avgPrepTimeMinutes} <span className="text-xl font-sans font-medium text-[var(--text-secondary)]">min</span>
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -237,7 +237,7 @@ export function AdminReportsTab() {
 
         {/* Chart Visualization Container */}
         <div className="pt-6 pb-2">
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end border-b border-[var(--border-subtle)] pb-4">
+          <div className="grid grid-cols-7 gap-1 sm:gap-4 items-end border-b border-[var(--border-subtle)] pb-4 min-w-0">
             {reports.sevenDayHistory.map((day, idx) => {
               const heightPct = Math.max(
                 8,
@@ -290,7 +290,7 @@ export function AdminReportsTab() {
                     <div className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
                       {day.date.slice(5)}
                     </div>
-                    <div className="text-sm text-[var(--text-secondary)] tabular-nums mt-0.5">
+                    <div className="text-[9px] sm:text-sm leading-tight text-[var(--text-secondary)] tabular-nums mt-0.5 whitespace-nowrap">
                       {formatPaiseToINR(day.revenuePaise)}
                     </div>
                   </div>

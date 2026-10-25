@@ -502,7 +502,7 @@ export function CartSheet({
         if (!isSubmitting) setIsCartOpen(false);
       }}
       side="center"
-      className="flex flex-col"
+      className="flex flex-col max-h-[94dvh] w-full sm:w-[min(92vw,680px)]"
       footer={
         items.length > 0 ? (
           <div className="space-y-3">
@@ -682,9 +682,14 @@ export function CartSheet({
               Your Table Order
             </h3>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-xs font-semibold border border-white/20 backdrop-blur-xs">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>{tableLabel}</span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full bg-white/10 text-[#FAF7F2] font-mono text-[10px] sm:text-xs font-semibold border border-white/20 backdrop-blur-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>{tableLabel}</span>
+            </div>
+            <button type="button" data-testid="cart-cancel" onClick={() => { if (!isSubmitting) setIsCartOpen(false); }} className="inline-flex min-h-10 items-center gap-1 rounded-full border border-white/20 px-2 sm:px-3 text-xs sm:text-sm text-[#FAF7F2] hover:bg-white/10" aria-label="Cancel and return to menu">
+              <ArrowLeft className="h-4 w-4" /> <span>Cancel</span>
+            </button>
           </div>
         </div>
       </div>
@@ -793,21 +798,21 @@ export function CartSheet({
             })}
           </div>
 
-          {/* Payment is selected for the first order only; an active dine-in tab reuses its existing payment flow. */}
-          {!isCheckingActiveTab && !isExistingDineInTab ? (
+          {/* Payment is selected for the first order only; an active dine-in tab reuses its existing payment flow. The old `!isCheckingActiveTab && !isExistingDineInTab` gate hid choices on first open; keep choices visible while checking. */}
+          {!isExistingDineInTab ? (
           <div data-testid="payment-choice-section" className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] block">
               Payment Choice
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
               {/* Option A: Open Tab (Dine-In) */}
               <button
                 type="button"
                 data-testid="open-tab-choice"
                 disabled={Boolean(pendingOrderId)}
                 onClick={() => setPaymentMethod("open_tab")}
-                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
+                className={`min-w-0 p-2 sm:p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[84px] sm:min-h-[96px] select-none ${
                   paymentMethod === "open_tab"
                     ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 text-[var(--text-primary)]"
                     : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -815,13 +820,13 @@ export function CartSheet({
               >
                 <div className="flex items-center justify-between w-full">
                   <Receipt className="h-4.5 w-4.5 text-amber-500" />
-                  <span className="text-[10px] uppercase font-bold text-amber-500">
+                  <span className="hidden sm:inline text-[10px] uppercase font-bold text-amber-500">
                     Dine-In Tab
                   </span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold">Open Tab</div>
-                  <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                  <div className="text-xs sm:text-sm font-bold leading-tight">Open Tab</div>
+                  <div className="hidden sm:block text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
                     Pay after meal
                   </div>
                 </div>
@@ -834,7 +839,7 @@ export function CartSheet({
                   data-testid="pay-now-choice"
                   disabled={Boolean(pendingOrderId)}
                   onClick={() => setPaymentMethod("pay_now")}
-                  className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
+                  className={`min-w-0 p-2 sm:p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[84px] sm:min-h-[96px] select-none ${
                     paymentMethod === "pay_now"
                       ? "border-[var(--primary)] bg-[var(--primary-subtle)]/40 ring-1 ring-[var(--primary)] text-[var(--text-primary)]"
                       : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -842,13 +847,13 @@ export function CartSheet({
                 >
                   <div className="flex items-center justify-between w-full">
                     <CreditCard className="h-4.5 w-4.5 text-[var(--primary)]" />
-                    <span className="text-[10px] uppercase font-bold text-[var(--primary)]">
+                    <span className="hidden sm:inline text-[10px] uppercase font-bold text-[var(--primary)]">
                       Instant
                     </span>
                   </div>
                   <div>
-                    <div className="text-sm font-bold">Pay now</div>
-                    <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                    <div className="text-xs sm:text-sm font-bold leading-tight">Pay now</div>
+                    <div className="hidden sm:block text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
                       UPI, Cards
                     </div>
                   </div>
@@ -861,7 +866,7 @@ export function CartSheet({
                 data-testid="pay-counter-choice"
                 disabled={Boolean(pendingOrderId)}
                 onClick={() => setPaymentMethod("counter")}
-                className={`p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[64px] select-none ${
+                className={`min-w-0 p-2 sm:p-3.5 rounded-[var(--radius-md)] border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer min-h-[84px] sm:min-h-[96px] select-none ${
                   paymentMethod === "counter"
                     ? "border-[var(--secondary)] bg-[var(--secondary-subtle)]/60 ring-1 ring-[var(--secondary)] text-[var(--text-primary)]"
                     : "border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
@@ -869,13 +874,13 @@ export function CartSheet({
               >
                 <div className="flex items-center justify-between w-full">
                   <Banknote className="h-4.5 w-4.5 text-[var(--secondary)]" />
-                  <span className="text-[10px] uppercase font-semibold text-[var(--text-muted)]">
+                  <span className="hidden sm:inline text-[10px] uppercase font-semibold text-[var(--text-muted)]">
                     Cashier
                   </span>
                 </div>
                 <div>
-                  <div className="text-sm font-bold">Pay at counter</div>
-                  <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                  <div className="text-xs sm:text-sm font-bold leading-tight">Counter</div>
+                  <div className="hidden sm:block text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
                     Pay now at desk
                   </div>
                 </div>

@@ -112,7 +112,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
       isOpen={isOpen}
       onClose={onClose}
       side="center"
-      className="flex flex-col overflow-hidden rounded-3xl border border-[#3A3026] bg-[#181412] text-[#FAF7F2] shadow-2xl"
+      className="flex w-full sm:w-[min(92vw,680px)] max-h-[94dvh] flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border border-[#3A3026] bg-[#181412] text-[#FAF7F2] shadow-2xl"
       contentClassName="p-0"
       footerClassName="border-t border-[#2F2722] bg-[#181412] p-4 sm:p-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-5"
       footer={
@@ -163,7 +163,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
               variant="primary"
               disabled={!isAvailable}
               onClick={handleAddToCart}
-              className="min-h-[52px] h-[52px] min-w-0 flex-1 justify-between rounded-full bg-gradient-to-r from-[#C85A32] to-[#B34B24] px-5 text-base font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
+              className="min-h-[52px] h-[52px] min-w-0 flex-1 justify-between gap-2 rounded-full bg-gradient-to-r from-[#C85A32] to-[#B34B24] px-3 sm:px-5 text-sm sm:text-base font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
             >
               <span className="truncate pr-1">
                 {isAvailable ? "Add to Order" : "Unavailable"}
@@ -225,7 +225,7 @@ function ItemDetailInner({ item, isOpen, onClose }: ItemDetailInnerProps) {
         )}
 
         {/* Dish details use a separate charcoal surface under the uncropped image. */}
-        <div className="space-y-3 p-5 sm:p-6">
+        <div className="space-y-3 p-4 sm:p-6">
           <div className="flex flex-wrap items-center gap-2">
             <VegIndicator isVeg={item.isVeg} />
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3026] bg-[#221B17] px-3 py-1.5 font-mono text-xs text-stone-300">
