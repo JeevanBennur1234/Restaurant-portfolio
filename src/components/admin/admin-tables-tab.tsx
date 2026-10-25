@@ -104,14 +104,7 @@ export function AdminTablesTab({ refreshKey }: AdminTablesTabProps = {}) {
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  // Instant refresh when dashboard signals tab/order update
-  React.useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchTables();
-    }
-  }, [fetchTables, refreshKey]);
+  }, [refreshKey]);
 
   // 5-second polling for active dining tabs and table status
   React.useEffect(() => {
