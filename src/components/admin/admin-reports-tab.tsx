@@ -100,18 +100,18 @@ export function AdminReportsTab() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-xs">
+      <div className="flex min-w-0 flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-xs">
         <div>
           <span className="eyebrow text-[10px] text-amber-700 font-semibold tracking-[0.2em]">
             Executive Overview
           </span>
-          <h3 className="font-serif text-lg sm:text-xl font-bold text-[var(--text-primary)]">
-            Sales & Operational Analytics
+          <h3 className="font-serif text-lg sm:text-xl font-bold leading-snug text-[var(--text-primary)]">
+            Sales &amp; Operational Analytics
           </h3>
-          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-            Real-time daily turnover, ticket volume, kitchen prep benchmark, and 7-day revenue trend.
+          <p className="mt-1 max-w-3xl text-xs sm:text-sm leading-relaxed text-[var(--text-secondary)]">
+            Daily turnover, ticket volume, kitchen prep benchmark, and 7-day revenue trend.
           </p>
         </div>
 
@@ -128,12 +128,12 @@ export function AdminReportsTab() {
       </div>
 
       {/* KPI Cards Grid with Large Display Numerals */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {/* 1. Today's Revenue */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="min-w-0 max-w-[calc(100%-2.75rem)] text-[11px] sm:text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-normal sm:tracking-wider leading-snug">
                 Today&apos;s Revenue
               </span>
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
@@ -153,7 +153,7 @@ export function AdminReportsTab() {
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="min-w-0 max-w-[calc(100%-2.75rem)] text-[11px] sm:text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-normal sm:tracking-wider leading-snug">
                 Orders Today
               </span>
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300">
@@ -173,7 +173,7 @@ export function AdminReportsTab() {
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="min-w-0 max-w-[calc(100%-2.75rem)] text-[11px] sm:text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-normal sm:tracking-wider leading-snug">
                 Average Ticket
               </span>
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
@@ -193,7 +193,7 @@ export function AdminReportsTab() {
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs hover:border-[var(--border-strong)] transition-all">
           <CardContent className="min-w-0 p-3 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+              <span className="min-w-0 max-w-[calc(100%-2.75rem)] text-[11px] sm:text-xs font-semibold text-[var(--text-secondary)] font-mono uppercase tracking-normal sm:tracking-wider leading-snug">
                 Avg. Prep Time
               </span>
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300">
@@ -211,8 +211,8 @@ export function AdminReportsTab() {
       </div>
 
       {/* Brand-Coloured 7-Day Revenue & Orders Trend Chart */}
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-6">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-6 shadow-xs">
+        <div className="mb-5 flex min-w-0 flex-col items-start gap-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-[var(--primary)]" />
@@ -223,20 +223,27 @@ export function AdminReportsTab() {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-xs bg-[var(--primary)]" />
-              <span className="text-[var(--text-secondary)]">Today (Terracotta)</span>
+          <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 text-xs font-mono sm:w-auto">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="h-3 w-3 shrink-0 rounded-xs bg-[var(--primary)]" />
+              <span className="text-[var(--text-secondary)]">Today</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-xs bg-[var(--accent)]" />
-              <span className="text-[var(--text-secondary)]">Past Days (Saffron)</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="h-3 w-3 shrink-0 rounded-xs bg-[var(--accent)]" />
+              <span className="text-[var(--text-secondary)]">Past 6 days</span>
             </div>
           </div>
         </div>
 
         {/* Chart Visualization Container */}
-        <div className="pt-6 pb-2">
+        <div className="min-w-0 pt-3 pb-2">
+          {reports.sevenDayHistory.length === 0 ? (
+            <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-subtle)]/50 px-4 py-8 text-center">
+              <BarChart3 className="mb-2 h-7 w-7 text-[var(--text-muted)]" />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">No sales trend yet</p>
+              <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--text-secondary)]">Revenue and ticket activity will appear here when order history is available.</p>
+            </div>
+          ) : (
           <div className="grid grid-cols-7 gap-1 sm:gap-4 items-end border-b border-[var(--border-subtle)] pb-4 min-w-0">
             {reports.sevenDayHistory.map((day, idx) => {
               const heightPct = Math.max(
@@ -298,12 +305,13 @@ export function AdminReportsTab() {
               );
             })}
           </div>
+          )}
         </div>
       </div>
 
       {/* Top Selling Items Table (Scrolls horizontally inside container on small screens) */}
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
+      <div className="min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-6 shadow-xs">
+        <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
           <div>
             <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
               <Award className="h-5 w-5 text-amber-500" />
