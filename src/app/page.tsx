@@ -286,22 +286,22 @@ export default function HomePage() {
                 </Reveal>
 
                 <Reveal delay={0.3} className="pt-2">
-                  <div className="grid grid-cols-3 gap-6 pt-6 border-t border-[var(--border-subtle)]">
-                    <div>
-                      <span className="font-serif text-2xl sm:text-3xl font-bold text-[var(--primary)]">24h</span>
-                      <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] mt-1">
+                  <div className="grid grid-cols-3 gap-3 sm:gap-6 border-y border-[var(--border-subtle)] py-5 sm:py-6">
+                    <div className="min-w-0 px-1 sm:px-0">
+                      <span className="block whitespace-nowrap font-mono tabular-nums text-xl min-[380px]:text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-[var(--primary)]">24 h</span>
+                      <p className="mt-2 break-words text-[10px] min-[380px]:text-[11px] sm:text-xs font-mono uppercase tracking-normal sm:tracking-wider leading-snug text-[var(--text-muted)]">
                         Dal Makhani Simmer
                       </p>
                     </div>
-                    <div>
-                      <span className="font-serif text-2xl sm:text-3xl font-bold text-[var(--primary)]">480°C</span>
-                      <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] mt-1">
+                    <div className="min-w-0 px-1 sm:px-0">
+                      <span className="block whitespace-nowrap font-mono tabular-nums text-xl min-[380px]:text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-[var(--primary)]">480 °C</span>
+                      <p className="mt-2 break-words text-[10px] min-[380px]:text-[11px] sm:text-xs font-mono uppercase tracking-normal sm:tracking-wider leading-snug text-[var(--text-muted)]">
                         Clay Tandoor Heat
                       </p>
                     </div>
-                    <div>
-                      <span className="font-serif text-2xl sm:text-3xl font-bold text-[var(--primary)]">100%</span>
-                      <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] mt-1">
+                    <div className="min-w-0 px-1 sm:px-0">
+                      <span className="block whitespace-nowrap font-mono tabular-nums text-xl min-[380px]:text-2xl sm:text-3xl font-bold tracking-tight leading-tight text-[var(--primary)]">100 %</span>
+                      <p className="mt-2 break-words text-[10px] min-[380px]:text-[11px] sm:text-xs font-mono uppercase tracking-normal sm:tracking-wider leading-snug text-[var(--text-muted)]">
                         App-Free Table Tap
                       </p>
                     </div>
