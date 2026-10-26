@@ -691,14 +691,14 @@ export function OrderLiveTracker({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 sm:pt-0 shrink-0">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-2 pt-1 sm:pt-0 sm:w-auto sm:min-w-[15rem] sm:grid-cols-2 sm:shrink-0">
               <Button
                 size="sm"
                 variant="outline"
                 isLoading={isLoadingReceipt}
                 onClick={handleOpenReceipt}
-                className="h-9 px-3.5 text-xs font-semibold bg-white dark:bg-[var(--bg-surface)] shadow-xs"
-                leftIcon={<Eye className="h-3.5 w-3.5" />}
+                className="h-10 w-full min-w-0 justify-center whitespace-nowrap px-3 text-xs font-semibold bg-white dark:bg-[var(--bg-surface)] shadow-xs"
+                leftIcon={<Eye className="h-3.5 w-3.5 shrink-0" />}
               >
                 View Receipt
               </Button>
@@ -707,12 +707,13 @@ export function OrderLiveTracker({
                 target="_blank"
                 rel="noreferrer"
                 download
+                className="block w-full min-w-0"
               >
                 <Button
                   size="sm"
                   variant="primary"
-                  className="h-9 px-3.5 text-xs font-semibold shadow-xs"
-                  leftIcon={<Download className="h-3.5 w-3.5" />}
+                  className="h-10 w-full min-w-0 justify-center whitespace-nowrap px-3 text-xs font-semibold shadow-xs"
+                  leftIcon={<Download className="h-3.5 w-3.5 shrink-0" />}
                 >
                   Download PDF
                 </Button>
