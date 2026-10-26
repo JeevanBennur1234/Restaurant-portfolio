@@ -69,8 +69,8 @@ describe("Kitchen & Admin UI Tokens and Editorial Polish", () => {
   });
 
   it("Admin Reports: KPI cards with large numerals and brand-coloured 7-day chart", () => {
-    // Large numerals in KPI cards
-    expect(adminReportsCode).toContain("font-serif text-3xl sm:text-4xl font-extrabold");
+    // KPI cards use consistent, enlarged monospaced numerals with tabular alignment.
+    expect(adminReportsCode).toContain("font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight");
 
     // Brand-coloured 7-day chart
     expect(adminReportsCode).toContain("bg-[var(--primary)]");

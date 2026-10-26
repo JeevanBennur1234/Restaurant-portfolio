@@ -118,8 +118,8 @@ describe("Design System, Typography & Panel Positioning Regression Suite", () =>
       // Admin tables cards
       expect(adminTablesCode).toContain("text-lg sm:text-xl font-semibold");
 
-      // Admin reports KPI cards
-      expect(adminReportsCode).toContain("font-serif text-3xl sm:text-4xl font-extrabold");
+      // Admin reports KPI cards use consistent, enlarged monospaced numerals.
+      expect(adminReportsCode).toContain("font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight");
     });
   });
 
