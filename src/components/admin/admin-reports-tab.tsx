@@ -140,7 +140,7 @@ export function AdminReportsTab() {
                 <IndianRupee className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="min-w-0 break-words text-lg sm:text-2xl font-normal text-[var(--text-primary)] leading-tight tabular-nums">
+            <div className="min-w-0 break-words font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
               {formatPaiseToINR(reports.todayRevenuePaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -160,7 +160,7 @@ export function AdminReportsTab() {
                 <ShoppingBag className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="min-w-0 font-serif text-3xl sm:text-4xl font-extrabold max-[380px]:text-2xl tracking-tight text-[var(--text-primary)] font-mono leading-tight tabular-nums">
+            <div className="min-w-0 font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
               {reports.todayOrderCount}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -180,7 +180,7 @@ export function AdminReportsTab() {
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="min-w-0 break-words text-lg sm:text-2xl font-normal text-[var(--text-primary)] leading-tight tabular-nums">
+            <div className="min-w-0 break-words font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
               {formatPaiseToINR(reports.todayAvgTicketPaise)}
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -200,7 +200,7 @@ export function AdminReportsTab() {
                 <Clock className="h-4.5 w-4.5" />
               </div>
             </div>
-            <div className="min-w-0 font-serif text-3xl sm:text-4xl font-extrabold max-[380px]:text-2xl tracking-tight text-[var(--text-primary)] font-mono leading-tight tabular-nums">
+            <div className="min-w-0 font-mono tabular-nums text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
               {reports.avgPrepTimeMinutes} <span className="text-xl font-sans font-medium text-[var(--text-secondary)]">min</span>
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-2">
@@ -265,7 +265,7 @@ export function AdminReportsTab() {
 
                   {/* Order count label */}
                   <div className="flex flex-col items-center mb-1.5">
-                    <span className="text-[11px] sm:text-xs font-mono font-bold text-[var(--text-primary)] tabular-nums">
+                    <span className="text-sm sm:text-base font-mono font-bold text-[var(--text-primary)] tabular-nums">
                       {day.orderCount}
                     </span>
                     <span className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
